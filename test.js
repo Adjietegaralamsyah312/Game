@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 192 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 193 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/shard/stats/transisi) + 7 responsif
@@ -204,7 +204,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 192; // total test (177 + 15 treasure/asset Stage 11)
+const EXPECTED_TOTAL = 193; // total test (192 + 1 attack-direction)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -722,6 +722,21 @@ function lichKillFlow() {
   for (let k = 0; k < 20 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
   for (let i = 0; i < 170; i++) G.step(1 / 60);
 }
+// Buka chest level N dengan serangan pedang (berdiri kiri, hadap kanan).
+// Mengembalikan chest setelah animasi opening selesai.
+function attackOpenChest(lv) {
+  G.forceStartLevel(lv);
+  const c = G.getChests()[0];
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = c.x - pl.w - 4; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1;
+  pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  for (let i = 0; i < 12; i++) G.step(1 / 60); // windup + strike
+  for (let i = 0; i < 40; i++) G.step(1 / 60); // opening -> opened
+  pl.iframes = 0;
+  return c;
+}
 function finalKillFlow() {
   // L5: kalahkan RAJA SLIME -> interlude 2 dtk -> RAJA LICH -> victory.
   G.forceStartLevel(5);
@@ -971,12 +986,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('192 automated test'), 'README harus sebut 192 test, cek jumlah');
+  ok(readme.includes('193 automated test'), 'README harus sebut 193 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 192);
+  eq(EXPECTED_TOTAL, 193);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2059,7 +2074,7 @@ test('182 miniboss + lich render sprite path valid', () => {
   G.forceStartLevel(1);
 });
 test('183 treasure spawn valid L3-L5', () => {
-  [[3, 300], [4, 1780], [5, 1150]].forEach(([lv, x]) => {
+  [[3, 300], [4, 1770], [5, 1150]].forEach(([lv, x]) => {
     G.forceStartLevel(lv);
     const cs = G.getChests();
     eq(cs.length, 1, 'L' + lv + ' tepat 1 chest');
@@ -2070,18 +2085,27 @@ test('183 treasure spawn valid L3-L5', () => {
   G.forceStartLevel(1);
   eq(G.getChests().length, 0, 'L1 tanpa chest');
 });
-test('184 treasure open hanya sekali (closed->opening->opened)', () => {
+test('184 overlap tanpa serang TIDAK membuka; serangan membuka sekali', () => {
   G.forceStartLevel(3);
   const c = G.getChests()[0];
   const pl = G.getPlayer();
   pl.iframes = 9999;
-  pl.x = c.x; pl.y = c.y; pl.vx = 0; pl.vy = 0;
-  G.step(1 / 60);
-  eq(c.state, 'opening', 'overlap -> opening');
+  pl.x = c.x; pl.y = c.y; pl.vx = 0; pl.vy = 0; // berdiri di atas chest
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  eq(c.state, 'closed', 'overlap tanpa serang jangan buka');
+  // Ayunkan pedang ke chest: berdiri kiri, hadap kanan.
+  pl.x = c.x - pl.w - 4; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1;
+  pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  for (let i = 0; i < 12; i++) G.step(1 / 60); // windup + strike
+  eq(c.state, 'opening', 'serangan -> opening');
   for (let i = 0; i < 40; i++) G.step(1 / 60);
   eq(c.state, 'opened', 'animasi -> opened');
   ok(['coin', 'health', 'poison'].includes(c.reward.type), 'reward valid: ' + c.reward.type);
   const coins = G.getCoins();
+  // Ayunan kedua ke chest terbuka: tidak ada reward ganda.
+  pl.attackCooldown = 0;
+  G.input.attackPressed = true;
   for (let i = 0; i < 60; i++) G.step(1 / 60);
   eq(c.state, 'opened', 'tetap opened');
   eq(G.getCoins(), coins, 'reward tidak duplicate');
@@ -2122,13 +2146,9 @@ test('187 poison aman: min HP 1, tanpa NaN', () => {
 });
 test('188 coin reward tepat sekali per chest', () => {
   G.resetSave();
-  G.forceStartLevel(3);
   const c0 = G.getCoins();
-  const c = G.getChests()[0];
+  const c = attackOpenChest(3);
   const pl = G.getPlayer();
-  pl.iframes = 9999;
-  pl.x = c.x; pl.y = c.y; pl.vx = 0; pl.vy = 0;
-  for (let i = 0; i < 40; i++) G.step(1 / 60);
   eq(c.state, 'opened');
   const delta = G.getCoins() - c0;
   ok(delta === 0 || delta === 5, 'delta coin valid (0/5), got ' + delta);
@@ -2137,12 +2157,8 @@ test('188 coin reward tepat sekali per chest', () => {
   G.resetSave(); G.forceStartLevel(1);
 });
 test('189 respawn pertahankan opened (anti duplikat)', () => {
-  G.forceStartLevel(3);
-  const c = G.getChests()[0];
+  const c = attackOpenChest(3);
   const pl = G.getPlayer();
-  pl.iframes = 9999;
-  pl.x = c.x; pl.y = c.y; pl.vx = 0; pl.vy = 0;
-  for (let i = 0; i < 40; i++) G.step(1 / 60);
   eq(c.state, 'opened');
   const coins = G.getCoins();
   G.respawn();
@@ -2156,11 +2172,8 @@ test('189 respawn pertahankan opened (anti duplikat)', () => {
 test('190 treasure tidak merusak checkpoint', () => {
   G.forceStartLevel(4);
   const nCp = G.getCheckpoints().length;
-  const c = G.getChests()[0];
+  const c = attackOpenChest(4);
   const pl = G.getPlayer();
-  pl.iframes = 9999;
-  pl.x = c.x; pl.y = c.y; pl.vx = 0; pl.vy = 0;
-  for (let i = 0; i < 40; i++) G.step(1 / 60);
   eq(G.getCheckpoints().length, nCp, 'checkpoint utuh');
   ok(Number.isFinite(G.getRespawnPoint().x), 'respawn point valid');
   pl.iframes = 0;
@@ -2168,12 +2181,8 @@ test('190 treasure tidak merusak checkpoint', () => {
 });
 test('191 treasure tidak merusak save', () => {
   G.resetSave();
-  G.forceStartLevel(3);
-  const c = G.getChests()[0];
+  const c = attackOpenChest(3);
   const pl = G.getPlayer();
-  pl.iframes = 9999;
-  pl.x = c.x; pl.y = c.y; pl.vx = 0; pl.vy = 0;
-  for (let i = 0; i < 40; i++) G.step(1 / 60);
   const s = G.getSave();
   eq(s.version, 2, 'schema v2 utuh');
   ok(Number.isFinite(s.totalCoins) && s.totalCoins >= 0, 'totalCoins valid');
@@ -2190,16 +2199,30 @@ test('192 BGM/SFX tunggal saat treasure', () => {
   G.fx.audio.startMusic();
   const s0 = G.fx.audio.musicInfo().starts;
   G.forceStartLevel(3);
-  const c = G.getChests()[0];
+  const c = attackOpenChest(3);
   const pl = G.getPlayer();
-  pl.iframes = 9999;
-  pl.x = c.x; pl.y = c.y; pl.vx = 0; pl.vy = 0;
-  for (let i = 0; i < 40; i++) G.step(1 / 60);
   eq(G.fx.audio.musicInfo().starts, s0, 'tanpa restart BGM');
   G.fx.audio.setSfx(false, 70); // SFX OFF = semua treasure silent
   noThrow(() => { G.fx.audio.play('chestOpen'); G.fx.audio.play('coin'); G.fx.audio.play('heal'); G.fx.audio.play('poison'); });
   pl.iframes = 0;
   G.toMenu(); G.resetSave();
+});
+
+test('193 serang membelakangi chest tidak membuka + tanpa self-harm', () => {
+  G.forceStartLevel(3);
+  const c = G.getChests()[0];
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  const hp0 = pl.hp;
+  // Berdiri kanan chest menghadap kanan (attackBox menjauhi chest).
+  pl.x = c.x + c.w + 4; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1;
+  pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  for (let i = 0; i < 30; i++) G.step(1 / 60);
+  eq(c.state, 'closed', 'membelakangi = tetap closed');
+  eq(pl.hp, hp0, 'serangan sendiri tanpa self-harm');
+  pl.iframes = 0;
+  G.forceStartLevel(1);
 });
 
 // ---------- Ringkasan ----------

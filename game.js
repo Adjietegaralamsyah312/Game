@@ -811,7 +811,7 @@
     miniArena: { minX: 1050, maxX: 1600 },
     lichSpawn: null,
     lichArena: null,
-    treasures: [{ x: 1780, y: 444 }],
+    treasures: [{ x: 1770, y: 444 }],
     musicSet: 1,
     shards: [
       { x: 250, y: 430 },
@@ -1697,6 +1697,23 @@
           if (hurtMiniboss(ATTACK_DAMAGE, player.x + player.w / 2)) {
             triggerScreenShake(SHAKE_HIT, 0.15);
           }
+        }
+      }
+      // Treasure dibuka dengan serangan (sekali per ayunan, chest tertutup saja).
+      // Dunia beku saat victory: tidak ada pembukaan baru.
+      if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
+      for (var ci = 0; ci < chests.length; ci++) {
+        var ch = chests[ci];
+        if (ch.state !== 'closed' || player.didStrikeHit['c' + ci]) continue;
+        setR(_r1, player.attackBox.x, player.attackBox.y, player.attackBox.w, player.attackBox.h);
+        setR(_r2, ch.x, ch.y, ch.w, ch.h);
+        if (rectsOverlap(_r1, _r2)) {
+          player.didStrikeHit['c' + ci] = true;
+          ch.state = 'opening';
+          ch.openT = 0;
+          burst(ch.x + ch.w / 2, ch.y + 8, 5, '#c9a227', 100, 0.3, 2, 200);
+          AudioManager.play('chestOpen');
+          triggerScreenShake(SHAKE_HIT, 0.1);
         }
       }
     },
@@ -2802,6 +2819,7 @@
   }
 
   function updateChests(dt) {
+    var frozen = player.state === 'death' || victoryArmed;
     for (var i = 0; i < chests.length; i++) {
       var c = chests[i];
       c.bob += dt;
@@ -2810,6 +2828,8 @@
         continue;
       }
       if (c.state === 'opening') {
+        // Beku saat player mati/victory: reward tak bocor di luar gameplay.
+        if (frozen) continue;
         c.openT += dt;
         if (c.openT >= TREASURE_OPEN_T) {
           c.state = 'opened';
@@ -2820,16 +2840,7 @@
         }
         continue;
       }
-      // closed: overlap + player hidup + bukan victory window -> opening.
-      if (player.state === 'death' || victoryArmed) continue;
-      setR(_r1, c.x - 4, c.y - 4, c.w + 8, c.h + 8);
-      setR(_r2, player.x, player.y, player.w, player.h);
-      if (rectsOverlap(_r1, _r2)) {
-        c.state = 'opening';
-        c.openT = 0;
-        burst(c.x + c.w / 2, c.y + 8, 5, '#c9a227', 100, 0.3, 2, 200);
-        AudioManager.play('chestOpen');
-      }
+      // closed: hanya serangan yang membuka (lihat resolvePlayerAttack).
     }
   }
 

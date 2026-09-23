@@ -33,8 +33,8 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
   (by design, reset hanya untuk run berjalan)
 - Skeleton Knight miniboss (sprite full-armor + pedang besar + cape)
 - Raja Lich final boss (sprite crown + robe + staff + orb, aura phase)
-- Treasure Chest (L3/L4/L5): overlap untuk membuka (closed→opening→opened,
-  sekali saja, aman dari duplikat & persist respawn); reward random
+- Treasure Chest (L3/L4/L5): serang dengan pedang untuk membuka
+  (closed→opening→opened, sekali saja, aman dari duplikat & persist respawn); reward random
   Coin (+5, HUD & total persist) / Health (+30, clamp max) / Poison (−HP, min 1)
 - 6 enemy archetype: Slime, Fast Slime, Heavy Slime,
   Skeleton Swordsman, Skeleton Defender, Skeleton Archer
@@ -120,7 +120,7 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 192 automated test headless (node test.js)
+├── test.js             # 193 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
@@ -158,7 +158,7 @@ node test.js
 git diff --check
 ```
 
-192 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset) —
+193 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction) —
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
