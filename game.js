@@ -231,7 +231,17 @@
       bossAttack: function () { tone(160, 0.25, 'sawtooth', 0.45, 60); noise(0.15, 0.3, 700); },
       bossHurt:   function () { tone(240, 0.18, 'sawtooth', 0.45, 90); noise(0.10, 0.4, 1200); },
       bossDie:    function () { tone(300, 0.6, 'sawtooth', 0.45, 40); noise(0.5, 0.4, 800, 0.1); },
-      shock:      function () { noise(0.18, 0.45, 600); tone(120, 0.18, 'triangle', 0.4, 50); }
+      shock:      function () { noise(0.18, 0.45, 600); tone(120, 0.18, 'triangle', 0.4, 50); },
+      // Stage 9: identitas audio skeleton/lich (semua prosedural, tanpa BGM baru).
+      skelHit:    function () { noise(0.07, 0.4, 2200); tone(340, 0.09, 'square', 0.35, 180); },
+      swordSwing: function () { noise(0.10, 0.35, 3200); },
+      shieldBlock: function () { tone(520, 0.09, 'square', 0.4, 480); noise(0.06, 0.3, 4000); },
+      arrowShot:  function () { noise(0.08, 0.35, 4500); tone(900, 0.06, 'square', 0.25, 1400); },
+      arrowImpact: function () { noise(0.09, 0.45, 1000); tone(150, 0.10, 'triangle', 0.4, 70); },
+      minibossCue: function () { tone(130, 0.4, 'sawtooth', 0.45, 65); tone(98, 0.5, 'sawtooth', 0.4, 49, 0.1); },
+      lichMagic:  function () { tone(220, 0.35, 'sawtooth', 0.4, 55); tone(330, 0.3, 'square', 0.3, 110, 0.05); },
+      lichSummon: function () { tone(110, 0.4, 'sawtooth', 0.4, 440); noise(0.3, 0.3, 800, 0.1); },
+      phaseShift: function () { noise(0.25, 0.45, 500); tone(90, 0.4, 'sawtooth', 0.5, 45); }
     };
 
     /* ---- BGM prosedural (Stage 7): dark fantasy loop, Web Audio native ----
@@ -268,6 +278,17 @@
 
     var music = { playing: false, step: 0, loop: 0, next: 0, starts: 0 };
     var musicScheduled = 0;
+    // Stage 9: mood BGM per level (0 slime, 1 dungeon, 2 final).
+    // Di-set via setMood() saat load level; scheduler lanjut mulus
+    // tanpa restart/re-init (tanpa duplikat).
+    var musicMood = 0;
+
+    function setMood(idx) {
+      var n = Math.floor(Number(idx));
+      if (!isFinite(n) || n < 0) n = 0;
+      if (n > 2) n = 2;
+      musicMood = n;
+    }
 
     function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
@@ -299,24 +320,30 @@
       var bar = Math.floor(s / 16) % 4; // satu akor per 2 bar
       var ch = MUS_CHORDS[bar];
       var i;
+      // Mood: dungeon lebih gelap (-2), final lebih cerah/tegang (+1).
+      var tr = musicMood === 1 ? -2 : (musicMood === 2 ? 1 : 0);
       // Pad: awal tiap akor (3 nada, lembut, lowpass).
       if (s % 16 === 0) {
         for (i = 0; i < ch.length; i++) {
-          musNote(ch[i], t, 16 * MUS_STEP, 'triangle', 0.045, 900);
+          musNote(ch[i] + tr, t, 16 * MUS_STEP, 'triangle', 0.045, 900);
         }
       }
       // Bass: intro (16 ketuk pertama) whole-note; lalu pulsa ketuk 0/4 + kuint di 6.
       if (s < 16) {
-        if (s % 8 === 0) musNote(MUS_BASS[bar], t, 0.5, 'sine', 0.08);
+        if (s % 8 === 0) musNote(MUS_BASS[bar] + tr, t, 0.5, 'sine', 0.08);
       } else if (s % 2 === 0) {
-        musNote(s % 8 === 6 ? MUS_BASS[bar] + 7 : MUS_BASS[bar], t, 0.26, 'triangle', 0.10);
+        musNote((s % 8 === 6 ? MUS_BASS[bar] + 7 : MUS_BASS[bar]) + tr, t, 0.26, 'triangle', 0.10);
       }
       if (s < 16) return; // intro: tanpa arp/lead
       // Arpeggio nada akor +12, bergilir tiap ketuk.
-      musNote(ch[s % 3] + 12, t, 0.22, 'square', 0.030);
-      // Lead: motif (loop genap) / variasi (loop ganjil).
-      var lead = (music.loop % 2 === 0) ? MUS_LEAD_A : MUS_LEAD_B;
-      if (lead[s] > 0) musNote(lead[s], t, 0.26, 'square', 0.055);
+      musNote(ch[s % 3] + 12 + tr, t, 0.22, 'square', 0.030);
+      // Lead: slime = motif/variasi bergantian; dungeon = motif tegas;
+      // final = variasi rapat (intens).
+      var lead;
+      if (musicMood === 1) lead = MUS_LEAD_A;
+      else if (musicMood === 2) lead = MUS_LEAD_B;
+      else lead = (music.loop % 2 === 0) ? MUS_LEAD_A : MUS_LEAD_B;
+      if (lead[s] > 0) musNote(lead[s] + tr, t, 0.26, 'square', 0.055);
     }
 
     // Dipanggil tiap frame game loop (bukan interval): jadwalkan nada
@@ -372,7 +399,7 @@
 
     function musicInfo() {
       return { playing: music.playing, starts: music.starts,
-               scheduled: musicScheduled,
+               scheduled: musicScheduled, mood: musicMood,
                audible: !!(music.playing && musicOn && musicVol > 0) };
     }
 
@@ -409,7 +436,10 @@
       stopMusic: stopMusic,
       updateMusicState: updateMusicState,
       musicTick: musicTick,
-      musicInfo: musicInfo
+      musicInfo: musicInfo,
+      // Stage 9: mood BGM per level (tanpa restart/duplikat scheduler).
+      setMood: setMood,
+      getMood: function () { return musicMood; }
     };
   })();
 
@@ -642,15 +672,201 @@
       { x: 2250, y: 430 }   // sudut arena boss
     ]
   };
-  var Levels = [Level1, Level2];
+  var Level3 = {
+    name: 'Level 3',
+    playerSpawn: { x: 80, y: 300 },
+    platforms: [
+      { x: 0,    y: 480, w: 520,  h: 60 },
+      { x: 610,  y: 480, w: 440,  h: 60 },
+      { x: 1140, y: 480, w: 610,  h: 60 },
+      { x: 1840, y: 480, w: 560,  h: 60 },
+      { x: 180,  y: 372, w: 150, h: 20 },
+      { x: 300,  y: 300, w: 140, h: 20 },
+      { x: 650,  y: 365, w: 150, h: 20 },
+      { x: 820,  y: 290, w: 140, h: 20 },
+      { x: 1180, y: 375, w: 150, h: 20 },
+      { x: 1400, y: 300, w: 140, h: 20 },
+      { x: 1620, y: 335, w: 130, h: 20 },
+      { x: 1920, y: 365, w: 140, h: 20 },
+      { x: 2120, y: 290, w: 140, h: 20 }
+    ],
+    enemySpawns: [
+      { type: 'skeletonSword',    x: 700,  y: 424, minX: 620,  maxX: 950  },
+      { type: 'skeletonDefender', x: 1250, y: 422, minX: 1170, maxX: 1400 },
+      { type: 'skeletonArcher',   x: 1520, y: 426, minX: 1450, maxX: 1700 },
+      { type: 'skeletonSword',    x: 1620, y: 424, minX: 1500, maxX: 1730 },
+      { type: 'skeletonDefender', x: 1980, y: 422, minX: 1870, maxX: 2120 },
+      { type: 'skeletonArcher',   x: 2210, y: 426, minX: 2100, maxX: 2360 }
+    ],
+    checkpoints: [
+      { x: 1160, baseY: 480, w: 34, h: 96, activated: false },
+      { x: 1860, baseY: 480, w: 34, h: 96, activated: false }
+    ],
+    goal: { x: 2280, baseY: 480, w: 70, h: 120 },
+    bossSpawn: null,
+    bossArena: null,
+    bossKind: null,
+    bossMods: null,
+    miniSpawn: null,
+    miniArena: null,
+    lichSpawn: null,
+    lichArena: null,
+    musicSet: 1,
+    shards: [
+      { x: 250, y: 430 },
+      { x: 350, y: 258 },
+      { x: 565, y: 378 },
+      { x: 1250, y: 430 },
+      { x: 1470, y: 258 },
+      { x: 2200, y: 430 }
+    ]
+  };
+  /* Level 4 (Stage 9): LICH DOMAIN — escalation L3 + miniboss + RAJA LICH.
+   * Backbone skeleton tetap, placement lebih cerdas (choke defender,
+   * archer support, verticality via rute atas). Miniboss PANGLIMA TULANG
+   * di tengah, RAJA LICH sebagai final encounter (goal null). */
+  var Level4 = {
+    name: 'Level 4',
+    playerSpawn: { x: 80, y: 300 },
+    platforms: [
+      { x: 0,    y: 480, w: 420,  h: 60 },
+      { x: 510,  y: 480, w: 500,  h: 60 },
+      { x: 1100, y: 480, w: 420,  h: 60 },
+      { x: 1520, y: 480, w: 300,  h: 60 },
+      { x: 1910, y: 480, w: 490,  h: 60 },
+      { x: 150,  y: 372, w: 140, h: 20 },
+      { x: 560,  y: 365, w: 140, h: 20 },
+      { x: 730,  y: 290, w: 130, h: 20 },
+      { x: 1140, y: 372, w: 140, h: 20 },
+      { x: 1330, y: 297, w: 130, h: 20 },
+      { x: 1560, y: 365, w: 130, h: 20 },
+      { x: 1690, y: 290, w: 120, h: 20 },
+      { x: 2050, y: 365, w: 140, h: 20 }
+    ],
+    enemySpawns: [
+      { type: 'skeletonSword',    x: 700,  y: 424, minX: 560,  maxX: 960  },
+      { type: 'skeletonDefender', x: 1150, y: 422, minX: 1080, maxX: 1300 },
+      { type: 'skeletonArcher',   x: 1400, y: 426, minX: 1300, maxX: 1520 },
+      { type: 'skeletonSword',    x: 1500, y: 424, minX: 1400, maxX: 1650 },
+      { type: 'skeletonDefender', x: 1650, y: 422, minX: 1560, maxX: 1810 },
+      { type: 'skeletonArcher',   x: 1750, y: 426, minX: 1650, maxX: 1820 }
+    ],
+    checkpoints: [
+      { x: 1140, baseY: 480, w: 34, h: 96, activated: false },
+      { x: 1935, baseY: 480, w: 34, h: 96, activated: false }
+    ],
+    goal: null,
+    bossSpawn: { x: 2150, y: 380 },
+    bossArena: { minX: 1930, maxX: 2360 },
+    bossKind: 'lich',
+    bossMods: null,
+    miniSpawn: { x: 1300, y: 416 },
+    miniArena: { minX: 1050, maxX: 1600 },
+    lichSpawn: null,
+    lichArena: null,
+    musicSet: 1,
+    shards: [
+      { x: 250, y: 430 },
+      { x: 465, y: 380 },
+      { x: 795, y: 250 },
+      { x: 1055, y: 380 },
+      { x: 1395, y: 257 },
+      { x: 1750, y: 250 },
+      { x: 1865, y: 380 },
+      { x: 2250, y: 430 }
+    ]
+  };
+  /* Level 5 (Stage 9): FINAL CONVERGENCE — slime + skeleton + kedua raja.
+   * Progression: mixed intro -> slime-focused -> skeleton-focused ->
+   * high-pressure -> RAJA SLIME -> interlude -> RAJA LICH -> GAME COMPLETE.
+   * Boss pertama slimeKing (bossSpawn), boss kedua lich (lichSpawn). */
+  var Level5 = {
+    name: 'Level 5',
+    playerSpawn: { x: 80, y: 300 },
+    platforms: [
+      { x: 0,    y: 480, w: 420,  h: 60 },
+      { x: 510,  y: 480, w: 500,  h: 60 },
+      { x: 1100, y: 480, w: 420,  h: 60 },
+      { x: 1520, y: 480, w: 300,  h: 60 },
+      { x: 1910, y: 480, w: 490,  h: 60 },
+      { x: 150,  y: 372, w: 140, h: 20 },
+      { x: 560,  y: 365, w: 140, h: 20 },
+      { x: 730,  y: 290, w: 130, h: 20 },
+      { x: 1140, y: 372, w: 140, h: 20 },
+      { x: 1330, y: 297, w: 130, h: 20 },
+      { x: 1560, y: 365, w: 130, h: 20 },
+      { x: 1690, y: 290, w: 120, h: 20 },
+      { x: 2050, y: 365, w: 140, h: 20 }
+    ],
+    enemySpawns: [
+      { type: 'slime',            x: 650,  y: 448, minX: 560,  maxX: 900  },
+      { type: 'skeletonSword',    x: 850,  y: 424, minX: 750,  maxX: 1000 },
+      { type: 'fast',             x: 1200, y: 448, minX: 1100, maxX: 1350 },
+      { type: 'heavy',            x: 1350, y: 440, minX: 1300, maxX: 1550 },
+      { type: 'skeletonDefender', x: 1620, y: 422, minX: 1540, maxX: 1730 },
+      { type: 'skeletonArcher',   x: 1740, y: 426, minX: 1650, maxX: 1850 }
+    ],
+    checkpoints: [
+      { x: 1140, baseY: 480, w: 34, h: 96, activated: false },
+      { x: 1935, baseY: 480, w: 34, h: 96, activated: false }
+    ],
+    goal: null,
+    bossSpawn: { x: 2150, y: 380 },
+    bossArena: { minX: 1930, maxX: 2360 },
+    bossKind: 'slimeKing',
+    bossMods: { hpMul: 0.9 },
+    miniSpawn: null,
+    miniArena: null,
+    lichSpawn: { x: 2150, y: 360 },
+    lichArena: { minX: 1930, maxX: 2360 },
+    musicSet: 2,
+    shards: [
+      { x: 250, y: 430 },
+      { x: 465, y: 380 },
+      { x: 795, y: 250 },
+      { x: 1055, y: 380 },
+      { x: 1395, y: 257 },
+      { x: 1750, y: 250 },
+      { x: 1865, y: 380 },
+      { x: 2250, y: 430 }
+    ]
+  };
+  // L1/L2 butuh field Stage 9 agar loader generik aman (null = nonaktif).
+  Level1.bossKind = Level1.bossKind || null;
+  Level1.bossMods = Level1.bossMods || null;
+  Level1.miniSpawn = Level1.miniSpawn || null;
+  Level1.miniArena = Level1.miniArena || null;
+  Level1.lichSpawn = Level1.lichSpawn || null;
+  Level1.lichArena = Level1.lichArena || null;
+  Level1.musicSet = Level1.musicSet || 0;
+  Level2.bossKind = Level2.bossKind || 'slimeKing';
+  Level2.bossMods = Level2.bossMods || null;
+  Level2.miniSpawn = Level2.miniSpawn || null;
+  Level2.miniArena = Level2.miniArena || null;
+  Level2.lichSpawn = Level2.lichSpawn || null;
+  Level2.lichArena = Level2.lichArena || null;
+  Level2.musicSet = Level2.musicSet || 0;
+  var Levels = [Level1, Level2, Level3, Level4, Level5];
   var currentLevel = 1;
+  // Stage 9: indeks mood BGM aktif (0 slime, 1 dungeon, 2 final).
+  // Diganti saat load level; scheduler lanjut mulus tanpa restart.
+  var musicSetIdx = 0;
+  // Copy misi per level (§5 plant): pendek, akurat, ramah HP.
+  var MISSION_COPY = {
+    1: 'L1: shard • kalahkan slime • checkpoint • capai <b>FINISH</b>',
+    2: 'L2: lewati celah • shard • checkpoint • kalahkan <b>RAJA SLIME</b>',
+    3: 'L3: kalahkan skeleton • shard • checkpoint • capai <b>FINISH</b>',
+    4: 'L4: miniboss • shard • checkpoint • kalahkan <b>RAJA LICH</b>',
+    5: 'L5: slime + skeleton • shard • kalahkan <b> KEDUA RAJA</b>'
+  };
   // Pointer level aktif — seluruh sistem (fisika, kamera, render) membaca
   // dari sini sehingga ganti level = tukar pointer + reset state.
   var Level = Levels[0];
 
   /* Stage 8: identitas visual per level (data saja, pixel-art compatible).
    * Level 1 = cerah (fantasy onboarding); Level 2 = gelap/mengancam
-   * (foreshadowing boss). Tanpa texture system baru. */
+   * (foreshadowing boss). Tanpa texture system baru.
+   * Stage 9: L3 fortress dingin, L4 crypt ungu, L5 konvergensi akhir. */
   var LEVEL_THEME = [
     { sky: ['#1b2350', '#2b3370', '#3a3f7d'],
       ground: '#4a3b6b', grass: '#5ec46f', grassD: '#3f9e52',
@@ -659,7 +875,19 @@
     { sky: ['#100c28', '#221542', '#3d1f4d'],
       ground: '#33244d', grass: '#a04d5e', grassD: '#5c2f47',
       plat: '#3a2f5c', platTop: '#6b5a9e', platD: '#463a75',
-      moon: '#e08a7a', moonD: '#a05a4a' }
+      moon: '#e08a7a', moonD: '#a05a4a' },
+    { sky: ['#0d1420', '#1a2636', '#2c3e52'],
+      ground: '#2e3440', grass: '#7a8a99', grassD: '#4c5663',
+      plat: '#3b4252', platTop: '#8a97a8', platD: '#5a6578',
+      moon: '#c9d6e8', moonD: '#8a97a8' },
+    { sky: ['#0c0718', '#1c1030', '#341a4d'],
+      ground: '#241a38', grass: '#6b4a8a', grassD: '#3d2a52',
+      plat: '#2e2145', platTop: '#7a5fc9', platD: '#4a3a75',
+      moon: '#b46ae0', moonD: '#6b3a8a' },
+    { sky: ['#140808', '#2a1420', '#4d2030'],
+      ground: '#3a2030', grass: '#c46a5e', grassD: '#7a3a4a',
+      plat: '#4a2a3a', platTop: '#c98a6b', platD: '#6b4a52',
+      moon: '#ffd23f', moonD: '#a0682a' }
   ];
 
   function levelTheme() {
@@ -963,7 +1191,28 @@
       range: 58, dmg: 18, windup: 0.50, strike: 0.18,
       recovery: 0.60, cooldown: 1.10,
       knockResist: 0.35, hitSound: 'hitHeavy',
-      body: '#9a5fc9', dark: '#5a2a8a', light: '#d0a5f0', label: 'HEAVY' }
+      body: '#9a5fc9', dark: '#5a2a8a', light: '#d0a5f0', label: 'HEAVY' },
+    // Stage 9: SKELETON SWORDSMAN — melee seimbang, jangkauan < player.
+    skeletonSword: { hp: 40, w: 40, h: 56,
+      patrol: 55, chase: 110, detectX: 260, detectY: 140,
+      range: 46, dmg: 12, windup: 0.40, strike: 0.14,
+      recovery: 0.50, cooldown: 1.00,
+      knockResist: 0.8, hitSound: 'skelHit',
+      body: '#c9cfdd', dark: '#7a8296', light: '#ffffff', label: 'SWORD' },
+    // Stage 9: SKELETON DEFENDER — tank perisai, guard frontal.
+    skeletonDefender: { hp: 70, w: 44, h: 58,
+      patrol: 35, chase: 65, detectX: 220, detectY: 120,
+      range: 44, dmg: 9, windup: 0.45, strike: 0.16,
+      recovery: 0.55, cooldown: 1.20,
+      knockResist: 0.5, hitSound: 'skelHit', guard: { block: 0.8 },
+      body: '#8f9bb0', dark: '#565f73', light: '#d6deea', label: 'DEFENDER' },
+    // Stage 9: SKELETON ARCHER — ranged, jaga jarak, AI khusus (updateArcher).
+    skeletonArcher: { hp: 25, w: 38, h: 54,
+      patrol: 40, chase: 80, detectX: 420, detectY: 150,
+      range: 0, dmg: 8, windup: 0.50, strike: 0.10,
+      recovery: 0.40, cooldown: 2.20,
+      knockResist: 1, hitSound: 'skelHit',
+      body: '#b0a58f', dark: '#6b6350', light: '#e8dfc9', label: 'ARCHER' }
   };
 
   // R1: lookup own-property yang aman — kunci prototype-chain seperti
@@ -988,7 +1237,7 @@
       state: 'patrol', // patrol|chase|attack|hurt|death
       animTime: Math.random() * 10,
       atkT: 0, cooldown: 0, hurtT: 0, deathT: 0,
-      iframes: 0, struckPlayer: false,
+      iframes: 0, struckPlayer: false, guardFlash: 0,
       dead: false
     };
   }
@@ -996,12 +1245,30 @@
 
   function slimeTakeDamage(s, amount, fromX, knock) {
     if (s.dead || s.state === 'death' || s.iframes > 0) return false;
-    s.hp -= amount;
+    // Stage 9: Defender guard frontal (hanya saat siaga, bukan mid-attack).
+    // Tanpa guard stats -> jalur klasik persis (nol perubahan perilaku lama).
+    var effAmount = amount;
+    var effKnock = knock || ATTACK_KNOCKBACK;
+    var effSound = s.st.hitSound || 'hit';
+    var blocked = false;
+    if (s.st.guard && (s.state === 'patrol' || s.state === 'chase')) {
+      var front = (s.dir === 1 && fromX >= s.x + s.w / 2) ||
+                  (s.dir === -1 && fromX < s.x + s.w / 2);
+      if (front) {
+        blocked = true;
+        effAmount = Math.max(1, Math.round(amount * (1 - s.st.guard.block)));
+        effKnock = effKnock * 0.2;
+        effSound = 'shieldBlock';
+        s.guardFlash = 0.3; // cue visual jelas: serangan TAK hilang sia-sia
+        burst(s.x + (s.dir === 1 ? s.w : 0), s.y + s.h / 2, 5, '#cfe3ff', 120, 0.3, 3, 250);
+      }
+    }
+    s.hp -= effAmount;
     s.iframes = 0.25;
     // Damage feedback: flash (via iframes blink) + cipratan partikel.
     burst(s.x + s.w / 2, s.y + s.h / 2, 6, '#ffffff', 160, 0.3, 3, 250);
     burst(s.x + s.w / 2, s.y + s.h / 2, 4, '#ffd23f', 120, 0.35, 3, 250);
-    AudioManager.play(s.st.hitSound || 'hit');
+    AudioManager.play(effSound);
     if (s.hp <= 0) {
       s.hp = 0;
       s.state = 'death';
@@ -1014,11 +1281,17 @@
       AudioManager.play('slimeDie');
       return true;
     }
+    if (blocked) {
+      // Menahan jalur: tetap siaga, hanya terdorong sedikit (tanpa hurt).
+      var bdir = (s.x + s.w / 2) < fromX ? -1 : 1;
+      s.vx = bdir * effKnock * 0.3;
+      return true;
+    }
     s.state = 'hurt';
     s.hurtT = 0;
     var dir = (s.x + s.w / 2) < fromX ? -1 : 1;
     // Heavy: knockback resistance (fraksi dari knock normal).
-    s.vx = dir * (knock || ATTACK_KNOCKBACK) * (s.st.knockResist || 1);
+    s.vx = dir * effKnock * (s.st.knockResist || 1);
     s.vy = -260;
     s.onGround = false;
     return true;
@@ -1048,6 +1321,7 @@
   function updateSlime(s, dt) {
     s.animTime += dt;
     if (s.iframes > 0) s.iframes -= dt;
+    if (s.guardFlash > 0) s.guardFlash -= dt;
     if (s.cooldown > 0) s.cooldown -= dt;
 
     if (s.state === 'death') {
@@ -1106,7 +1380,8 @@
         s.struckPlayer = false;
         s.dir = px >= sx ? 1 : -1;
         s.vx = 0;
-        AudioManager.play('attack');
+        // Identitas audio skeleton (slime klasik tetap 'attack').
+        AudioManager.play((s.kind === 'skeletonSword' || s.kind === 'skeletonDefender') ? 'swordSwing' : 'attack');
       } else if (distX > s.st.range * 0.7) {
         s.dir = px >= sx ? 1 : -1;
         s.vx = s.dir * s.st.chase;
@@ -1147,6 +1422,156 @@
     }
   }
 
+  /* Stage 9: SKELETON ARCHER — AI ranged khusus (ringkas, reuse primitif).
+   * patrol saat target invalid; jaga jarak 170-320px; telegraph 0.5 dtk
+   * lalu tembak panah (pool `shots`). Tak pernah state 'attack' slime. */
+  function archerTargetValid(s) {
+    if (player.state === 'death' || gameState !== 'playing') return false;
+    var px = player.x + player.w / 2, sx = s.x + s.w / 2;
+    var py = player.y + player.h, sy = s.y + s.h;
+    return Math.abs(px - sx) < 460 && Math.abs(py - sy) < 150;
+  }
+
+  function updateArcher(s, dt) {
+    s.animTime += dt;
+    if (s.iframes > 0) s.iframes -= dt;
+    if (s.guardFlash > 0) s.guardFlash -= dt;
+    if (s.cooldown > 0) s.cooldown -= dt;
+    var px = player.x + player.w / 2, sx = s.x + s.w / 2;
+
+    if (s.state === 'death') {
+      s.deathT += dt;
+      applyGravity(s, dt);
+      s.vx = 0;
+      moveAndCollide(s, dt, Level.platforms);
+      if (s.deathT >= SLIME_DEATH_DURATION) s.dead = true;
+      return;
+    }
+
+    if (s.state === 'hurt') {
+      s.hurtT += dt;
+      applyGravity(s, dt);
+      moveAndCollide(s, dt, Level.platforms);
+      if (s.hurtT >= SLIME_HURT_DURATION) s.state = 'patrol';
+      return;
+    }
+
+    s.dir = px >= sx ? 1 : -1;
+
+    if (s.state === 'shoot') {
+      // Telegraph: diam + tandai, lalu lepas panah tepat waktu.
+      s.vx = 0;
+      s.atkT += dt;
+      if (s.atkT >= s.st.windup) {
+        fireArrow(s);
+        AudioManager.play('arrowShot');
+        s.state = 'chase';
+        s.cooldown = s.st.cooldown;
+      }
+    } else if (!archerTargetValid(s)) {
+      if (s.x < s.minX) s.dir = 1;
+      else if (s.x > s.maxX) s.dir = -1;
+      s.vx = s.dir * s.st.patrol;
+      s.state = 'patrol';
+    } else {
+      var distX = Math.abs(px - sx);
+      if (s.cooldown <= 0 && distX < 420) {
+        s.state = 'shoot';
+        s.atkT = 0;
+        s.vx = 0;
+      } else if (distX > 320) {
+        s.vx = s.dir * s.st.chase;
+        if (!slimeHasGroundAhead(s)) s.vx = 0;
+        s.state = 'chase';
+      } else if (distX < 170) {
+        // Mundur jaga jarak (jangan off-platform).
+        s.vx = -s.dir * s.st.chase * 0.8;
+        if (!slimeHasGroundAhead(s)) s.vx = 0;
+        s.state = 'chase';
+      } else {
+        s.vx = 0;
+        s.state = 'chase';
+      }
+    }
+
+    applyGravity(s, dt);
+    moveAndCollide(s, dt, Level.platforms);
+    // Archer memegang zona patrol (tak pernah keluar level).
+    if (s.x < s.minX) { s.x = s.minX; s.dir = 1; }
+    if (s.x > s.maxX) { s.x = s.maxX; s.dir = -1; }
+    if (s.y > WORLD_H + 100) {
+      s.x = s.spawnX; s.y = s.spawnY; s.vx = 0; s.vy = 0;
+    }
+  }
+
+  /* Stage 9: pool projectile terpadu (panah archer + bolt lich).
+   * Bounded (maks 10), swap-pop in-place, cleanup lifetime/batas/hit. */
+  var shots = [];
+
+  function spawnShot(x, y, dir, kind) {
+    if (shots.length >= 10) return;
+    if (kind === 'bolt') {
+      shots.push({ x: x, y: y, w: 16, h: 10, vx: dir * 260, vy: 0,
+        life: 2.2, dmg: BOSS_SHOCK_DMG, kind: 'bolt', hitDone: false });
+    } else {
+      shots.push({ x: x, y: y, w: 14, h: 6, vx: dir * 320, vy: 0,
+        life: 2.0, dmg: 8, kind: 'arrow', hitDone: false });
+    }
+  }
+
+  function fireArrow(s) {
+    spawnShot(s.x + s.w / 2 - 7, s.y + 14, s.dir, 'arrow');
+  }
+
+  function updateShots(dt) {
+    for (var i = shots.length - 1; i >= 0; i--) {
+      var sh = shots[i];
+      sh.x += sh.vx * dt;
+      sh.y += sh.vy * dt;
+      sh.life -= dt;
+      // Mati saat expired / keluar arena — tak pernah menembus batas.
+      var out = sh.life <= 0 || sh.x < -40 || sh.x > WORLD_W + 40 ||
+                sh.y < -60 || sh.y > WORLD_H + 60;
+      if (!out && !sh.hitDone && player.state !== 'death') {
+        setR(_r1, sh.x, sh.y, sh.w, sh.h);
+        setR(_r2, player.x, player.y, player.w, player.h);
+        if (rectsOverlap(_r1, _r2)) {
+          sh.hitDone = true;
+          playerTakeDamage(sh.dmg, sh.x + sh.w / 2);
+          burst(sh.x + sh.w / 2, sh.y + sh.h / 2, 4, '#c9a227', 100, 0.3, 3, 200);
+          AudioManager.play('arrowImpact');
+        }
+      }
+      if (out || sh.hitDone) {
+        shots[i] = shots[shots.length - 1];
+        shots.pop();
+      }
+    }
+  }
+
+  function drawShots() {
+    for (var i = 0; i < shots.length; i++) {
+      var sh = shots[i];
+      var x0 = Math.round(sh.x), y0 = Math.round(sh.y);
+      if (sh.kind === 'bolt') {
+        // Bola sihir ungu + ekor.
+        ctx.fillStyle = '#b46ae0';
+        ctx.fillRect(x0, y0, sh.w, sh.h);
+        ctx.fillStyle = '#e8c9ff';
+        ctx.fillRect(x0 + 3, y0 + 2, sh.w - 6, sh.h - 4);
+        ctx.fillStyle = 'rgba(180,106,224,0.5)';
+        ctx.fillRect(x0 - (sh.vx > 0 ? 8 : -2), y0 + 2, 8, sh.h - 4);
+      } else {
+        // Panah kayu + mata terang, ikut arah.
+        ctx.fillStyle = '#7a5c3a';
+        ctx.fillRect(x0, y0 + 2, sh.w, 2);
+        ctx.fillStyle = '#e8e8e8';
+        if (sh.vx > 0) ctx.fillRect(x0 + sh.w - 4, y0, 4, sh.h);
+        else ctx.fillRect(x0, y0, 4, sh.h);
+      }
+    }
+  }
+
   /* ========================== 10. COMBAT ========================== */
   var Combat = {
     // Pukulan player -> semua slime yang overlap attackBox (sekali per swing).
@@ -1174,6 +1599,14 @@
           }
         }
       }
+      if (miniboss && !miniboss.dead && miniboss.state !== 'death' && !player.didStrikeHit.mini) {
+        if (rectsOverlap(player.attackBox, miniboss)) {
+          player.didStrikeHit.mini = true;
+          if (hurtMiniboss(ATTACK_DAMAGE, player.x + player.w / 2)) {
+            triggerScreenShake(SHAKE_HIT, 0.15);
+          }
+        }
+      }
     },
     // Serangan slime -> player (sekali per attack slime).
     // Stage 5: serangan strike boss (sekali per pola).
@@ -1193,13 +1626,24 @@
           }
         }
       }
-      if (boss && !boss.dead && boss.state === 'strike' && !boss.struckPlayer) {
-        if (boss.atkT >= 0 && boss.atkT < 0.2) {
-          if (boss.dir === 1) setR(_r1, boss.x + boss.w - 8, boss.y - 8, 48, boss.h + 16);
-          else setR(_r1, boss.x - 40, boss.y - 8, 48, boss.h + 16);
+      // Strike boss: slime king (0-0.2 dtk) & lich (0-0.2 dtk, box wider).
+      if (boss && !boss.dead && boss.state === 'strike' && !boss.struckPlayer &&
+          boss.atkT >= 0 && boss.atkT < 0.2) {
+        var bw = boss.kind === 'lich' ? 52 : 48;
+        if (boss.dir === 1) setR(_r1, boss.x + boss.w - 8, boss.y - 8, bw, boss.h + 16);
+        else setR(_r1, boss.x - bw + 8, boss.y - 8, bw, boss.h + 16);
+        if (rectsOverlap(_r1, _r2)) {
+          boss.struckPlayer = true;
+          playerTakeDamage(boss.kind === 'lich' ? 16 : BOSS_STRIKE_DMG, boss.x + boss.w / 2);
+        }
+      }
+      if (miniboss && !miniboss.dead && miniboss.state === 'slash' && !miniboss.struckPlayer) {
+        if (miniboss.atkT >= 0 && miniboss.atkT < 0.22) {
+          if (miniboss.dir === 1) setR(_r1, miniboss.x + miniboss.w - 6, miniboss.y - 8, 44, miniboss.h + 16);
+          else setR(_r1, miniboss.x - 38, miniboss.y - 8, 44, miniboss.h + 16);
           if (rectsOverlap(_r1, _r2)) {
-            boss.struckPlayer = true;
-            playerTakeDamage(BOSS_STRIKE_DMG, boss.x + boss.w / 2);
+            miniboss.struckPlayer = true;
+            playerTakeDamage(16, miniboss.x + miniboss.w / 2);
           }
         }
       }
@@ -1364,10 +1808,11 @@
   function playerCenterX() { return player.x + player.w / 2; }
 
   function getProgress() {
-    // Level tanpa goal fisik (Level 2): progres menuju arena boss.
+    // Level tanpa goal fisik (L2/L4/L5): progres menuju arena boss/lich.
     if (!Level.goal) {
-      if (Level.bossSpawn) {
-        return clamp((playerCenterX() - Level.playerSpawn.x) / (Level.bossSpawn.x - Level.playerSpawn.x), 0, 1);
+      var bs = Level.bossSpawn || Level.lichSpawn;
+      if (bs) {
+        return clamp((playerCenterX() - Level.playerSpawn.x) / (bs.x - Level.playerSpawn.x), 0, 1);
       }
       return 0;
     }
@@ -1402,10 +1847,10 @@
   function checkGoal() {
     if (!Level.goal || player.state === 'death') return;
     setR(_r1, player.x, player.y, player.w, player.h);
-    // Level 1 finish -> layar Level Complete baru; legacy 'win'
+    // Level ber-goal fisik (L1/L3) -> Level Complete baru; legacy 'win'
     // dipertahankan untuk kompatibilitas (forceWin/testing).
     if (rectsOverlap(_r1, goalRect())) {
-      if (currentLevel === 1) showLevelComplete();
+      if (Level.goal) showLevelComplete();
       else showWin();
     }
   }
@@ -1478,14 +1923,18 @@
   var gameclearEl = null, gameclearStats = null;
   var btnAgain2 = null, btnGameMenu = null;
 
-  function createBoss(spawn, arena) {
+  function createBoss(spawn, arena, mods) {
+    // mods opsional (mis. L5 gauntlet): {hpMul}. L2 tanpa mods = perilaku
+    // existing persis (non-regresi RAJA SLIME Level 2).
+    var hpMul = (mods && mods.hpMul > 0) ? mods.hpMul : 1;
+    var hp = Math.round(BOSS_MAX_HP * hpMul);
     return {
-      id: ++slimeUid, kind: 'boss',
+      id: ++slimeUid, kind: 'slimeKing', name: 'RAJA SLIME',
       x: spawn.x, y: spawn.y, w: BOSS_W, h: BOSS_H,
       vx: 0, vy: 0, onGround: false, hitWall: false,
       spawnX: spawn.x, spawnY: spawn.y,
       arenaMin: arena.minX, arenaMax: arena.maxX,
-      dir: -1, hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP,
+      dir: -1, hp: hp, maxHp: hp,
       state: 'idle', // idle|telegraph|strike|charge|shock|recovery|hurt|death
       animTime: 0, idleT: 0, teleT: 0, teleDur: 0.5,
       atkT: 0, recT: 0, recDur: 0.6,
@@ -1503,7 +1952,9 @@
     return Math.abs(px - bx) < BOSS_DETECT_X && Math.abs(py - by) < BOSS_DETECT_Y;
   }
 
+  // Dispatcher serangan player ke boss aktif (slime king / lich).
   function hurtBoss(amount, fromX) {
+    if (boss && boss.kind === 'lich') return hurtLich(amount, fromX);
     var b = boss;
     if (!b || b.dead || b.state === 'death' || b.iframes > 0) return false;
     b.hp -= amount;
@@ -1555,10 +2006,7 @@
       moveAndCollide(b, dt, Level.platforms);
       if (b.deathT >= 1.0 && !b.dead) {
         b.dead = true;
-        runStats.kills++;
-        levelStats.kills++;
-        victoryArmed = true;
-        victoryT = 0;
+        onBossDefeated();
       }
       return;
     }
@@ -1679,6 +2127,460 @@
     }
   }
 
+  /* Stage 9: MINIBOSS — PANGLIMA TULANG (elite skeleton, Level 4).
+   * FSM ringkas reuse primitif (fisika, burst, shake, suara): idle →
+   * telegraph → slash(berat)/dash(charge) → recovery → hurt → death.
+   * Enrage <36 HP: cooldown lebih cepat. Bukan copy Heavy Slime:
+   * pola, timing, dan presentasi sendiri. */
+  var MINIBOSS_HP = 90;
+  var miniboss = null;
+
+  function createMiniboss(spawn, arena) {
+    return {
+      id: ++slimeUid, kind: 'miniboss', name: 'PANGLIMA TULANG',
+      x: spawn.x, y: spawn.y, w: 52, h: 64,
+      vx: 0, vy: 0, onGround: false, hitWall: false,
+      spawnX: spawn.x, spawnY: spawn.y,
+      arenaMin: arena.minX, arenaMax: arena.maxX,
+      dir: -1, hp: MINIBOSS_HP, maxHp: MINIBOSS_HP,
+      state: 'idle', // idle|telegraph|slash|dash|recovery|hurt|death
+      animTime: 0, idleT: 0, teleT: 0, teleDur: 0.6,
+      atkT: 0, recT: 0, recDur: 0.6,
+      pattern: 'slash', patIdx: 0, cooldown: 1.2,
+      hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
+      enraged: false, dead: false, introduced: false
+    };
+  }
+
+  function miniSeesPlayer(m) {
+    if (player.state === 'death' || gameState !== 'playing') return false;
+    var px = player.x + player.w / 2, mx = m.x + m.w / 2;
+    var py = player.y + player.h / 2, my = m.y + m.h / 2;
+    return Math.abs(px - mx) < 400 && Math.abs(py - my) < 170;
+  }
+
+  function hurtMiniboss(amount, fromX) {
+    var m = miniboss;
+    if (!m || m.dead || m.state === 'death' || m.iframes > 0) return false;
+    m.hp -= amount;
+    m.iframes = 0.3;
+    burst(m.x + m.w / 2, m.y + m.h / 2, 7, '#ffffff', 170, 0.3, 3, 250);
+    burst(m.x + m.w / 2, m.y + m.h / 2, 4, '#ffd23f', 130, 0.35, 3, 250);
+    AudioManager.play('skelHit');
+    // Death selalu prioritas (B4): killing blow tak picu enrage.
+    if (m.hp <= 0) {
+      m.hp = 0;
+      m.state = 'death';
+      m.deathT = 0;
+      m.vx = 0;
+      burst(m.x + m.w / 2, m.y + m.h / 2, 14, '#ffd23f', 200, 0.8, 4, 350);
+      burst(m.x + m.w / 2, m.y + m.h / 2, 8, '#ffffff', 150, 0.7, 3, 300);
+      triggerScreenShake(SHAKE_DIE + 1, 0.35);
+      AudioManager.play('bossDie');
+      return true;
+    }
+    if (!m.enraged && m.hp <= 32) {
+      m.enraged = true;
+      burst(m.x + m.w / 2, m.y, 10, '#e05252', 190, 0.6, 4, 300);
+      triggerScreenShake(SHAKE_HURT, 0.3);
+      AudioManager.play('minibossCue');
+      showToast('PANGLIMA TULANG MURKA!');
+    }
+    m.state = 'hurt';
+    m.hurtT = 0;
+    var dir = (m.x + m.w / 2) < fromX ? -1 : 1;
+    m.vx = dir * ATTACK_KNOCKBACK * 0.5;
+    m.vy = -240;
+    m.onGround = false;
+    triggerScreenShake(SHAKE_HIT, 0.1);
+    return true;
+  }
+
+  function updateMiniboss(m, dt) {
+    m.animTime += dt;
+    if (m.iframes > 0) m.iframes -= dt;
+    if (m.cooldown > 0) m.cooldown -= dt;
+    var px = player.x + player.w / 2, mx = m.x + m.w / 2;
+    var cdMul = m.enraged ? 0.6 : 1;
+
+    if (m.state === 'death') {
+      m.deathT += dt;
+      m.vx = 0;
+      applyGravity(m, dt);
+      moveAndCollide(m, dt, Level.platforms);
+      if (m.deathT >= 1.0 && !m.dead) {
+        m.dead = true;
+        runStats.kills++;
+        levelStats.kills++;
+        showToast('PANGLIMA TULANG TUMBANG!');
+      }
+      return;
+    }
+
+    if (m.state === 'hurt') {
+      m.hurtT += dt;
+      applyGravity(m, dt);
+      moveAndCollide(m, dt, Level.platforms);
+      if (m.hurtT >= 0.25) { m.state = 'idle'; m.idleT = 0; }
+    } else if (m.state === 'idle') {
+      m.vx = 0;
+      m.idleT += dt;
+      m.dir = px >= mx ? 1 : -1;
+      // Intro sekali saat pemain memasuki arena.
+      if (!m.introduced && player.x > m.arenaMin - 120) {
+        m.introduced = true;
+        showToast('PANGLIMA TULANG MUNCUL!');
+        AudioManager.play('minibossCue');
+        triggerScreenShake(SHAKE_HURT, 0.3);
+      }
+      if (m.idleT >= 0.6 && m.cooldown <= 0 && miniSeesPlayer(m)) {
+        m.pattern = (m.patIdx % 2 === 0) ? 'slash' : 'dash';
+        m.patIdx++;
+        m.teleDur = m.pattern === 'dash' ? 0.7 : 0.6;
+        m.teleT = 0;
+        m.state = 'telegraph';
+        AudioManager.play('swordSwing');
+      }
+    } else if (m.state === 'telegraph') {
+      m.vx = 0;
+      m.teleT += dt;
+      m.dir = px >= mx ? 1 : -1;
+      if (m.teleT >= m.teleDur) {
+        m.state = m.pattern;
+        m.atkT = 0;
+        m.struckPlayer = false;
+      }
+    } else if (m.state === 'slash') {
+      m.atkT += dt;
+      if (m.atkT < 0.22) m.vx = m.dir * 150;
+      else m.vx = 0;
+      if (m.atkT >= 0.85) {
+        m.state = 'recovery'; m.recT = 0; m.recDur = 0.6;
+        m.cooldown = 1.1 * cdMul;
+      }
+    } else if (m.state === 'dash') {
+      m.atkT += dt;
+      if (m.atkT < 0.4 && !m.hitWall) {
+        m.vx = m.dir * (m.enraged ? 430 : 360);
+        if (!m.struckPlayer && player.state !== 'death') {
+          setR(_r1, m.x, m.y, m.w, m.h);
+          setR(_r2, player.x, player.y, player.w, player.h);
+          if (rectsOverlap(_r1, _r2)) {
+            m.struckPlayer = true;
+            playerTakeDamage(14, mx);
+          }
+        }
+      } else {
+        m.vx = 0;
+        m.state = 'recovery'; m.recT = 0; m.recDur = 0.8;
+        m.cooldown = 1.7 * cdMul;
+      }
+    } else if (m.state === 'recovery') {
+      m.vx = 0;
+      m.recT += dt;
+      if (m.recT >= m.recDur) { m.state = 'idle'; m.idleT = 0; }
+    }
+
+    applyGravity(m, dt);
+    moveAndCollide(m, dt, Level.platforms);
+    if (m.x < m.arenaMin) { m.x = m.arenaMin; m.vx = 0; }
+    if (m.x > m.arenaMax) { m.x = m.arenaMax; m.vx = 0; }
+    if (m.y > WORLD_H + 100) { m.x = m.spawnX; m.y = m.spawnY; m.vx = 0; m.vy = 0; }
+  }
+
+  function drawMiniboss() {
+    var m = miniboss;
+    if (!m || m.dead) return;
+    var t = m.animTime;
+    var dw = 60, dh = 72;
+    if (m.state === 'death') {
+      var k = clamp(1 - m.deathT / 1.0, 0, 1);
+      dh = Math.round(dh * (0.3 + 0.7 * k));
+    }
+    var dx = Math.round(m.x + m.w / 2 - dw / 2);
+    var dy = Math.round(m.y + m.h - dh);
+    var tele = m.state === 'telegraph';
+    var blink = (m.iframes > 0 && Math.floor(t * 16) % 2 === 0) ||
+                (tele && Math.floor(t * 10) % 2 === 0);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(Math.round(m.x + 6), Math.round(m.y + m.h - 3), m.w - 12, 5);
+
+    // Armor berat + jubah (enrage = semburat merah).
+    ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? '#8a3a4a' : '#5a6478');
+    ctx.fillRect(dx + 8, dy + 16, dw - 16, dh - 16);   // torso armor
+    ctx.fillRect(dx + 14, dy + 6, dw - 28, 12);        // helm tengkorak
+    ctx.fillStyle = m.enraged ? '#5c1a26' : '#39404f';
+    ctx.fillRect(dx + 8, dy + dh - 10, dw - 16, 10);   // kaki berat
+    ctx.fillStyle = '#3a2f5c';                          // jubah
+    ctx.fillRect(dx + 4, dy + 20, 8, dh - 24);
+    ctx.fillRect(dx + dw - 12, dy + 20, 8, dh - 24);
+    // Mata + pedang besar.
+    var ex = m.dir === 1 ? dx + dw - 26 : dx + 12;
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(ex, dy + 8, 6, 6);
+    ctx.fillRect(ex + 8, dy + 8, 6, 6);
+    var swx = m.dir === 1 ? dx + dw - 8 : dx - 10;
+    ctx.fillStyle = '#d6deea';
+    ctx.fillRect(swx, tele ? dy - 10 : dy + 10, 7, 34);
+    ctx.fillStyle = '#c9a227';
+    ctx.fillRect(swx - 3, tele ? dy + 22 : dy + 40, 13, 5);
+    if (tele) {
+      ctx.fillStyle = '#ffd23f';
+      var qx = Math.round(m.x + m.w / 2 - 3);
+      ctx.fillRect(qx, dy - 30, 7, 15);
+      ctx.fillRect(qx, dy - 11, 7, 7);
+    }
+  }
+
+  /* Stage 9: RAJA LICH — boss final L4 + klimaks L5.
+   * 3 phase deterministik: P1 strike; P2 (<65%) +bolt; P3 (<35%) enrage.
+   * Summon dibatasi (maks 2 sword hidup). Death selalu prioritas
+   * (killing blow tak picu phase/enrage — pelajaran B4). */
+  var LICH_HP = 160;
+
+  function createLich(spawn, arena, mods) {
+    var hpMul = (mods && mods.hpMul > 0) ? mods.hpMul : 1;
+    var hp = Math.round(LICH_HP * hpMul);
+    return {
+      id: ++slimeUid, kind: 'lich', name: 'RAJA LICH',
+      x: spawn.x, y: spawn.y, w: 56, h: 72,
+      vx: 0, vy: 0, onGround: false, hitWall: false,
+      spawnX: spawn.x, spawnY: spawn.y,
+      arenaMin: arena.minX, arenaMax: arena.maxX,
+      dir: -1, hp: hp, maxHp: hp,
+      state: 'dormant', // dormant|idle|telegraph|strike|bolt|summon|recovery|hurt|death
+      animTime: 0, idleT: 0, teleT: 0, teleDur: 0.5,
+      atkT: 0, recT: 0, recDur: 0.6,
+      pattern: 'strike', patIdx: 0, cooldown: 1.2,
+      hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
+      phase: 1, phaseAnn: 1, enraged: false,
+      dead: false, introduced: false
+    };
+  }
+
+  function lichSeesPlayer(b) {
+    if (player.state === 'death' || gameState !== 'playing') return false;
+    var px = player.x + player.w / 2, bx = b.x + b.w / 2;
+    var py = player.y + player.h / 2, by = b.y + b.h / 2;
+    return Math.abs(px - bx) < 460 && Math.abs(py - by) < 180;
+  }
+
+  function liveSwords() {
+    var n = 0;
+    for (var i = 0; i < enemies.length; i++) {
+      if (!enemies[i].dead && enemies[i].kind === 'skeletonSword') n++;
+    }
+    return n;
+  }
+
+  function lichPhase(b) {
+    var f = b.hp / b.maxHp;
+    return f <= 0.35 ? 3 : (f <= 0.65 ? 2 : 1);
+  }
+
+  function hurtLich(amount, fromX) {
+    var b = boss;
+    if (!b || b.kind !== 'lich' || b.dead || b.state === 'death' || b.iframes > 0) return false;
+    b.hp -= amount;
+    b.iframes = 0.3;
+    burst(b.x + b.w / 2, b.y + b.h / 2, 8, '#ffffff', 180, 0.3, 3, 250);
+    burst(b.x + b.w / 2, b.y + b.h / 2, 5, '#b46ae0', 140, 0.35, 3, 250);
+    AudioManager.play('bossHurt');
+    // Death selalu prioritas (B4).
+    if (b.hp <= 0) {
+      b.hp = 0;
+      b.state = 'death';
+      b.deathT = 0;
+      b.vx = 0;
+      burst(b.x + b.w / 2, b.y + b.h / 2, 16, '#b46ae0', 220, 0.8, 4, 350);
+      burst(b.x + b.w / 2, b.y + b.h / 2, 10, '#ffffff', 160, 0.7, 3, 300);
+      triggerScreenShake(SHAKE_DIE + 2, 0.4);
+      AudioManager.play('bossDie');
+      return true;
+    }
+    var np = lichPhase(b);
+    if (np > b.phase) {
+      b.phase = np;
+      b.enraged = (np >= 3);
+      triggerScreenShake(SHAKE_HURT, 0.3);
+      AudioManager.play('phaseShift');
+      showToast(np >= 3 ? 'RAJA LICH MURKA!' : 'RAJA LICH MENGAMUK!');
+    }
+    b.state = 'hurt';
+    b.hurtT = 0;
+    var dir = (b.x + b.w / 2) < fromX ? -1 : 1;
+    b.vx = dir * ATTACK_KNOCKBACK * 0.4;
+    b.vy = -240;
+    b.onGround = false;
+    triggerScreenShake(SHAKE_HIT, 0.12);
+    return true;
+  }
+
+  function updateLich(b, dt) {
+    b.animTime += dt;
+    if (b.iframes > 0) b.iframes -= dt;
+    if (b.cooldown > 0) b.cooldown -= dt;
+    var px = player.x + player.w / 2, bx = b.x + b.w / 2;
+    var rage = b.phase >= 3;
+    var cdMul = rage ? 0.6 : (b.phase >= 2 ? 0.85 : 1);
+    var spdMul = rage ? 1.2 : 1;
+
+    // Dormant: diam sampai pemain memasuki arena (intro sekali).
+    if (b.state === 'dormant') {
+      b.vx = 0;
+      applyGravity(b, dt);
+      moveAndCollide(b, dt, Level.platforms);
+      if (player.x > b.arenaMin - 100) {
+        b.introduced = true;
+        b.state = 'idle';
+        b.idleT = 0;
+        showToast('RAJA LICH MUNCUL!');
+        AudioManager.play('lichMagic');
+        triggerScreenShake(SHAKE_HURT, 0.3);
+      }
+      return;
+    }
+
+    if (b.state === 'death') {
+      b.deathT += dt;
+      b.vx = 0;
+      applyGravity(b, dt);
+      moveAndCollide(b, dt, Level.platforms);
+      if (b.deathT >= 1.0 && !b.dead) {
+        b.dead = true;
+        onBossDefeated();
+      }
+      return;
+    }
+
+    if (b.state === 'hurt') {
+      b.hurtT += dt;
+      applyGravity(b, dt);
+      moveAndCollide(b, dt, Level.platforms);
+      if (b.hurtT >= 0.25) { b.state = 'idle'; b.idleT = 0; }
+    } else if (b.state === 'idle') {
+      b.vx = 0;
+      b.idleT += dt;
+      b.dir = px >= bx ? 1 : -1;
+      if (b.idleT >= 0.5 && b.cooldown <= 0 && lichSeesPlayer(b)) {
+        // Rotasi pola adil; summon dilewati bila pasukan penuh.
+        for (var k = 0; k < 3; k++) {
+          var cand = ['strike', 'bolt', 'summon'][(b.patIdx + k) % 3];
+          if (cand === 'summon' && (b.phase < 2 || liveSwords() >= 2)) continue;
+          if (cand === 'bolt' && b.phase < 2 && b.patIdx % 2 === 1) continue;
+          b.pattern = cand;
+          break;
+        }
+        b.patIdx++;
+        b.teleDur = 0.5 + (b.pattern === 'bolt' ? 0.1 : 0);
+        b.teleT = 0;
+        b.state = 'telegraph';
+        AudioManager.play('bossAttack');
+      }
+    } else if (b.state === 'telegraph') {
+      b.vx = 0;
+      b.teleT += dt;
+      b.dir = px >= bx ? 1 : -1;
+      if (b.teleT >= b.teleDur) {
+        b.state = b.pattern;
+        b.atkT = 0;
+        b.struckPlayer = false;
+        if (b.pattern === 'bolt') {
+          spawnShot(b.x + b.w / 2 - 8, b.y + 20, b.dir, 'bolt');
+          AudioManager.play('lichMagic');
+        } else if (b.pattern === 'summon') {
+          var sx = clamp(b.x + (b.dir * 90), b.arenaMin, b.arenaMax - 40);
+          var added = createSlime({ type: 'skeletonSword', x: sx, y: b.y, minX: b.arenaMin, maxX: b.arenaMax });
+          enemies.push(added);
+          burst(sx + 20, b.y + 20, 10, '#b46ae0', 150, 0.6, 4, 250);
+          AudioManager.play('lichSummon');
+        }
+      }
+    } else if (b.state === 'strike') {
+      b.atkT += dt;
+      if (b.atkT < 0.2) b.vx = b.dir * 150 * spdMul;
+      else b.vx = 0;
+      if (b.atkT >= 0.8) {
+        b.state = 'recovery'; b.recT = 0; b.recDur = 0.6;
+        b.cooldown = 1.1 * cdMul;
+      }
+    } else if (b.state === 'bolt' || b.state === 'summon') {
+      b.atkT += dt;
+      b.vx = 0;
+      if (b.atkT >= 0.35) {
+        b.state = 'recovery'; b.recT = 0; b.recDur = 0.7;
+        b.cooldown = (b.pattern === 'summon' ? 3.0 : 1.6) * cdMul;
+      }
+    } else if (b.state === 'recovery') {
+      b.vx = 0;
+      b.recT += dt;
+      if (b.recT >= b.recDur) { b.state = 'idle'; b.idleT = 0; }
+    }
+
+    applyGravity(b, dt);
+    moveAndCollide(b, dt, Level.platforms);
+    if (b.x < b.arenaMin) { b.x = b.arenaMin; b.vx = 0; }
+    if (b.x > b.arenaMax) { b.x = b.arenaMax; b.vx = 0; }
+    if (b.y > WORLD_H + 100) { b.x = b.spawnX; b.y = b.spawnY; b.vx = 0; b.vy = 0; }
+  }
+
+  function drawLich() {
+    var b = boss;
+    if (!b || b.kind !== 'lich' || b.dead) return;
+    var t = b.animTime;
+    var dw = 64, dh = 80;
+    if (b.state === 'death') {
+      var k = clamp(1 - b.deathT / 1.0, 0, 1);
+      dh = Math.round(dh * (0.3 + 0.7 * k));
+    }
+    var dx = Math.round(b.x + b.w / 2 - dw / 2);
+    var dy = Math.round(b.y + b.h - dh);
+    var tele = b.state === 'telegraph';
+    var blink = (b.iframes > 0 && Math.floor(t * 16) % 2 === 0) ||
+                (tele && Math.floor(t * 10) % 2 === 0);
+
+    // Aura undead (berdenyut, makin merah saat enrage).
+    var pulse = 0.5 + 0.5 * Math.sin(t * (b.phase >= 3 ? 9 : 4));
+    ctx.fillStyle = b.phase >= 3
+      ? 'rgba(224,82,82,' + (0.18 + 0.12 * pulse).toFixed(2) + ')'
+      : 'rgba(150,90,220,' + (0.12 + 0.10 * pulse).toFixed(2) + ')';
+    ctx.fillRect(dx - 6, dy - 6, dw + 12, dh + 12);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(Math.round(b.x + 6), Math.round(b.y + b.h - 3), b.w - 12, 5);
+
+    // Jubah + torso.
+    ctx.fillStyle = blink ? '#ffffff' : '#2c2140';
+    ctx.fillRect(dx + 10, dy + 22, dw - 20, dh - 22);
+    ctx.fillStyle = blink ? '#ffffff' : '#4a3670';
+    ctx.fillRect(dx + 14, dy + 26, dw - 28, dh - 34);
+    // Helm bertanduk + mahkota.
+    ctx.fillStyle = '#c9cfdd';
+    ctx.fillRect(dx + 18, dy + 4, dw - 36, 14);
+    ctx.fillStyle = '#c9a227';
+    ctx.fillRect(dx + 14, dy - 4, 8, 8);
+    ctx.fillRect(dx + dw / 2 - 4, dy - 8, 8, 12);
+    ctx.fillRect(dx + dw - 22, dy - 4, 8, 8);
+    // Mata ungu menyala.
+    var ex = b.dir === 1 ? dx + dw - 28 : dx + 16;
+    ctx.fillStyle = '#b46ae0';
+    ctx.fillRect(ex, dy + 8, 6, 6);
+    ctx.fillRect(ex + 8, dy + 8, 6, 6);
+    // Staff di sisi hadap (terangkat saat telegraph).
+    var stx = b.dir === 1 ? dx + dw - 8 : dx + 1;
+    ctx.fillStyle = '#5a4a6b';
+    ctx.fillRect(stx, tele ? dy - 14 : dy + 6, 5, 44);
+    ctx.fillStyle = tele ? '#e8c9ff' : '#b46ae0';
+    ctx.fillRect(stx - 3, tele ? dy - 20 : dy, 11, 11);
+    if (tele) {
+      ctx.fillStyle = '#ffd23f';
+      var qx = Math.round(b.x + b.w / 2 - 3);
+      ctx.fillRect(qx, dy - 34, 7, 15);
+      ctx.fillRect(qx, dy - 15, 7, 7);
+    }
+  }
+
   /* ---- Collectible Gold Shard (non-colliding, hanya overlap) ---- */
   function resetShards() {
     shards = Level.shards.map(function (p) {
@@ -1746,11 +2648,15 @@
 
   function getDefaultSave() {
     return {
-      version: 1,
-      bestTime: null, bestL1: null, bestL2: null, bestShards: 0,
+      version: 2,
+      bestTime: null, bestL1: null, bestL2: null,
+      bestL3: null, bestL4: null, bestL5: null, bestShards: 0,
       totalShards: 0, totalDeaths: 0,
-      level1Completed: false, level2Completed: false, gameCompleted: false,
-      level2Unlocked: false,
+      level1Completed: false, level2Completed: false,
+      level3Completed: false, level4Completed: false, level5Completed: false,
+      gameCompleted: false,
+      level2Unlocked: false, level3Unlocked: false,
+      level4Unlocked: false, level5Unlocked: false,
       sfxEnabled: true, sfxVolume: 100,
       musicEnabled: true, musicVolume: 70,
       inputPreference: 'auto'
@@ -1765,20 +2671,35 @@
     return n;
   }
 
-  // Validasi schema: rusak / versi beda -> default penuh (tanpa crash).
+  // Validasi schema: rusak / versi tak dikenal -> default penuh.
+  // Migrasi aman: save v1 lama tetap valid (field baru diberi default).
   function sanitizeSave(o) {
     var d = getDefaultSave();
-    if (!o || typeof o !== 'object' || o.version !== 1) return d;
+    if (!o || typeof o !== 'object' || (o.version !== 1 && o.version !== 2)) return d;
     d.bestTime = (o.bestTime == null) ? null : saveNum(o.bestTime, null, 0, 1e9);
     d.bestL1 = (o.bestL1 == null) ? null : saveNum(o.bestL1, null, 0, 1e9);
     d.bestL2 = (o.bestL2 == null) ? null : saveNum(o.bestL2, null, 0, 1e9);
+    d.bestL3 = (o.bestL3 == null) ? null : saveNum(o.bestL3, null, 0, 1e9);
+    d.bestL4 = (o.bestL4 == null) ? null : saveNum(o.bestL4, null, 0, 1e9);
+    d.bestL5 = (o.bestL5 == null) ? null : saveNum(o.bestL5, null, 0, 1e9);
     d.bestShards = Math.floor(saveNum(o.bestShards, 0, 0, 1e9));
     d.totalShards = Math.floor(saveNum(o.totalShards, 0, 0, 1e9));
     d.totalDeaths = Math.floor(saveNum(o.totalDeaths, 0, 0, 1e9));
     d.level1Completed = !!o.level1Completed;
     d.level2Completed = !!o.level2Completed;
+    d.level3Completed = !!o.level3Completed;
+    d.level4Completed = !!o.level4Completed;
+    d.level5Completed = !!o.level5Completed;
     d.gameCompleted = !!o.gameCompleted;
     d.level2Unlocked = !!o.level2Unlocked;
+    d.level3Unlocked = !!o.level3Unlocked;
+    d.level4Unlocked = !!o.level4Unlocked;
+    d.level5Unlocked = !!o.level5Unlocked;
+    // Konsistensi turunan: completed mengimplikasikan unlock berikutnya.
+    if (d.level1Completed) d.level2Unlocked = true;
+    if (d.level2Completed) d.level3Unlocked = true;
+    if (d.level3Completed) d.level4Unlocked = true;
+    if (d.level4Completed) d.level5Unlocked = true;
     d.sfxEnabled = !!o.sfxEnabled;
     d.sfxVolume = Math.round(saveNum(o.sfxVolume, 100, 0, 100));
     d.musicEnabled = !!o.musicEnabled;
@@ -1827,11 +2748,16 @@
     } catch (e) { /* abaikan */ }
   }
 
-  // Level 1 selalu terbuka; Level 2 butuh unlock (kompatibel: unlock
-  // otomatis diberikan saat Level 1 selesai, jadi alur Stage 5 utuh).
+  // Campaign L1->L2->L3->L4->L5->COMPLETE (gate per level).
   function canPlayLevel(n) {
+    n = Math.floor(Number(n));
+    if (!(n >= 1)) return false;
     if (n <= 1) return true;
-    return !!save.level2Unlocked;
+    if (n === 2) return !!save.level2Unlocked;
+    if (n === 3) return !!save.level3Unlocked;
+    if (n === 4) return !!save.level4Unlocked;
+    if (n === 5) return !!save.level5Unlocked;
+    return false;
   }
 
   // Kompatibilitas baca best lama (bentuk {time, shards} seperti dulu).
@@ -1874,7 +2800,14 @@
   // Muat level n (1-based): tukar pointer + reset total per-level.
   // Tanpa reload browser; partikel/FX tidak bocor antar-level.
   // Reset level TIDAK menyentuh save persistent (total/rekor aman).
+  // Boss dibuat sesuai bossKind: 'lich' -> RAJA LICH, selainnya RAJA SLIME.
+  function spawnLevelBoss() {
+    if (!Level.bossSpawn || !Level.bossArena) return null;
+    if (Level.bossKind === 'lich') return createLich(Level.bossSpawn, Level.bossArena, Level.bossMods);
+    return createBoss(Level.bossSpawn, Level.bossArena, Level.bossMods);
+  }
   function loadLevelInternal(n) {
+    if (!(n >= 1 && n <= Levels.length)) return;
     currentLevel = n;
     Level = Levels[n - 1];
     for (var i = 0; i < Level.checkpoints.length; i++) {
@@ -1888,22 +2821,24 @@
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
     enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
-    boss = Level.bossSpawn ? createBoss(Level.bossSpawn, Level.bossArena) : null;
+    boss = spawnLevelBoss();
+    miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
     shocks = [];
+    shots = [];
     resetShards();
     levelStats = { kills: 0, shards: 0, time: 0 };
     victoryArmed = false;
     victoryT = 0;
+    finalPhase = 'slime';
+    finalT = 0;
+    musicSetIdx = Level.musicSet || 0; // BGM ikut mood level, tanpa restart
+    try { AudioManager.setMood(musicSetIdx); } catch (e) { /* abaikan */ }
     clearInput();
     snapCamera();
     // Copy misi sesuai level aktual (pendek, ramah HP).
     try {
       var me = document.getElementById('mission');
-      if (me) {
-        me.innerHTML = (n === 2)
-          ? 'L2: lewati celah • shard • checkpoint • kalahkan <b>RAJA SLIME</b>'
-          : 'L1: shard • kalahkan slime • checkpoint • capai <b>FINISH</b>';
-      }
+      if (me) me.innerHTML = MISSION_COPY[n] || MISSION_COPY[1];
     } catch (e) { /* abaikan */ }
   }
 
@@ -1985,11 +2920,15 @@
   function refreshRecordsUI() {
     try {
       if (!aboutRecords) return;
-      var done = (save.level1Completed ? 1 : 0) + (save.level2Completed ? 1 : 0);
+      var done = (save.level1Completed ? 1 : 0) + (save.level2Completed ? 1 : 0) +
+        (save.level3Completed ? 1 : 0) + (save.level4Completed ? 1 : 0) +
+        (save.level5Completed ? 1 : 0);
       aboutRecords.textContent =
         'Best L1: ' + fmtTime(save.bestL1) + ' • Best L2: ' + fmtTime(save.bestL2) +
+        ' • Best L3: ' + fmtTime(save.bestL3) + ' • Best L4: ' + fmtTime(save.bestL4) +
+        ' • Best L5: ' + fmtTime(save.bestL5) +
         ' • Best: ' + fmtTime(save.bestTime) + ' • Shard: ' + save.bestShards +
-        ' • Mati: ' + save.totalDeaths + ' • Selesai: ' + done + '/2';
+        ' • Mati: ' + save.totalDeaths + ' • Selesai: ' + done + '/5';
     } catch (e) { /* abaikan */ }
   }
 
@@ -2059,15 +2998,33 @@
   function showLevelComplete() {
     if (gameState !== 'playing') return;
     gameState = 'levelcomplete';
-    // Persistent: unlock L2 + best L1 (hanya jika lebih baik).
-    save.level1Completed = true;
-    save.level2Unlocked = true;
-    if (save.bestL1 == null || levelStats.time < save.bestL1) save.bestL1 = levelStats.time;
+    // Persistent per level: unlock berikutnya + best per level.
+    if (currentLevel === 1) {
+      save.level1Completed = true;
+      save.level2Unlocked = true;
+      if (save.bestL1 == null || levelStats.time < save.bestL1) save.bestL1 = levelStats.time;
+    } else if (currentLevel === 2) {
+      save.level2Completed = true;
+      save.level3Unlocked = true;
+      if (save.bestL2 == null || levelStats.time < save.bestL2) save.bestL2 = levelStats.time;
+    } else if (currentLevel === 3) {
+      save.level3Completed = true;
+      save.level4Unlocked = true;
+      if (save.bestL3 == null || levelStats.time < save.bestL3) save.bestL3 = levelStats.time;
+    } else if (currentLevel === 4) {
+      save.level4Completed = true;
+      save.level5Unlocked = true;
+      if (save.bestL4 == null || levelStats.time < save.bestL4) save.bestL4 = levelStats.time;
+    } else {
+      save.level5Completed = true;
+      if (save.bestL5 == null || levelStats.time < save.bestL5) save.bestL5 = levelStats.time;
+    }
     persistSave();
     refreshRecordsUI();
     if (lvlclearEl) {
       if (lvlclearStats) {
-        lvlclearStats.textContent = 'Waktu: ' + levelStats.time.toFixed(1) + ' dtk • Musuh: ' +
+        lvlclearStats.textContent = 'Level ' + currentLevel + ' • Waktu: ' +
+          levelStats.time.toFixed(1) + ' dtk • Musuh: ' +
           levelStats.kills + ' • Shard: ' + shardGot() + '/' + shards.length;
       }
       lvlclearEl.classList.remove('hidden');
@@ -2082,11 +3039,11 @@
   function showGameComplete() {
     if (gameState !== 'playing') return;
     gameState = 'gamecomplete';
-    // Persistent: flag complete + best (hanya jika lebih baik).
-    save.level2Completed = true;
+    // Persistent final: L5 selesai + game complete + best.
+    save.level5Completed = true;
     save.gameCompleted = true;
     if (save.bestTime == null || timeElapsed < save.bestTime) save.bestTime = timeElapsed;
-    if (save.bestL2 == null || levelStats.time < save.bestL2) save.bestL2 = levelStats.time;
+    if (save.bestL5 == null || levelStats.time < save.bestL5) save.bestL5 = levelStats.time;
     if (runStats.shards > save.bestShards) save.bestShards = runStats.shards;
     persistSave();
     refreshRecordsUI();
@@ -2104,21 +3061,52 @@
     AudioManager.updateMusicState(); // BGM gameplay berhenti
   }
 
-  // Lanjut ke Level 2 dengan gate unlock (praktis selalu terbuka karena
-  // unlock diberikan saat Level 1 selesai; gate untuk konsistensi save).
+  // Lanjut ke level berikutnya dengan gate unlock (L1->L2->L3->L4->L5).
   function nextLevel() {
-    if (!canPlayLevel(2)) {
-      showToast('Selesaikan Level 1 dulu!');
+    var nx = currentLevel + 1;
+    if (nx > Levels.length) return;
+    if (!canPlayLevel(nx)) {
+      showToast('Selesaikan Level ' + currentLevel + ' dulu!');
       AudioManager.play('click');
       return;
     }
-    startTrans(2);
+    startTrans(nx);
   }
 
   function foesLeft() {
     var n = aliveEnemies();
     if (boss && !boss.dead) n++;
+    if (miniboss && !miniboss.dead) n++;
     return n;
+  }
+
+  /* Stage 9: kemenangan boss dirutekan per level. Level 5 memakai
+   * final berurutan: slime king dulu, lalu jeda, lalu lich. */
+  var finalPhase = 'slime', finalT = 0; // khusus Level 5
+
+  function onBossDefeated() {
+    runStats.kills++;
+    levelStats.kills++;
+    // Final L5: slime tumbang -> interlude -> lich (bukan victory dulu).
+    // Intro lich hanya sekali via dormant (tanpa toast/suara ganda di sini).
+    if (currentLevel === 5 && finalPhase === 'slime') {
+      finalPhase = 'inter';
+      finalT = 0;
+      shocks = [];
+      shots = [];
+      // Bersihkan sisa enemy/summon tanpa kill-count agar fase lich steril.
+      enemies.length = 0;
+      triggerScreenShake(SHAKE_HURT, 0.35);
+      return;
+    }
+    victoryArmed = true;
+    victoryT = 0;
+  }
+
+  // Level terakhir (5) -> Game Complete; selainnya -> Level Complete.
+  function completeCurrentLevel() {
+    if (currentLevel >= 5) showGameComplete();
+    else showLevelComplete();
   }
 
   // Respawn di checkpoint terakhir (atau spawn): HP pulih, musuh + boss
@@ -2130,10 +3118,14 @@
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
     enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
-    boss = Level.bossSpawn ? createBoss(Level.bossSpawn, Level.bossArena) : null;
+    boss = spawnLevelBoss();
+    miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
     shocks = [];
+    shots = [];
     victoryArmed = false;
     victoryT = 0;
+    finalPhase = 'slime'; // L5 respawn = ulangi gauntlet dari slime
+    finalT = 0;
     clearParticles();
     resetShake();
     clearInput();
@@ -2223,7 +3215,7 @@
 
   // Langit dibuat sekali di boot per level (tidak dialokasi per-frame).
   var skyGrad = null;
-  var skyGrads = [null, null];
+  var skyGrads = [null, null, null, null, null];
 
   // Langit + layer JAUH (0.2) + layer TENGAH (0.5): screen-space dengan
   // offset sendiri. Ringan: ~70 bintang + 9 bukit, culling di luar layar.
@@ -2449,13 +3441,119 @@
 
   function drawEnemies() {
     for (var i = 0; i < enemies.length; i++) {
-      if (!enemies[i].dead) drawSlime(enemies[i]);
+      var e = enemies[i];
+      if (e.dead) continue;
+      if (e.kind === 'skeletonArcher') drawArcher(e);
+      else if (e.kind === 'skeletonSword' || e.kind === 'skeletonDefender') drawSkeleton(e);
+      else drawSlime(e);
+    }
+  }
+
+  /* Stage 9: skeleton prosedural — siluet khas tiap archetype.
+   * Sword: pedang + pose melee. Defender: perisai depan + guard flash.
+   * Archer: busur + quiver, glow kuning saat telegraph 'shoot'. */
+  function drawSkeleton(s) {
+    var t = s.animTime;
+    var bob = (s.state === 'patrol' || s.state === 'chase') ? Math.round(Math.sin(t * 8) * 1.5) : 0;
+    var dw = s.w + 6, dh = s.h + 6;
+    if (s.state === 'death') {
+      var k = clamp(1 - s.deathT / SLIME_DEATH_DURATION, 0, 1);
+      dh = Math.round(dh * (0.3 + 0.7 * k));
+    }
+    var dx = Math.round(s.x + s.w / 2 - dw / 2);
+    var dy = Math.round(s.y + s.h - dh) + bob;
+    var blink = s.iframes > 0 && Math.floor(t * 16) % 2 === 0;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
+
+    var windup = s.state === 'attack' && s.atkT < s.st.windup;
+    ctx.fillStyle = blink ? '#ffffff' : s.st.body;
+    ctx.fillRect(dx + 5, dy + 12, dw - 10, dh - 12);   // torso
+    ctx.fillRect(dx + 9, dy + 4, dw - 18, 10);         // tengkorak
+    ctx.fillStyle = s.st.dark;
+    ctx.fillRect(dx + 5, dy + dh - 8, dw - 10, 8);     // kaki
+    // Mata merah berongga (ikut arah).
+    var ex = s.dir === 1 ? dx + dw - 18 : dx + 6;
+    ctx.fillStyle = '#e05252';
+    ctx.fillRect(ex, dy + 6, 5, 5);
+    ctx.fillRect(ex + 7, dy + 6, 5, 5);
+
+    if (s.kind === 'skeletonDefender') {
+      // Perisai di sisi hadap; kilat saat block.
+      var shx = s.dir === 1 ? dx + dw - 8 : dx;
+      ctx.fillStyle = (s.guardFlash > 0 && Math.floor(t * 14) % 2 === 0) ? '#ffffff' : '#5a6c8a';
+      ctx.fillRect(shx, dy + 10, 8, dh - 18);
+      ctx.fillStyle = '#c9a227';
+      ctx.fillRect(shx + 2, dy + 14, 4, 6);
+    } else {
+      // Pedang di sisi hadap (terangkat saat windup).
+      var swx = s.dir === 1 ? dx + dw - 6 : dx - 8;
+      var swy = windup ? dy - 6 : dy + 8;
+      ctx.fillStyle = '#d6deea';
+      ctx.fillRect(swx, swy, 5, 22);
+      ctx.fillStyle = '#8a6d3b';
+      ctx.fillRect(swx - 2, swy + 20, 9, 4);
+    }
+    // Telegraph windup: tanda seru (konsisten dengan slime).
+    if (windup) {
+      ctx.fillStyle = '#ffd23f';
+      var qx = Math.round(s.x + s.w / 2 - 2);
+      ctx.fillRect(qx, dy - 18, 5, 10);
+      ctx.fillRect(qx, dy - 5, 5, 5);
+    }
+  }
+
+  function drawArcher(s) {
+    var t = s.animTime;
+    var dw = s.w + 6, dh = s.h + 6;
+    if (s.state === 'death') {
+      var k = clamp(1 - s.deathT / SLIME_DEATH_DURATION, 0, 1);
+      dh = Math.round(dh * (0.3 + 0.7 * k));
+    }
+    var dx = Math.round(s.x + s.w / 2 - dw / 2);
+    var dy = Math.round(s.y + s.h - dh);
+    var blink = s.iframes > 0 && Math.floor(t * 16) % 2 === 0;
+    var tele = s.state === 'shoot';
+
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
+
+    ctx.fillStyle = blink ? '#ffffff' : s.st.body;
+    ctx.fillRect(dx + 6, dy + 12, dw - 12, dh - 12);   // torso ramping
+    ctx.fillRect(dx + 10, dy + 4, dw - 20, 10);        // tengkorak
+    ctx.fillStyle = s.st.dark;
+    ctx.fillRect(dx + 6, dy + dh - 8, dw - 12, 8);
+    var ex = s.dir === 1 ? dx + dw - 19 : dx + 7;
+    ctx.fillStyle = '#e05252';
+    ctx.fillRect(ex, dy + 6, 5, 5);
+    ctx.fillRect(ex + 7, dy + 6, 5, 5);
+    // Quiver di punggung.
+    ctx.fillStyle = '#6b5a3a';
+    var qvx = s.dir === 1 ? dx + 2 : dx + dw - 8;
+    ctx.fillRect(qvx, dy + 8, 6, 16);
+    // Busur di sisi hadap; glow saat telegraph melepas panah.
+    var bwx = s.dir === 1 ? dx + dw - 5 : dx - 1;
+    ctx.fillStyle = (tele && Math.floor(t * 10) % 2 === 0) ? '#ffd23f' : '#8a6d3b';
+    ctx.fillRect(bwx, dy + 6, 4, 26);
+    if (tele) {
+      ctx.fillStyle = '#ffd23f';
+      var qx = Math.round(s.x + s.w / 2 - 2);
+      ctx.fillRect(qx, dy - 18, 5, 10);
+      ctx.fillRect(qx, dy - 5, 5, 5);
     }
   }
 
   /* Stage 5: RAJA SLIME — blob besar + mahkota emas + alis marah.
    * Enraged: semburat merah. Telegraph: kedip putih + tanda seru besar. */
+  // Dispatcher gambar boss aktif (slime king / lich) + miniboss.
   function drawBoss() {
+    if (!boss || boss.dead) return;
+    if (boss.kind === 'lich') drawLich();
+    else drawSlimeKing();
+  }
+
+  function drawSlimeKing() {
     if (!boss || boss.dead) return;
     var b = boss, t = b.animTime;
     var squash = 1 + 0.06 * Math.sin(t * 6);
@@ -2540,30 +3638,33 @@
     }
   }
 
-  // Dekorasi subtil arena boss (hanya Level 2): pilar + panji merah.
+  // Dekorasi subtil arena boss (L2/L4/L5): pilar + panji + obor.
+  // Warna mengikuti mood level; miniboss arena (L4) dapat penanda tulang.
   function drawArenaDecor() {
-    if (currentLevel !== 2 || !Level.bossArena) return;
+    var arena = Level.bossArena || Level.lichArena;
+    if (!arena || (currentLevel !== 2 && currentLevel !== 4 && currentLevel !== 5)) return;
     var g = GROUND_TOP;
-    ctx.fillStyle = '#2c2140';
-    ctx.fillRect(Level.bossArena.minX - 14, g - 120, 14, 120);
-    ctx.fillRect(Level.bossArena.maxX, g - 120, 14, 120);
-    ctx.fillStyle = '#c9a227';
-    ctx.fillRect(Level.bossArena.minX - 14, g - 120, 14, 8);
-    ctx.fillRect(Level.bossArena.maxX, g - 120, 14, 8);
-    ctx.fillStyle = '#a03a3a';
-    var fx = Math.round((Level.bossArena.minX + Level.bossArena.maxX) / 2 - 20);
+    var lich = (Level.bossKind === 'lich') || currentLevel === 4;
+    ctx.fillStyle = lich ? '#241a38' : '#2c2140';
+    ctx.fillRect(arena.minX - 14, g - 120, 14, 120);
+    ctx.fillRect(arena.maxX, g - 120, 14, 120);
+    ctx.fillStyle = lich ? '#b46ae0' : '#c9a227';
+    ctx.fillRect(arena.minX - 14, g - 120, 14, 8);
+    ctx.fillRect(arena.maxX, g - 120, 14, 8);
+    ctx.fillStyle = lich ? '#4a3670' : '#a03a3a';
+    var fx = Math.round((arena.minX + arena.maxX) / 2 - 20);
     ctx.fillRect(fx, g - 150, 40, 26);
-    ctx.fillStyle = '#ffd23f';
+    ctx.fillStyle = lich ? '#e8c9ff' : '#ffd23f';
     ctx.fillRect(fx + 8, g - 144, 24, 6);
     // Obor arena: api 2-frame tanpa alokasi (flicker waktu, murah).
     var fl = Math.floor(nowPerf() / 180) % 2;
     var fh = fl ? 14 : 10;
     ctx.fillStyle = '#e0682a';
-    ctx.fillRect(Level.bossArena.minX - 11, g - 120 - fh, 8, fh);
-    ctx.fillRect(Level.bossArena.maxX + 3, g - 120 - fh, 8, fh);
+    ctx.fillRect(arena.minX - 11, g - 120 - fh, 8, fh);
+    ctx.fillRect(arena.maxX + 3, g - 120 - fh, 8, fh);
     ctx.fillStyle = '#ffd23f';
-    ctx.fillRect(Level.bossArena.minX - 9, g - 120 - fh, 4, fh - 4);
-    ctx.fillRect(Level.bossArena.maxX + 5, g - 120 - fh, 4, fh - 4);
+    ctx.fillRect(arena.minX - 9, g - 120 - fh, 4, fh - 4);
+    ctx.fillRect(arena.maxX + 5, g - 120 - fh, 4, fh - 4);
   }
 
   // HUD modern (screen-space, tidak ikut kamera): HP + progress + slime.
@@ -2600,9 +3701,11 @@
     ctx.fillRect(px, py, pw, ph);
     ctx.fillStyle = '#5a68b0';
     ctx.fillRect(px, py, Math.round(pw * prog), ph);
-    // Ujung kanan: goal fisik (Level 1) atau arena boss (Level 2).
+    // Ujung kanan: goal fisik (L1/L3) atau arena boss/lich (L2/L4/L5).
     var endX = Level.goal ? (Level.goal.x + Level.goal.w / 2)
-                          : (Level.bossSpawn ? Level.bossSpawn.x : Level.playerSpawn.x + 1);
+                          : ((Level.bossSpawn || Level.lichSpawn) ?
+                             (Level.bossSpawn || Level.lichSpawn).x :
+                             Level.playerSpawn.x + 1);
     var span = Math.max(1, endX - Level.playerSpawn.x);
     var i, mx;
     for (i = 0; i < Level.checkpoints.length; i++) {
@@ -2642,16 +3745,18 @@
     ctx.font = 'bold 12px monospace';
     ctx.fillText(shardGot() + '/' + shards.length + '  LV' + currentLevel, VIEW_W - 124, 57);
 
-    // --- Bar HP boss (tengah atas, hanya saat boss aktif) ---
-    if (currentLevel === 2 && boss && !boss.dead) {
+    // --- Bar HP foe besar (boss / miniboss aktif; boss diprioritaskan) ---
+    var foeBar = (boss && !boss.dead) ? boss : ((miniboss && !miniboss.dead) ? miniboss : null);
+    if (foeBar) {
+      var foeName = foeBar.name || (foeBar.kind === 'lich' ? 'RAJA LICH' : 'RAJA SLIME');
       var bbw = 300, bbx = VIEW_W / 2 - bbw / 2, bby = 52;
-      var bpct = clamp(boss.hp / boss.maxHp, 0, 1);
+      var bpct = clamp(foeBar.hp / foeBar.maxHp, 0, 1);
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(bbx - 4, bby - 18, bbw + 8, 40);
       ctx.fillStyle = '#c6ccea';
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(boss.enraged ? 'RAJA SLIME — MURKA!' : 'RAJA SLIME', VIEW_W / 2, bby - 8);
+      ctx.fillText(foeBar.enraged ? foeName + ' — MURKA!' : foeName, VIEW_W / 2, bby - 8);
       ctx.textAlign = 'left';
       ctx.fillStyle = '#3a1020';
       ctx.fillRect(bbx, bby, bbw, 12);
@@ -2764,7 +3869,10 @@
     if (toast.t > 0) toast.t -= dt;
     updatePlayer(dt);
     Combat.resolvePlayerAttack();
-    for (var i = 0; i < enemies.length; i++) updateSlime(enemies[i], dt);
+    for (var i = 0; i < enemies.length; i++) {
+      if (enemies[i].kind === 'skeletonArcher') updateArcher(enemies[i], dt);
+      else updateSlime(enemies[i], dt);
+    }
     // Hapus slime yang selesai death (in-place, tanpa alokasi filter).
     for (var r = enemies.length - 1; r >= 0; r--) {
       if (enemies[r].dead) {
@@ -2774,8 +3882,13 @@
         enemies.pop();
       }
     }
-    if (boss && !boss.dead) updateBoss(boss, dt);
+    if (boss && !boss.dead) {
+      if (boss.kind === 'lich') updateLich(boss, dt);
+      else updateBoss(boss, dt);
+    }
+    if (miniboss && !miniboss.dead) updateMiniboss(miniboss, dt);
     updateShocks(dt);
+    updateShots(dt);
     Combat.resolveEnemyAttacks();
     checkCheckpoints();
     checkGoal();
@@ -2783,12 +3896,21 @@
     updateShake(dt);
     updateParticles(dt);
 
-    // Kemenangan boss -> Game Complete (jeda agar FX kematian terbaca).
+    // Kemenangan boss -> Complete sesuai level (jeda agar FX terbaca).
     if (victoryArmed) {
       victoryT += dt;
       if (victoryT >= VICTORY_DELAY) {
         victoryArmed = false;
-        showGameComplete();
+        completeCurrentLevel();
+      }
+    }
+    // Final L5: interlude 2 dtk lalu lich kedua masuk arena.
+    if (currentLevel === 5 && finalPhase === 'inter') {
+      finalT += dt;
+      if (finalT >= 2.0 && Level.lichSpawn) {
+        boss = createLich(Level.lichSpawn, Level.lichArena, { hpMul: 0.85 });
+        finalPhase = 'lich';
+        AudioManager.play('lichSummon');
       }
     }
 
@@ -2811,9 +3933,11 @@
     drawShards();
     drawEnemies();
     drawBoss();
+    drawMiniboss();
     drawPlayer();
     drawSlash();
     drawShocks();
+    drawShots();
     drawParticles();
     if (DEBUG) drawDebugBoxes();
     ctx.restore();
@@ -3145,7 +4269,7 @@
       })(gi);
     }
     skyGrad = skyGrads[0];
-  } catch (e) { skyGrad = null; skyGrads = [null, null]; }
+  } catch (e) { skyGrad = null; skyGrads = [null, null, null, null, null]; }
 
   // Audio unlock saat interaksi pertama (autoplay policy). Sekali saja.
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
@@ -3235,6 +4359,15 @@
                levelTime: levelStats.time, deaths: deaths };
     },
     getBest: loadBest,
+    // Stage 9: skeleton campaign + lich + final (untuk regression tests).
+    getLevelCount: function () { return Levels.length; },
+    getMiniboss: function () { return miniboss; },
+    hurtMiniboss: function (n, x) { return hurtMiniboss(n, x); },
+    getShots: function () { return shots; },
+    getFinalPhase: function () { return finalPhase; },
+    getLichPhase: function (b) { return lichPhase(b || boss); },
+    spawnShot: spawnShot,
+    fireArrow: fireArrow,
     // Stage 6: save/settings/state untuk UI + testing.
     getSave: function () {
       return JSON.parse(JSON.stringify(save));

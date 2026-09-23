@@ -189,7 +189,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 133; // total test (132 lama + 1 platform)
+const EXPECTED_TOTAL = 154; // total test (133 lama + 21 Stage 9 skeleton/lich/final)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -507,14 +507,15 @@ test('71 boss state transitions: idle -> telegraph -> attack', () => {
   ok(seen.strike || seen.charge || seen.shock || seen.recovery, 'boss harus menyerang, terlihat: ' + Object.keys(seen));
   pl.iframes = 0;
 });
-test('72 boss death -> GAME COMPLETE + stats', () => {
+test('72 boss death L2 -> LEVEL COMPLETE + stats', () => {
   G.startLevel(2);
   for (let k = 0; k < 4; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
   eq(G.getBoss().state, 'death');
   for (let i = 0; i < 170; i++) G.step(1 / 60);
-  eq(G.getState(), 'gamecomplete');
+  eq(G.getState(), 'levelcomplete');
   ok(G.getStats().runKills >= 1, 'kill boss terhitung');
-  ok(!elements['gameclear'].classList.contains('hidden'), 'layar game complete tampil');
+  ok(!elements['lvlclear'].classList.contains('hidden'), 'layar level complete tampil');
+  G.startLevel(1);
 });
 test('73 level complete: goal L1 -> stats + NEXT/REPLAY/MENU', () => {
   G.startLevel(1);
@@ -689,14 +690,41 @@ function bossKillFlow() {
   for (let k = 0; k < 4; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
   for (let i = 0; i < 170; i++) G.step(1 / 60);
 }
+function lichKillFlow() {
+  G.startLevel(4);
+  for (let k = 0; k < 20 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 170; i++) G.step(1 / 60);
+}
+function finalKillFlow() {
+  // L5: kalahkan RAJA SLIME -> interlude 2 dtk -> RAJA LICH -> victory.
+  G.startLevel(5);
+  const b0 = G.getBoss();
+  for (let k = 0; k < 10 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 200; i++) G.step(1 / 60); // death slime + interlude -> lich spawn
+  const b1 = G.getBoss();
+  ok(b1 && b1.kind === 'lich', 'fase lich harus spawn, got ' + (b1 && b1.kind));
+  // Dekatkan player ke arena agar lich intro selesai, lalu bunuh.
+  const pl = G.getPlayer();
+  pl.x = 2000; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+  for (let i = 0; i < 30; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  for (let k = 0; k < 20 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  pl.iframes = 9999;
+  for (let i = 0; i < 170; i++) G.step(1 / 60);
+  pl.iframes = 0;
+}
 test('85 default save schema knightSaveV1', () => {
   G.resetSave();
   const s = G.getSave();
-  eq(s.version, 1);
+  eq(s.version, 2);
   eq(s.bestTime, null); eq(s.bestL1, null); eq(s.bestL2, null);
+  eq(s.bestL3, null); eq(s.bestL4, null); eq(s.bestL5, null);
   eq(s.bestShards, 0); eq(s.totalShards, 0); eq(s.totalDeaths, 0);
   eq(s.level1Completed, false); eq(s.level2Completed, false);
-  eq(s.gameCompleted, false); eq(s.level2Unlocked, false);
+  eq(s.level3Completed, false); eq(s.level4Completed, false); eq(s.level5Completed, false);
+  eq(s.gameCompleted, false);
+  eq(s.level2Unlocked, false); eq(s.level3Unlocked, false);
+  eq(s.level4Unlocked, false); eq(s.level5Unlocked, false);
   eq(s.sfxEnabled, true); eq(s.sfxVolume, 100);
   eq(s.musicEnabled, true); eq(s.musicVolume, 70);
   eq(s.inputPreference, 'auto');
@@ -721,13 +749,13 @@ test('86 settings save/load round-trip', () => {
 });
 test('87 best time hanya membaik', () => {
   G.resetSave();
-  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 50 }));
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, bestL1: 50 }));
   G.reloadSave();
   eq(G.getSave().bestL1, 50);
   completeL1Flow();
   eq(G.getState(), 'levelcomplete');
   ok(G.getSave().bestL1 < 1, 'run cepat harus perbarui best, got ' + G.getSave().bestL1);
-  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 0.001 }));
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, bestL1: 0.001 }));
   G.reloadSave();
   completeL1Flow();
   eq(G.getSave().bestL1, 0.001, 'run buruk jangan overwrite best');
@@ -742,6 +770,8 @@ test('88 best shards + total shards persist', () => {
   eq(G.getSave().totalShards, 1);
   eq(JSON.parse(testStorage._map.get('knightSaveV1')).totalShards, 1);
   bossKillFlow();
+  eq(G.getState(), 'levelcomplete');
+  finalKillFlow();
   eq(G.getState(), 'gamecomplete');
   ok(G.getSave().bestShards >= 1, 'bestShards tercatat');
   G.resetSave();
@@ -760,10 +790,10 @@ test('89 Level 2 unlock persist + gate NEXT', () => {
 });
 test('90 game complete persist (flag + best)', () => {
   G.resetSave();
-  bossKillFlow();
+  finalKillFlow();
   eq(G.getState(), 'gamecomplete');
   const s = G.getSave();
-  eq(s.gameCompleted, true); eq(s.level2Completed, true);
+  eq(s.gameCompleted, true); eq(s.level5Completed, true);
   ok(typeof s.bestTime === 'number', 'bestTime tercatat');
   const raw = JSON.parse(testStorage._map.get('knightSaveV1'));
   eq(raw.gameCompleted, true);
@@ -784,7 +814,7 @@ test('92 JSON corrupt -> default + game tetap jalan', () => {
   const s = G.getSave();
   eq(s.sfxVolume, 100); eq(s.bestTime, null); eq(s.level2Unlocked, false);
   noThrow(() => { G.startLevel(1); G.step(1 / 60); });
-  ok(JSON.parse(testStorage._map.get('knightSaveV1')).version === 1, 'storage ditulis ulang valid');
+  ok(JSON.parse(testStorage._map.get('knightSaveV1')).version === 2, 'storage ditulis ulang valid');
   G.resetSave();
 });
 test('93 localStorage hilang/rusak -> fallback memori, tanpa error', () => {
@@ -826,7 +856,7 @@ test('96 volume clamp 0-100 + mute di 0', () => {
   G.fx.audio.setSfx(true, -20);
   eq(G.fx.audio.getCfg().sfxVol, 0);
   eq(G.fx.audio.getCfg().muted, true);
-  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, sfxVolume: 999, musicVolume: -5 }));
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, sfxVolume: 999, musicVolume: -5 }));
   G.reloadSave();
   eq(G.getSave().sfxVolume, 100); eq(G.getSave().musicVolume, 0);
   G.resetSave();
@@ -914,12 +944,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('133 automated test'), 'README harus sebut 133 test, cek jumlah');
+  ok(readme.includes('154 automated test'), 'README harus sebut 154 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
-  ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
+  ok(readme.includes('Skeleton Campaign'), 'README harus sebut Skeleton Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 133);
+  eq(EXPECTED_TOTAL, 154);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1014,7 +1044,7 @@ test('110 start/stop idempotent, tanpa duplikat', () => {
   G.toMenu(); G.resetSave();
 });
 test('111 save/load music kompatibel + audio ikut', () => {
-  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, musicEnabled: false, musicVolume: 33 }));
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, musicEnabled: false, musicVolume: 33 }));
   G.reloadSave();
   const s = G.getSave();
   eq(s.musicEnabled, false); eq(s.musicVolume, 33);
@@ -1152,7 +1182,7 @@ test('122 R1: lookup varian aman dari prototype chain', () => {
 });
 test('123 R2: key lama dibersihkan, save aktif utuh', () => {
   testStorage._map.set('knightBestV1', JSON.stringify({ time: 5 }));
-  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 12.5, level2Unlocked: true }));
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, bestL1: 12.5, level2Unlocked: true }));
   G.reloadSave();
   ok(!testStorage._map.has('knightBestV1'), 'key lama harus terhapus');
   const raw = testStorage._map.get('knightSaveV1');
@@ -1225,10 +1255,11 @@ test('127 tema visual per level (data-driven, loop aman)', () => {
 });
 test('128 copy meta/OG sesuai konten kini', () => {
   const desc = html.match(/name="description" content="([^"]*)"/)[1];
-  ok(/2 level/i.test(desc) && /RAJA SLIME/.test(desc) && /Shard/i.test(desc), 'description basi: ' + desc);
+  ok(/5 level/i.test(desc) && /RAJA SLIME/.test(desc) && /RAJA LICH/.test(desc) && /Shard/i.test(desc), 'description basi: ' + desc);
   ok(!/3 slime/.test(desc), 'copy lama 3-slime harus hilang');
+  ok(!/2 level/i.test(desc), 'copy lama 2-level harus hilang');
   const og = html.match(/property="og:description" content="([^"]*)"/)[1];
-  ok(/RAJA SLIME/.test(og) && !/3 slime/.test(og), 'og basi: ' + og);
+  ok(/RAJA SLIME/.test(og) && /RAJA LICH/.test(og) && !/3 slime/.test(og), 'og basi: ' + og);
 });
 test('129 feedback Terkena: partikel + shake boss', () => {
   G.restart(); // pool partikel bersih
@@ -1287,6 +1318,286 @@ test('133 platform arena boss terjangkau lompatan', () => {
   ok(!dead, 'lompat ke platform tak boleh mati');
   ok(landed, 'harus mendarat di platform (y~=287)');
   G.restart();
+});
+
+// ---------- 21 TEST STAGE 9 (skeleton campaign + lich + final) ----------
+test('134 Level 3 unlock setelah L2 clear', () => {
+  G.resetSave();
+  eq(G.canPlayLevel(3), false, 'L3 terkunci awal');
+  completeL1Flow();
+  eq(G.canPlayLevel(2), true, 'L1 clear -> L2 unlock');
+  bossKillFlow();
+  eq(G.getState(), 'levelcomplete', 'L2 boss -> levelcomplete');
+  eq(G.canPlayLevel(3), true, 'L2 clear -> L3 unlock');
+  ok(JSON.parse(testStorage._map.get('knightSaveV1')).level3Unlocked, 'persist L3 unlock');
+  G.resetSave();
+});
+test('135 Level 4 unlock setelah L3 clear', () => {
+  G.resetSave();
+  completeL1Flow(); bossKillFlow();
+  G.startLevel(3);
+  const pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400;
+  G.step(1 / 60);
+  eq(G.getState(), 'levelcomplete', 'L3 goal -> levelcomplete');
+  eq(G.canPlayLevel(4), true, 'L3 clear -> L4 unlock');
+  eq(G.getSave().level3Completed, true);
+  G.resetSave();
+});
+test('136 Level 5 unlock setelah L4 clear', () => {
+  G.resetSave();
+  lichKillFlow();
+  eq(G.getState(), 'levelcomplete', 'L4 lich -> levelcomplete (bukan gamecomplete)');
+  eq(G.canPlayLevel(5), true, 'L4 clear -> L5 unlock');
+  eq(G.getSave().level4Completed, true);
+  G.resetSave();
+});
+test('137 Skeleton Swordsman stats/state', () => {
+  srcHas('skeletonSword');
+  G.startLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  ok(sw, 'swordsman harus ada di L3');
+  eq(sw.hp, 40); eq(sw.w, 40);
+  ok(sw.st.range < 60, 'range < player, got ' + sw.st.range);
+  ok(['patrol', 'chase'].includes(sw.state), 'state awal valid: ' + sw.state);
+  ok(sw.st.windup >= 0.3, 'telegraph jelas');
+  G.startLevel(1);
+});
+test('138 Skeleton Defender stats/state', () => {
+  srcHas('skeletonDefender');
+  G.startLevel(3);
+  const df = G.getEnemies().find((e) => e.kind === 'skeletonDefender');
+  ok(df, 'defender harus ada di L3');
+  eq(df.hp, 70);
+  ok(df.st.patrol < 55 && df.st.chase < 110, 'lebih lambat dari swordsman');
+  ok(df.st.dmg < 12, 'damage lebih rendah dari swordsman');
+  ok(df.st.guard && df.st.guard.block > 0, 'guard config ada');
+  G.startLevel(1);
+});
+test('139 Skeleton Archer stats/state', () => {
+  srcHas('skeletonArcher');
+  G.startLevel(3);
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  ok(ar, 'archer harus ada di L3');
+  eq(ar.hp, 25);
+  ok(['patrol', 'chase', 'shoot'].includes(ar.state), 'state archer valid: ' + ar.state);
+  ok(ar.st.cooldown >= 2.0, 'fire cooldown jelas: ' + ar.st.cooldown);
+  G.startLevel(1);
+});
+test('140 Archer projectile lifecycle', () => {
+  G.startLevel(3);
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  ok(ar, 'pra-kondisi archer');
+  eq(G.getShots().length, 0, 'awal steril');
+  // Paksa telegraph -> tembak tepat waktu (bukan tiap frame).
+  ar.state = 'shoot'; ar.atkT = 0; ar.cooldown = 0;
+  const pl = G.getPlayer();
+  pl.x = ar.x + 200; pl.y = 402; pl.iframes = 9999;
+  G.step(1 / 60);
+  ok(G.getShots().length <= 1, 'maks 1 per telegraph, got ' + G.getShots().length);
+  // Isolasi lifetime: bekukan archer agar tak menembak lagi.
+  ar.state = 'patrol'; ar.cooldown = 9999;
+  pl.x = 80; pl.y = 300;
+  for (let i = 0; i < 200; i++) G.step(1 / 60);
+  eq(G.getShots().length, 0, 'expired harus cleanup');
+  // Pool bounded: spam spawn tak boleh >10.
+  for (let k = 0; k < 20; k++) G.spawnShot(100, 400, 1, 'arrow');
+  ok(G.getShots().length <= 10, 'pool bounded, got ' + G.getShots().length);
+  pl.iframes = 0;
+  G.startLevel(1);
+});
+test('141 Defender block frontal vs belakang', () => {
+  G.startLevel(3);
+  const df = G.getEnemies().find((e) => e.kind === 'skeletonDefender');
+  ok(df, 'pra-kondisi defender');
+  df.state = 'chase'; df.dir = 1; df.iframes = 0;
+  const cx = df.x + df.w / 2;
+  const hp0 = df.hp;
+  // Serang dari depan (kanan, dir=1) -> direduksi + guardFlash.
+  G.hurtEnemy(df.id, 12, cx + 100);
+  ok(df.hp > hp0 - 12, 'depan harus direduksi, hp=' + df.hp);
+  ok(df.guardFlash > 0, 'visual cue block harus nyala');
+  df.iframes = 0;
+  const hp1 = df.hp;
+  // Serang dari belakang -> penuh.
+  G.hurtEnemy(df.id, 12, cx - 100);
+  eq(df.hp, hp1 - 12, 'belakang harus penuh');
+  G.startLevel(1);
+});
+test('142 Miniboss spawn/state', () => {
+  srcHas('PANGLIMA TULANG');
+  G.startLevel(4);
+  const m = G.getMiniboss();
+  ok(m, 'miniboss harus spawn di L4');
+  eq(m.name, 'PANGLIMA TULANG'); eq(m.hp, 90);
+  ok(['idle', 'telegraph', 'slash', 'dash', 'recovery'].includes(m.state) || m.state === 'idle', 'state=' + m.state);
+  eq(m.introduced, false, 'belum intro di spawn');
+  // Masuk arena -> intro sekali.
+  const pl = G.getPlayer();
+  pl.x = 1100; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+  for (let i = 0; i < 30; i++) G.step(1 / 60);
+  eq(G.getMiniboss().introduced, true, 'intro jalan saat masuk arena');
+  pl.iframes = 0;
+  G.startLevel(1);
+});
+test('143 Miniboss death flow', () => {
+  G.startLevel(4);
+  const m = G.getMiniboss();
+  m.iframes = 0;
+  // Non-lethal -> hurt, bukan death.
+  G.hurtMiniboss(20, m.x + 200);
+  ok(m.state !== 'death', 'non-lethal jangan death');
+  // Killing blow -> death -> dead + kill terhitung, tanpa enrage ganda.
+  for (let k = 0; k < 10 && m.state !== 'death'; k++) { m.iframes = 0; G.hurtMiniboss(30, m.x + 200); }
+  eq(m.state, 'death');
+  const k0 = G.getStats().levelKills;
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  eq(m.dead, true, 'death -> dead');
+  ok(G.getStats().levelKills >= k0, 'kill terhitung');
+  G.startLevel(1);
+});
+test('144 Raja Lich intro sekali', () => {
+  srcHas('RAJA LICH');
+  G.startLevel(4);
+  const b = G.getBoss();
+  ok(b && b.kind === 'lich', 'L4 boss harus lich');
+  eq(b.state, 'dormant'); eq(b.introduced, false);
+  for (let i = 0; i < 30; i++) G.step(1 / 60);
+  eq(b.introduced, false, 'jauh dari arena jangan intro');
+  const pl = G.getPlayer();
+  pl.x = 1900; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+  G.step(1 / 60);
+  eq(b.introduced, true, 'masuk arena -> intro');
+  eq(b.state, 'idle', 'intro selesai -> idle (tidak langsung serang)');
+  pl.iframes = 0;
+  G.startLevel(1);
+});
+test('145 Raja Lich phase 2', () => {
+  G.startLevel(4);
+  const b = G.getBoss();
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = 2000; pl.y = 402;
+  for (let i = 0; i < 10; i++) G.step(1 / 60); // intro selesai
+  b.iframes = 0;
+  // HP 160 -> 100 (62.5%) lewati threshold 65%.
+  G.hurtBoss(60, b.x - 100);
+  eq(G.getLichPhase(), 2, 'hp 100/160 harus phase 2');
+  ok(b.phase >= 2, 'phase tercatat');
+  pl.iframes = 0;
+  G.startLevel(1);
+});
+test('146 Raja Lich phase 3 enrage', () => {
+  G.startLevel(4);
+  const b = G.getBoss();
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = 2000; pl.y = 402;
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  b.iframes = 0; G.hurtBoss(60, b.x - 100); // -> P2
+  b.iframes = 0; G.hurtBoss(60, b.x - 100); // 40/160 = 25% -> P3
+  eq(G.getLichPhase(), 3, 'hp rendah harus phase 3');
+  eq(b.enraged, true, 'P3 harus enraged');
+  pl.iframes = 0;
+  G.startLevel(1);
+});
+test('147 Raja Lich death priority', () => {
+  G.startLevel(4);
+  const b = G.getBoss();
+  b.hp = 45; b.phase = 1; b.enraged = false; b.iframes = 0;
+  G.hurtBoss(50, b.x - 100); // killing blow lewati threshold
+  eq(b.state, 'death', 'killing blow -> death');
+  eq(b.enraged, false, 'killing blow jangan enrage');
+  G.startLevel(4);
+  const b2 = G.getBoss();
+  b2.iframes = 0;
+  G.hurtBoss(60, b2.x - 100); // 100/160 non-lethal di bawah 65%
+  ok(b2.phase >= 2, 'non-lethal tetap phase-up');
+  G.startLevel(1);
+});
+test('148 Level 4 completion -> unlock L5', () => {
+  G.resetSave();
+  lichKillFlow();
+  eq(G.getState(), 'levelcomplete', 'lich mati -> L4 complete');
+  eq(G.getSave().level4Completed, true);
+  eq(G.canPlayLevel(5), true);
+  G.resetSave();
+});
+test('149 Level 5 mixed slime + skeleton', () => {
+  G.startLevel(5);
+  eq(G.getLevelCount(), 5, 'campaign 5 level');
+  const es = G.getEnemies();
+  eq(es.length, 6, 'L5 6 enemy pacing, got ' + es.length);
+  const kinds = es.map((e) => e.kind);
+  ok(kinds.includes('slime') || kinds.includes('fast') || kinds.includes('heavy'), 'slime faction ada: ' + kinds);
+  ok(kinds.includes('skeletonSword') || kinds.includes('skeletonDefender') || kinds.includes('skeletonArcher'), 'skeleton faction ada: ' + kinds);
+  ok(kinds.includes('skeletonDefender') && kinds.includes('skeletonArcher'), 'defender+archer mixed: ' + kinds);
+  G.startLevel(1);
+});
+test('150 Final sequence slime -> lich tanpa duplikat', () => {
+  G.startLevel(5);
+  eq(G.getFinalPhase(), 'slime', 'awal fase slime');
+  for (let k = 0; k < 10 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 120; i++) G.step(1 / 60); // death + interlude
+  eq(G.getFinalPhase(), 'inter', 'slime tumbang -> inter (tanpa victory dulu)');
+  for (let i = 0; i < 160; i++) G.step(1 / 60); // 2 dtk -> lich spawn
+  const b = G.getBoss();
+  ok(b && b.kind === 'lich', 'lich kedua spawn');
+  eq(G.getFinalPhase(), 'lich');
+  eq(G.getShots().length, 0, 'transisi steril tanpa stale projectile');
+  G.startLevel(1);
+});
+test('151 Final Game Complete setelah kedua raja', () => {
+  G.resetSave();
+  finalKillFlow();
+  eq(G.getState(), 'gamecomplete', 'L5 selesai -> gamecomplete');
+  ok(!elements['gameclear'].classList.contains('hidden'), 'victory screen tampil');
+  G.startLevel(1);
+  G.resetSave();
+});
+test('152 save/load Level 3-5 progression', () => {
+  G.resetSave();
+  completeL1Flow(); bossKillFlow(); // unlock L3
+  G.startLevel(3);
+  let pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400;
+  G.step(1 / 60); // L3 clear -> L4 unlock
+  lichKillFlow(); // L4 clear -> L5 unlock
+  eq(G.canPlayLevel(5), true);
+  G.reloadSave();
+  eq(G.canPlayLevel(3), true); eq(G.canPlayLevel(4), true); eq(G.canPlayLevel(5), true);
+  eq(G.getSave().level3Completed, true); eq(G.getSave().level4Completed, true);
+  G.resetSave();
+});
+test('153 old save v1 migrasi aman', () => {
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 12.5, level1Completed: true, level2Unlocked: true, sfxVolume: 80 }));
+  noThrow(() => G.reloadSave());
+  const s = G.getSave();
+  eq(s.version, 2, 'migrasi ke v2');
+  eq(s.bestL1, 12.5, 'best lama lestari');
+  eq(s.level1Completed, true); eq(s.level2Unlocked, true);
+  eq(s.level3Unlocked, false, 'field baru default terkunci');
+  eq(s.bestL3, null); eq(s.sfxVolume, 80, 'settings lama lestari');
+  noThrow(() => { G.startLevel(3); G.step(1 / 60); });
+  G.resetSave();
+});
+test('154 no duplicate BGM saat transisi level', () => {
+  G.resetSave(); G.toMenu();
+  G.fx.audio.setMusic(true, 70);
+  ensureAudioCtx();
+  G.fx.audio.startMusic();
+  const s0 = G.fx.audio.musicInfo().starts;
+  // Pindah L1..L5 + respawn: scheduler tetap satu, tanpa re-init.
+  G.startLevel(1); G.startLevel(2); G.startLevel(3); G.startLevel(4); G.startLevel(5); G.respawn();
+  eq(G.fx.audio.musicInfo().starts, s0, 'transisi jangan restart BGM');
+  eq(G.fx.audio.musicInfo().playing, true);
+  // Mood ikut level tanpa duplikat.
+  G.startLevel(3);
+  eq(G.fx.audio.getMood(), 1, 'L3 dungeon mood');
+  G.startLevel(5);
+  eq(G.fx.audio.getMood(), 2, 'L5 final mood');
+  eq(G.fx.audio.musicInfo().starts, s0, 'ganti mood jangan restart');
+  G.toMenu(); G.resetSave();
 });
 
 // ---------- Ringkasan ----------
