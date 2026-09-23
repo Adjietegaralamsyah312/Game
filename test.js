@@ -189,7 +189,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 132; // total test (131 lama + 1 grounding)
+const EXPECTED_TOTAL = 133; // total test (132 lama + 1 platform)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -914,12 +914,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('132 automated test'), 'README harus sebut 132 test, cek jumlah');
+  ok(readme.includes('133 automated test'), 'README harus sebut 133 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 132);
+  eq(EXPECTED_TOTAL, 133);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1267,6 +1267,26 @@ test('132 kaki sprite napak tanah (offset dari kode asli)', () => {
   eq(feet, 78, 'kaki (offset +' + X + ') harus tepat di tanah y+78');
   // Squash: bawah dipin di tanah (offset 0, dh=88).
   ok(src.includes('squashing ? 0 :'), 'squash harus pin bawah di tanah');
+});
+
+// ---------- 1 TEST PLATFORM ARENA ----------
+test('133 platform arena boss terjangkau lompatan', () => {
+  // Regresi: top 350 lama = 130px dari tanah > lompat riil ~121px (mustahil).
+  // Top 365 = langkah 115px, konsisten dengan platform lain.
+  G.startLevel(2);
+  const pl = G.getPlayer();
+  pl.x = 1990; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+  G.input.right = true; G.input.jumpHeld = true; G.input.jumpPressed = true;
+  let landed = false, dead = false;
+  for (let i = 0; i < 150; i++) {
+    G.step(1 / 60);
+    if (pl.state === 'death') { dead = true; break; }
+    if (pl.onGround && Math.abs(pl.y - (365 - 78)) < 3) { landed = true; break; }
+  }
+  G.input.right = false; G.input.jumpHeld = false;
+  ok(!dead, 'lompat ke platform tak boleh mati');
+  ok(landed, 'harus mendarat di platform (y~=287)');
+  G.restart();
 });
 
 // ---------- Ringkasan ----------

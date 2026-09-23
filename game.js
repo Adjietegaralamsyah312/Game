@@ -615,7 +615,9 @@
       { x: 1330, y: 297, w: 130, h: 20 },
       { x: 1560, y: 365, w: 130, h: 20 },
       { x: 1690, y: 290, w: 120, h: 20 },
-      { x: 2050, y: 350, w: 140, h: 20 }    // pijakan taktik di arena boss
+      { x: 2050, y: 365, w: 140, h: 20 }    // pijakan taktik di arena boss
+      // NOTE: langkah dari tanah 115px (batas lompat riil ~121px).
+      // Jangan di atas y=365 — tak terjangkau dan jadi dekorasi mati.
     ],
     enemySpawns: [
       { type: 'fast',  x: 700,  y: 448, minX: 560,  maxX: 960  }, // solo: tekanan mobilitas
