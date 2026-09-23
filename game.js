@@ -577,14 +577,15 @@
     goal: { x: 2280, baseY: 480, w: 70, h: 120 },
     bossSpawn: null,
     bossArena: null,
-    // Gold Shard: titik melayang di rute aman (tidak mengubah collision).
+    // Gold Shard: mudah = eksplorasi, menengah = traversal,
+    // sulit = risk/reward (HARD di atas celah — diambil sambil melompat).
     shards: [
-      { x: 250, y: 430 },   // tanah start
-      { x: 350, y: 258 },   // atas platform 300,300
-      { x: 720, y: 420 },   // tanah tengah
-      { x: 1250, y: 430 },  // arena
-      { x: 1470, y: 258 },  // atas platform arena
-      { x: 2200, y: 430 }   // dekat goal
+      { x: 250, y: 430 },   // tanah start (mudah)
+      { x: 350, y: 258 },   // atas platform 300,300 (menengah)
+      { x: 565, y: 378 },   // atas CELAH 1: lompat untuk mengambil (sulit)
+      { x: 1250, y: 430 },  // arena combat (lawan Slime)
+      { x: 1470, y: 258 },  // atas platform arena (menengah)
+      { x: 2200, y: 430 }   // dekat goal (menengah)
     ]
   };
   /* Level 2 (Stage 5): traversal baru + encounter varian + arena boss.
@@ -617,9 +618,9 @@
       { x: 2050, y: 350, w: 140, h: 20 }    // pijakan taktik di arena boss
     ],
     enemySpawns: [
-      { type: 'fast',  x: 700,  y: 448, minX: 560,  maxX: 960  },
-      { type: 'heavy', x: 1250, y: 440, minX: 1130, maxX: 1480 },
-      { type: 'fast',  x: 1620, y: 448, minX: 1540, maxX: 1790 }
+      { type: 'fast',  x: 700,  y: 448, minX: 560,  maxX: 960  }, // solo: tekanan mobilitas
+      { type: 'heavy', x: 1250, y: 440, minX: 1130, maxX: 1560 }, // solo: tekanan ruang/timing
+      { type: 'fast',  x: 1620, y: 448, minX: 1500, maxX: 1790 }  // kombo: overlap 1500-1560 vs heavy
     ],
     checkpoints: [
       { x: 1140, baseY: 480, w: 34, h: 96, activated: false }, // tengah
@@ -644,6 +645,24 @@
   // Pointer level aktif — seluruh sistem (fisika, kamera, render) membaca
   // dari sini sehingga ganti level = tukar pointer + reset state.
   var Level = Levels[0];
+
+  /* Stage 8: identitas visual per level (data saja, pixel-art compatible).
+   * Level 1 = cerah (fantasy onboarding); Level 2 = gelap/mengancam
+   * (foreshadowing boss). Tanpa texture system baru. */
+  var LEVEL_THEME = [
+    { sky: ['#1b2350', '#2b3370', '#3a3f7d'],
+      ground: '#4a3b6b', grass: '#5ec46f', grassD: '#3f9e52',
+      plat: '#4d5aa8', platTop: '#7c8cf0', platD: '#5b6ac4',
+      moon: '#f4f1d8', moonD: '#d9d4b5' },
+    { sky: ['#100c28', '#221542', '#3d1f4d'],
+      ground: '#33244d', grass: '#a04d5e', grassD: '#5c2f47',
+      plat: '#3a2f5c', platTop: '#6b5a9e', platD: '#463a75',
+      moon: '#e08a7a', moonD: '#a05a4a' }
+  ];
+
+  function levelTheme() {
+    return LEVEL_THEME[currentLevel - 1] || LEVEL_THEME[0];
+  }
 
   /* ====================== 7. FISIKA & COLLISION ====================== */
   function moveAndCollide(body, dt, platforms) {
@@ -725,6 +744,8 @@
     player.hp -= amount;
     AudioManager.play('hurt');
     triggerScreenShake(SHAKE_HURT, 0.25);
+    // Feedback jelas saat terkena: cipratan merah (pool bounded).
+    burst(player.x + player.w / 2, player.y + player.h / 2, 6, '#e05252', 150, 0.4, 3, 300);
     if (player.hp <= 0) {
       player.hp = 0;
       player.state = 'death';
@@ -1469,7 +1490,8 @@
       atkT: 0, recT: 0, recDur: 0.6,
       pattern: 'strike', patIdx: 0, cooldown: 1.0,
       hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
-      enraged: false, dead: false
+      enraged: false, dead: false,
+      introduced: false, dustT: 0 // intro arena + debu charge (visual saja)
     };
   }
 
@@ -1513,6 +1535,8 @@
     b.vx = dir * ATTACK_KNOCKBACK * (b.enraged ? 0.25 : 0.4);
     b.vy = -240;
     b.onGround = false;
+    // Boss terkena: feedback lebih kuat (shake + yang sudah ada).
+    triggerScreenShake(SHAKE_HIT, 0.12);
     return true;
   }
 
@@ -1547,6 +1571,13 @@
       b.vx = 0;
       b.idleT += dt;
       b.dir = px >= bx ? 1 : -1;
+      // Opening: presentasi saat pemain memasuki zona boss (sekali per boss).
+      if (!b.introduced && player.x > b.arenaMin - 120) {
+        b.introduced = true;
+        showToast('RAJA SLIME MUNCUL!');
+        AudioManager.play('bossAttack');
+        triggerScreenShake(SHAKE_HURT, 0.3);
+      }
       if (b.idleT >= 0.5 && b.cooldown <= 0 && bossSeesPlayer(b)) {
         b.pattern = BOSS_PATTERNS[b.patIdx % BOSS_PATTERNS.length];
         b.patIdx++;
@@ -1577,6 +1608,15 @@
       b.atkT += dt;
       if (b.atkT < 0.45 && !b.hitWall) {
         b.vx = b.dir * 380 * spdMul;
+        // Enrage terasa beda: debu charge (visual saja, pool bounded).
+        if (b.enraged) {
+          b.dustT -= dt;
+          if (b.dustT <= 0) {
+            b.dustT = 0.08;
+            spawnParticle(b.x + b.w / 2, b.y + b.h - 2,
+              (Math.random() * 2 - 1) * 60, -40, 0.4, '#8a7a9e', 3, 200);
+          }
+        }
         // Contact damage sekali per charge.
         if (!b.struckPlayer && player.state !== 'death') {
           setR(_r1, b.x, b.y, b.w, b.h);
@@ -2179,19 +2219,21 @@
     return renderScale;
   }
 
-  // Langit dibuat sekali di boot (tidak dialokasi per-frame).
+  // Langit dibuat sekali di boot per level (tidak dialokasi per-frame).
   var skyGrad = null;
+  var skyGrads = [null, null];
 
   // Langit + layer JAUH (0.2) + layer TENGAH (0.5): screen-space dengan
   // offset sendiri. Ringan: ~70 bintang + 9 bukit, culling di luar layar.
   function drawSkyFarMid() {
-    ctx.fillStyle = skyGrad || '#232a5c';
+    var th = levelTheme();
+    ctx.fillStyle = skyGrads[currentLevel - 1] || skyGrad || '#232a5c';
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     var cx = camera.x, i, sx;
-    // Bulan (layer jauh).
-    ctx.fillStyle = '#f4f1d8';
+    // Bulan (layer jauh) — merah darah di Level 2.
+    ctx.fillStyle = th.moon;
     ctx.fillRect(Math.round(750 - cx * PAR_FAR), 50, 44, 44);
-    ctx.fillStyle = '#d9d4b5';
+    ctx.fillStyle = th.moonD;
     ctx.fillRect(Math.round(762 - cx * PAR_FAR), 62, 10, 10);
     ctx.fillStyle = '#8f97d6';
     for (i = 0; i < decorFar.length; i++) {
@@ -2223,14 +2265,15 @@
   }
 
   function drawPlatforms() {
+    var th = levelTheme();
     for (var i = 0; i < Level.platforms.length; i++) {
       var p = Level.platforms[i];
       var isGround = (p.h > 30);
-      ctx.fillStyle = isGround ? '#4a3b6b' : '#4d5aa8';
+      ctx.fillStyle = isGround ? th.ground : th.plat;
       ctx.fillRect(p.x, p.y, p.w, p.h);
-      ctx.fillStyle = isGround ? '#5ec46f' : '#7c8cf0';
+      ctx.fillStyle = isGround ? th.grass : th.platTop;
       ctx.fillRect(p.x, p.y, p.w, 6);
-      ctx.fillStyle = isGround ? '#3f9e52' : '#5b6ac4';
+      ctx.fillStyle = isGround ? th.grassD : th.platD;
       ctx.fillRect(p.x, p.y + 6, p.w, 3);
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
@@ -2505,6 +2548,15 @@
     ctx.fillRect(fx, g - 150, 40, 26);
     ctx.fillStyle = '#ffd23f';
     ctx.fillRect(fx + 8, g - 144, 24, 6);
+    // Obor arena: api 2-frame tanpa alokasi (flicker waktu, murah).
+    var fl = Math.floor(nowPerf() / 180) % 2;
+    var fh = fl ? 14 : 10;
+    ctx.fillStyle = '#e0682a';
+    ctx.fillRect(Level.bossArena.minX - 11, g - 120 - fh, 8, fh);
+    ctx.fillRect(Level.bossArena.maxX + 3, g - 120 - fh, 8, fh);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(Level.bossArena.minX - 9, g - 120 - fh, 4, fh - 4);
+    ctx.fillRect(Level.bossArena.maxX + 5, g - 120 - fh, 4, fh - 4);
   }
 
   // HUD modern (screen-space, tidak ikut kamera): HP + progress + slime.
@@ -3074,13 +3126,19 @@
   });
   window.addEventListener('orientationchange', function () { setupCanvas(); });
 
-  // Gradien langit dibuat sekali (bukan per-frame).
+  // Gradien langit dibuat sekali per level (bukan per-frame).
   try {
-    skyGrad = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-    skyGrad.addColorStop(0, '#1b2350');
-    skyGrad.addColorStop(0.6, '#2b3370');
-    skyGrad.addColorStop(1, '#3a3f7d');
-  } catch (e) { skyGrad = null; }
+    for (var gi = 0; gi < LEVEL_THEME.length; gi++) {
+      (function (idx) {
+        var gr = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+        gr.addColorStop(0, LEVEL_THEME[idx].sky[0]);
+        gr.addColorStop(0.6, LEVEL_THEME[idx].sky[1]);
+        gr.addColorStop(1, LEVEL_THEME[idx].sky[2]);
+        skyGrads[idx] = gr;
+      })(gi);
+    }
+    skyGrad = skyGrads[0];
+  } catch (e) { skyGrad = null; skyGrads = [null, null]; }
 
   // Audio unlock saat interaksi pertama (autoplay policy). Sekali saja.
   ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {

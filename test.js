@@ -189,7 +189,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 123; // total test (118 lama + 5 audit)
+const EXPECTED_TOTAL = 129; // total test (123 lama + 6 Stage 8)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -914,12 +914,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('123 automated test'), 'README harus sebut 123 test, cek jumlah');
+  ok(readme.includes('129 automated test'), 'README harus sebut 129 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 123);
+  eq(EXPECTED_TOTAL, 129);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1161,6 +1161,82 @@ test('123 R2: key lama dibersihkan, save aktif utuh', () => {
   eq(s.bestL1, 12.5); eq(s.level2Unlocked, true);
   noThrow(() => { G.startLevel(1); G.step(1 / 60); });
   G.resetSave();
+});
+
+// ---------- 6 TEST STAGE 8 (feel + konten) ----------
+test('124 shard celah L1 terjangkau lompat normal', () => {
+  G.startLevel(1);
+  const before = G.getShards().got;
+  const pl = G.getPlayer();
+  pl.x = 470; pl.y = 402; pl.vx = 0; pl.vy = 0;
+  G.input.right = true; G.input.jumpHeld = true; G.input.jumpPressed = true;
+  let dead = false;
+  for (let i = 0; i < 120 && G.getShards().got === before; i++) {
+    G.step(1 / 60);
+    if (pl.state === 'death') dead = true;
+  }
+  ok(!dead, 'lompat shard tak boleh mati');
+  eq(G.getShards().got, before + 1, 'tepat 1 shard celah terambil');
+  // Lanjutkan hingga mendarat (koleksi terjadi di tengah lompatan).
+  for (let i = 0; i < 120 && !pl.onGround && pl.state !== 'death'; i++) {
+    G.step(1 / 60);
+    if (pl.state === 'death') dead = true;
+  }
+  G.input.right = false; G.input.jumpHeld = false;
+  ok(!dead, 'harus mendarat selamat');
+  ok(pl.onGround && pl.x + pl.w > 610, 'mendarat di sisi jauh celah, x=' + Math.round(pl.x));
+  G.restart();
+});
+test('125 encounter L2: solo fast, solo heavy, kombo overlap', () => {
+  G.startLevel(2);
+  const es = G.getEnemies();
+  eq(es.length, 3);
+  const solo = es[0], heavy = es[1], combo = es[2];
+  eq(solo.kind, 'fast'); eq(heavy.kind, 'heavy'); eq(combo.kind, 'fast');
+  ok(solo.maxX < heavy.minX, 'fast solo terpisah dari arena heavy');
+  ok(heavy.maxX >= combo.minX,
+    'zona kombo harus overlap: heavy.maxX=' + heavy.maxX + ' fast.minX=' + combo.minX);
+  [solo, heavy, combo].forEach((s) => {
+    ok(s.minX >= 0 && s.maxX <= 2400 && s.minX < s.maxX, 'zona valid');
+  });
+  G.restart();
+});
+test('126 intro boss sekali saat masuki zona arena', () => {
+  G.startLevel(2);
+  eq(G.getBoss().introduced, false);
+  for (let i = 0; i < 30; i++) G.step(1 / 60); // pemain jauh di spawn
+  eq(G.getBoss().introduced, false, 'jauh dari arena: belum intro');
+  const pl = G.getPlayer();
+  pl.x = 1900; pl.y = 402; pl.vx = 0; pl.vy = 0; // gerbang arena
+  G.step(1 / 60);
+  eq(G.getBoss().introduced, true, 'masuk zona: intro jalan');
+  G.restart();
+});
+test('127 tema visual per level (data-driven, loop aman)', () => {
+  srcHas('LEVEL_THEME');
+  srcHas('skyGrads');
+  ok(/#4a3b6b/.test(src) && /#33244d/.test(src), 'palet ground L1/L2 berbeda');
+  G.startLevel(1);
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  G.startLevel(2);
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  eq(G.getState(), 'playing');
+  G.restart();
+});
+test('128 copy meta/OG sesuai konten kini', () => {
+  const desc = html.match(/name="description" content="([^"]*)"/)[1];
+  ok(/2 level/i.test(desc) && /RAJA SLIME/.test(desc) && /Shard/i.test(desc), 'description basi: ' + desc);
+  ok(!/3 slime/.test(desc), 'copy lama 3-slime harus hilang');
+  const og = html.match(/property="og:description" content="([^"]*)"/)[1];
+  ok(/RAJA SLIME/.test(og) && !/3 slime/.test(og), 'og basi: ' + og);
+});
+test('129 feedback Terkena: partikel + shake boss', () => {
+  G.restart(); // pool partikel bersih
+  const c0 = G.fx.count();
+  G.hurtPlayer(10, G.getPlayer().x + 200);
+  ok(G.fx.count() > c0, 'hurt harus burst partikel');
+  srcHas('triggerScreenShake(SHAKE_HIT, 0.12)'); // boss hit lebih kuat
+  G.restart();
 });
 
 // ---------- Ringkasan ----------

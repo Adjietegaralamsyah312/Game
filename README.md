@@ -13,12 +13,14 @@ gunakan checkpoint, kalahkan **RAJA SLIME**).
 
 - Menu utama (PLAY / CONTROLS / SETTINGS / ABOUT, navigasi keyboard + sentuh)
 - 2 level + transisi fade, reset level tanpa reload browser
-- Level 1: layout original + rute 6 Gold Shard
-- Level 2: traversal baru, 3 celah, checkpoint, arena boss
+- Level 1: layout original cerah (onboarding) + 6 Gold Shard tier
+  mudah/menengah/sulit (satu di atas celah = risk/reward)
+- Level 2: tema gelap + blood moon, traversal baru, 3 celah, checkpoint,
+  encounter Fast solo / Heavy solo / kombo Fast+Heavy, arena boss berobor
 - Varian musuh reusable: Fast Slime (cepat, HP rendah), Heavy Slime
   (kuat, tahan knockback, telegraph jelas); slime klasik tak berubah
-- Boss RAJA SLIME: HP bar, 3 pola (strike, charge, shockwave), telegraph,
-  enrage di HP rendah, death FX + kemenangan
+- Boss RAJA SLIME: intro arena, HP bar, 3 pola (strike, charge, shockwave),
+  telegraph, enrage (visual + debu charge), death FX + kemenangan
 - Collectible Gold Shard (counter `got/total` di HUD) + suara pickup
 - Stats per-level & total (musuh, shard, waktu, mati) + best lokal
 - Layar Level Complete (NEXT/REPLAY/MENU) & Game Complete (PLAY AGAIN/MENU)
@@ -91,7 +93,7 @@ knight_game/
 ├── index.html          # kanvas + overlay (menu/settings/clear) + metadata
 ├── game.js             # seluruh game (menu, 2 level, varian, boss, save, BGM)
 ├── style.css           # tema + responsif + safe-area Android
-├── test.js             # 123 automated test headless (node test.js)
+├── test.js             # 129 automated test headless (node test.js)
 ├── README.md           # file ini
 └── assets/knight/      # 18 sprite PNG (idle/run/jump/fall/attack/hurt/death)
 ```
@@ -116,7 +118,7 @@ node test.js
 git diff --check
 ```
 
-123 automated test (118 dasar/responsif/settings/BGM/menu + 5 regression audit) —
+129 automated test (123 dasar/responsif/settings/BGM/menu/audit + 6 Stage 8) —
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
