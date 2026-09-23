@@ -2349,13 +2349,15 @@
     var img = playerCurrentSprite();
     if (!img) return;
     // Squash pendaratan + napas idle (polish: offset piksel bulat, murah).
+    var squashing = player.landT > 0;
     var dw = PLAYER_DRAW, dh = PLAYER_DRAW;
-    if (player.landT > 0) { dw = PLAYER_DRAW + 8; dh = PLAYER_DRAW - 8; }
+    if (squashing) { dw = PLAYER_DRAW + 8; dh = PLAYER_DRAW - 8; }
     var dx = Math.round(player.x + player.w / 2 - dw / 2);
     // Kaki menapak tanah: baris opaque terbawah sprite (baris 26 dari 32,
-    // terukur) harus tepat di hitbox bawah: dy + 27*3 = y + 78 -> +3.
-    // (+6 lama membuat kaki melayang ~9px di atas tanah.)
-    var dy = Math.round(player.y + player.h - dh + 3);
+    // tepi bawah = 81px dari atas sprite 96px) harus tepat di hitbox bawah:
+    // dy + 81 = y + 78  ->  offset +15 (h-dh = -18). Saat squash, bawah
+    // dipin di tanah agar gepeng melebar, bukan tenggelam.
+    var dy = Math.round(player.y + player.h - dh + (squashing ? 0 : 15));
     if (player.state === 'idle') dy += Math.round(Math.sin(player.animTime * 9));
     var cx = dx + dw / 2;
     drawFacing(function () {

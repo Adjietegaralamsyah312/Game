@@ -189,7 +189,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 131; // total test (129 lama + 2 audit)
+const EXPECTED_TOTAL = 132; // total test (131 lama + 1 grounding)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -914,12 +914,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('131 automated test'), 'README harus sebut 131 test, cek jumlah');
+  ok(readme.includes('132 automated test'), 'README harus sebut 132 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 131);
+  eq(EXPECTED_TOTAL, 132);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1254,6 +1254,19 @@ test('131 hygiene: tanpa field mati + aria dialog unik', () => {
   ok(!/removeT/.test(src), 'removeT tak-terbaca harus hilang');
   const labels = [...html.matchAll(/role="dialog" aria-label="([^"]*)"/g)].map((m) => m[1]);
   eq(new Set(labels).size, labels.length, 'aria-label dialog duplikat: ' + labels);
+});
+
+// ---------- 1 TEST REGRESI GROUNDING SPRITE ----------
+test('132 kaki sprite napak tanah (offset dari kode asli)', () => {
+  // Ambil offset sesungguhnya dari rumus drawPlayer, bukan asumsi:
+  // dy = y + h - dh + X  ->  kaki = h - dh + X + 81 (baris opaque 26, terukur).
+  const m = src.match(/player\.y \+ player\.h - dh \+ \(squashing \? 0 : (\d+)\)/);
+  ok(m, 'rumus offset drawPlayer harus terbaca');
+  const X = parseInt(m[1], 10);
+  const feet = 78 - 96 + X + 81; // h=78, dh=96, tepi bawah sprite 81px
+  eq(feet, 78, 'kaki (offset +' + X + ') harus tepat di tanah y+78');
+  // Squash: bawah dipin di tanah (offset 0, dh=88).
+  ok(src.includes('squashing ? 0 :'), 'squash harus pin bawah di tanah');
 });
 
 // ---------- Ringkasan ----------
