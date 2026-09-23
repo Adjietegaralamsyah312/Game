@@ -38,7 +38,8 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
   Coin (+5, HUD & total persist) / Health (+30, clamp max) / Poison (−HP, min 1)
 - 6 enemy archetype: Slime, Fast Slime, Heavy Slime,
   Skeleton Swordsman, Skeleton Defender, Skeleton Archer
-  (sprite PNG dark-fantasy di `assets/sprites/`, 2-frame walk/aim/guard)
+  (sprite PNG dark-fantasy di `assets/sprites/`; walk + windup/strike,
+  guard, aim/release; miniboss slash/dash; lich cast/strike)
 - Boss RAJA SLIME: intro sekali, HP bar, strike/charge/shockwave, telegraph, enrage
 - Collectible Gold Shard (`got/total` di HUD) + suara pickup
 - Stats per-level & total (musuh, shard, waktu, mati) + best lokal
@@ -120,7 +121,7 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 193 automated test headless (node test.js)
+├── test.js             # 197 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
@@ -158,7 +159,7 @@ node test.js
 git diff --check
 ```
 
-193 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction) —
+197 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame) —
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan

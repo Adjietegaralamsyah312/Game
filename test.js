@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 193 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 197 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/shard/stats/transisi) + 7 responsif
@@ -204,7 +204,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 193; // total test (192 + 1 attack-direction)
+const EXPECTED_TOTAL = 197; // total test (193 + 4 attack-frame)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -356,11 +356,12 @@ test('55 pixel-art tajam (smoothing OFF + pixelated CSS)', () => {
 
 // Audio & aset (56-57)
 test('56 AudioManager.play aman tanpa ctx', () => noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('tidak-ada'); }));
-test('57 31 PNG dimuat sekali via Promise.all (knight 18 + undead/chest 13)', () => {
-  eq(imageInstances.length, 31, 'Image instans harus 31, got ' + imageInstances.length);
+test('57 39 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/reward 13 + attack 8)', () => {
+  eq(imageInstances.length, 39, 'Image instans harus 39, got ' + imageInstances.length);
   srcHas('Promise.all'); srcHas('assets/knight/idle_0.png'); srcHas('assets/knight/death_1.png');
   srcHas('assets/sprites/skeleton-sword.png'); srcHas('assets/sprites/raja-lich.png');
   srcHas('assets/sprites/treasure-chest.png'); srcHas('assets/sprites/coin.png');
+  srcHas('assets/sprites/skeleton-sword-strike.png'); srcHas('assets/sprites/raja-lich-cast.png');
 });
 
 // ---------- 8 TEST BARU TAHAP 4 ----------
@@ -986,12 +987,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('193 automated test'), 'README harus sebut 193 test, cek jumlah');
+  ok(readme.includes('197 automated test'), 'README harus sebut 197 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 193);
+  eq(EXPECTED_TOTAL, 197);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2222,6 +2223,67 @@ test('193 serang membelakangi chest tidak membuka + tanpa self-harm', () => {
   eq(c.state, 'closed', 'membelakangi = tetap closed');
   eq(pl.hp, hp0, 'serangan sendiri tanpa self-harm');
   pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+
+test('194 frame serangan sword/defender: windup->strike->recovery', () => {
+  const F = G.foeFrameFor;
+  eq(F('skeletonSword', 'attack', { atkT: 0.1, windup: 0.4, strike: 0.14 }).join(','), 'skelSword,2', 'windup angkat');
+  eq(F('skeletonSword', 'attack', { atkT: 0.45, windup: 0.4, strike: 0.14 }).join(','), 'skelSword,3', 'strike tebas');
+  eq(F('skeletonSword', 'attack', { atkT: 0.9, windup: 0.4, strike: 0.14 }).join(','), 'skelSword,0', 'recovery idle');
+  eq(F('skeletonDefender', 'attack', { atkT: 0.1, windup: 0.45, strike: 0.16 }).join(','), 'skelDef,0');
+  eq(F('skeletonDefender', 'attack', { atkT: 0.5, windup: 0.45, strike: 0.16 }).join(','), 'skelDef,2', 'shield-bash');
+  eq(F('skeletonDefender', 'chase', { guardFlash: 0.2 }).join(','), 'skelDef,1', 'guard pose');
+  eq(F('skeletonSword', 'patrol', { moving: false, t: 1 }).join(','), 'skelSword,0');
+});
+test('195 frame archer: aim saat shoot, release sesaat', () => {
+  const F = G.foeFrameFor;
+  eq(F('skeletonArcher', 'shoot', {}).join(','), 'skelArch,1', 'aim telegraph');
+  eq(F('skeletonArcher', 'chase', { relT: 0.1 }).join(','), 'skelArch,2', 'follow-through');
+  eq(F('skeletonArcher', 'chase', { relT: 0 }).join(','), 'skelArch,0');
+  // Release dipicu tembakan nyata.
+  G.forceStartLevel(3);
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  ar.relT = 0;
+  G.fireArrow(ar);
+  ok(ar.relT > 0, 'fireArrow set follow-through');
+  G.forceStartLevel(1);
+});
+test('196 frame miniboss/lich per state', () => {
+  const B = G.bossFrameFor;
+  eq(B('miniboss', 'slash').join(','), 'skelKnight,1');
+  eq(B('miniboss', 'dash').join(','), 'skelKnight,2');
+  eq(B('miniboss', 'idle').join(','), 'skelKnight,0');
+  eq(B('lich', 'telegraph').join(','), 'lich,1', 'cast telegraph');
+  eq(B('lich', 'bolt').join(','), 'lich,1');
+  eq(B('lich', 'summon').join(','), 'lich,1');
+  eq(B('lich', 'strike').join(','), 'lich,2');
+  eq(B('lich', 'idle').join(','), 'lich,0');
+});
+test('197 render attack states tanpa error (sprite path)', () => {
+  const sp = G.getSprites();
+  ['skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lich'].forEach((k) => {
+    for (let i = 0; i < sp[k].length; i++) if (!sp[k][i]) sp[k][i] = {};
+  });
+  G.forceStartLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  sw.state = 'attack'; sw.atkT = sw.st.windup + 0.01; // fase strike + swoosh
+  const df = G.getEnemies().find((e) => e.kind === 'skeletonDefender');
+  df.state = 'attack'; df.atkT = df.st.windup + 0.01;
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  ar.state = 'shoot'; ar.relT = 0.1;
+  noThrow(() => G.drawOnce(), 'draw attack trio');
+  G.forceStartLevel(4);
+  const m = G.getMiniboss();
+  m.state = 'slash'; m.atkT = 0.1;
+  noThrow(() => G.drawOnce(), 'draw knight slash');
+  m.state = 'dash'; m.atkT = 0.1;
+  noThrow(() => G.drawOnce(), 'draw knight dash');
+  const b = G.getBoss();
+  b.state = 'telegraph';
+  noThrow(() => G.drawOnce(), 'draw lich cast');
+  b.state = 'strike'; b.atkT = 0.1;
+  noThrow(() => G.drawOnce(), 'draw lich strike');
   G.forceStartLevel(1);
 });
 

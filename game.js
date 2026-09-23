@@ -468,14 +468,23 @@
     hurt:   ['assets/knight/hurt_0.png'],
     death:  ['assets/knight/death_0.png', 'assets/knight/death_1.png'],
     // Undead set (lokal, pixel-art dark fantasy; smoothing OFF saat draw).
+    // Urutan frame: [idle, walk/alt, windup/cast, strike] agar mapping state murah.
     skelSword: ['assets/sprites/skeleton-sword.png',
-                'assets/sprites/skeleton-sword-walk.png'],
+                'assets/sprites/skeleton-sword-walk.png',
+                'assets/sprites/skeleton-sword-windup.png',
+                'assets/sprites/skeleton-sword-strike.png'],
     skelDef:   ['assets/sprites/skeleton-defender.png',
-                'assets/sprites/skeleton-defender-guard.png'],
+                'assets/sprites/skeleton-defender-guard.png',
+                'assets/sprites/skeleton-defender-attack.png'],
     skelArch:  ['assets/sprites/skeleton-archer.png',
-                'assets/sprites/skeleton-archer-aim.png'],
-    skelKnight: ['assets/sprites/skeleton-knight.png'],
-    lich:    ['assets/sprites/raja-lich.png'],
+                'assets/sprites/skeleton-archer-aim.png',
+                'assets/sprites/skeleton-archer-shoot.png'],
+    skelKnight: ['assets/sprites/skeleton-knight.png',
+                 'assets/sprites/skeleton-knight-slash.png',
+                 'assets/sprites/skeleton-knight-dash.png'],
+    lich:    ['assets/sprites/raja-lich.png',
+              'assets/sprites/raja-lich-cast.png',
+              'assets/sprites/raja-lich-strike.png'],
     chest:   ['assets/sprites/treasure-chest.png',
               'assets/sprites/treasure-chest-open.png'],
     reward:  ['assets/sprites/coin.png',
@@ -1306,7 +1315,7 @@
       state: 'patrol', // patrol|chase|attack|hurt|death
       animTime: Math.random() * 10,
       atkT: 0, cooldown: 0, hurtT: 0, deathT: 0,
-      iframes: 0, struckPlayer: false, guardFlash: 0,
+      iframes: 0, struckPlayer: false, guardFlash: 0, relT: 0, // relT: follow-through lepas panah
       dead: false
     };
   }
@@ -1506,6 +1515,7 @@
     s.animTime += dt;
     if (s.iframes > 0) s.iframes -= dt;
     if (s.guardFlash > 0) s.guardFlash -= dt;
+    if (s.relT > 0) s.relT -= dt;
     if (s.cooldown > 0) s.cooldown -= dt;
     var px = player.x + player.w / 2, sx = s.x + s.w / 2;
 
@@ -1594,6 +1604,7 @@
 
   function fireArrow(s) {
     spawnShot(s.x + s.w / 2 - 7, s.y + 14, s.dir, 'arrow');
+    s.relT = 0.18; // follow-through release realistis
   }
 
   function updateShots(dt) {
@@ -2429,10 +2440,23 @@
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(Math.round(m.x + 6), Math.round(m.y + m.h - 3), m.w - 12, 5);
 
-    // Sprite Skeleton Knight bila siap, fallback armor prosedural.
-    var kimg = foeImg(sprites.skelKnight, 0);
+    // Sprite Skeleton Knight: slash/dash realistis per state.
+    var kfr = bossFrameFor('miniboss', m.state);
+    var kimg = kfr[0] ? foeImg(sprites[kfr[0]], kfr[1]) : null;
     if (kimg) {
       drawFoeSprite(kimg, dx, dy, dw, dh, m.dir, blink);
+      // Swoosh slash + garis laju dash (visual saja).
+      if (m.state === 'slash' && m.atkT < 0.3) {
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        var kx = m.dir === 1 ? dx + dw - 20 : dx + 12;
+        ctx.fillRect(kx, Math.round(dy + dh / 2 - 12), 10, 24);
+      }
+      if (m.state === 'dash') {
+        ctx.fillStyle = 'rgba(200,205,230,0.35)';
+        var lx = m.dir === 1 ? dx - 14 : dx + dw + 6;
+        ctx.fillRect(lx, Math.round(dy + 14), 12, 3);
+        ctx.fillRect(lx, Math.round(dy + 26), 12, 3);
+      }
       // Enrage: semburat merah elite (visual saja).
       if (m.enraged) {
         ctx.fillStyle = 'rgba(224,82,82,0.25)';
@@ -2688,10 +2712,22 @@
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(Math.round(b.x + 6), Math.round(b.y + b.h - 3), b.w - 12, 5);
 
-    // Sprite Raja Lich bila siap, fallback jubah prosedural.
-    var limg = foeImg(sprites.lich, 0);
+    // Sprite Raja Lich: cast (telegraph/bolt/summon) vs strike realistis.
+    var lfr = bossFrameFor('lich', b.state);
+    var limg = lfr[0] ? foeImg(sprites[lfr[0]], lfr[1]) : null;
     if (limg) {
       drawFoeSprite(limg, dx, dy, dw, dh, b.dir, blink);
+      // Kilau orb saat cast + swoosh staff saat strike.
+      if (b.state === 'telegraph' || b.state === 'bolt' || b.state === 'summon') {
+        ctx.fillStyle = 'rgba(205,130,255,' + (0.25 + 0.2 * pulse).toFixed(2) + ')';
+        var ox = b.dir === 1 ? dx + dw - 16 : dx + 6;
+        ctx.fillRect(ox, dy - 2, 12, 12);
+      }
+      if (b.state === 'strike' && b.atkT < 0.3) {
+        ctx.fillStyle = 'rgba(232,201,255,0.5)';
+        var sx2 = b.dir === 1 ? dx + dw - 18 : dx + 8;
+        ctx.fillRect(sx2, Math.round(dy + dh / 2 - 12), 10, 24);
+      }
     } else {
     // Jubah + torso.
     ctx.fillStyle = blink ? '#ffffff' : '#2c2140';
@@ -3906,6 +3942,48 @@
     }, dx, cx, facing);
   }
 
+  /* Frame animasi serangan — satu sumber kebenaran (dipakai draw + test).
+   * o: {atkT, windup, strike, guardFlash, relT, moving, t}. */
+  function foeFrameFor(kind, state, o) {
+    o = o || {};
+    if (kind === 'skeletonDefender') {
+      if (state === 'attack') {
+        if (o.atkT < o.windup) return ['skelDef', 0];
+        if (o.atkT < o.windup + o.strike) return ['skelDef', 2];
+        return ['skelDef', 0];
+      }
+      return ['skelDef', o.guardFlash > 0 ? 1 : 0];
+    }
+    if (kind === 'skeletonSword') {
+      if (state === 'attack') {
+        if (o.atkT < o.windup) return ['skelSword', 2];
+        if (o.atkT < o.windup + o.strike) return ['skelSword', 3];
+        return ['skelSword', 0];
+      }
+      return ['skelSword', o.moving ? (Math.floor((o.t || 0) * 6) % 2) : 0];
+    }
+    if (kind === 'skeletonArcher') {
+      if (state === 'shoot') return ['skelArch', 1];
+      if (o.relT > 0) return ['skelArch', 2];
+      return ['skelArch', 0];
+    }
+    return [null, 0];
+  }
+
+  function bossFrameFor(kind, state) {
+    if (kind === 'miniboss') {
+      if (state === 'slash') return ['skelKnight', 1];
+      if (state === 'dash') return ['skelKnight', 2];
+      return ['skelKnight', 0];
+    }
+    if (kind === 'lich') {
+      if (state === 'strike') return ['lich', 2];
+      if (state === 'telegraph' || state === 'bolt' || state === 'summon') return ['lich', 1];
+      return ['lich', 0];
+    }
+    return [null, 0];
+  }
+
   /* Stage 9: skeleton prosedural — siluet khas tiap archetype.
    * Sword: pedang + pose melee. Defender: perisai depan + guard flash.
    * Archer: busur + quiver, glow kuning saat telegraph 'shoot'. */
@@ -3925,16 +4003,27 @@
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
 
-    // Sprite PNG bila siap (idle/walk/guard), fallback rect bila belum.
-    var simg = null;
-    if (s.kind === 'skeletonDefender') {
-      simg = (s.guardFlash > 0) ? foeImg(sprites.skelDef, 1) : foeImg(sprites.skelDef, 0);
-    } else {
-      var moving = (s.state === 'patrol' || s.state === 'chase');
-      simg = foeImg(sprites.skelSword, moving ? (Math.floor(t * 6) % 2) : 0);
+    // Sprite PNG bila siap (idle/walk/guard/windup/strike), fallback rect bila belum.
+    var simg = null, striking = false;
+    var fr = foeFrameFor(s.kind, s.state, {
+      atkT: s.atkT, windup: s.st.windup, strike: s.st.strike,
+      guardFlash: s.guardFlash,
+      moving: (s.state === 'patrol' || s.state === 'chase'), t: t
+    });
+    if (s.state === 'attack') {
+      striking = s.atkT >= s.st.windup && s.atkT < s.st.windup + s.st.strike;
     }
+    if (fr[0]) simg = foeImg(sprites[fr[0]], fr[1]);
     if (simg) {
       drawFoeSprite(simg, dx, dy, dw, dh, s.dir, blink);
+      // Swoosh kilat saat fase strike aktif (feedback tebasan).
+      if (striking) {
+        var wx = s.dir === 1 ? dx + dw - 16 : dx + 8;
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.fillRect(wx, Math.round(dy + dh / 2 - 10), 8, 20);
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        ctx.fillRect(s.dir === 1 ? wx - 10 : wx + 8, Math.round(dy + dh / 2 - 6), 6, 12);
+      }
       // Guard flash: kilau putih di tepi perisai agar block terbaca jelas.
       if (s.kind === 'skeletonDefender' && s.guardFlash > 0 && Math.floor(t * 14) % 2 === 0) {
         var shx = s.dir === 1 ? dx + dw - 8 : dx;
@@ -3994,8 +4083,9 @@
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
 
-    // Sprite PNG (aim saat telegraph shoot), fallback rect bila belum siap.
-    var aimg = tele ? foeImg(sprites.skelArch, 1) : foeImg(sprites.skelArch, 0);
+    // Sprite PNG (aim saat telegraph shoot, release sesaat setelah lepas).
+    var afr = foeFrameFor('skeletonArcher', s.state, { relT: s.relT });
+    var aimg = afr[0] ? foeImg(sprites[afr[0]], afr[1]) : null;
     if (aimg) {
       drawFoeSprite(aimg, dx, dy, dw, dh, s.dir, blink);
       // Busur glow saat telegraph agar tembakan terbaca.
@@ -5045,6 +5135,8 @@
     },
     getSprites: function () { return sprites; },
     drawOnce: function () { drawWorld(); drawHUD(); return true; },
+    foeFrameFor: foeFrameFor,
+    bossFrameFor: bossFrameFor,
     // Hardening hooks (behavior tests, tidak memengaruhi gameplay).
     getVictoryArmed: function () { return victoryArmed; },
     getShocks: function () { return shocks; },
