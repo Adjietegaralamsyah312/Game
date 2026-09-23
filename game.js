@@ -968,6 +968,9 @@
   }
 
   function playerTakeDamage(amount, fromX) {
+    // C2: setelah kemenangan boss (victoryArmed), player kebal —
+    // sisa hazard tidak boleh membatalkan victory selama delay.
+    if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
     if (player.state === 'death' || player.iframes > 0) return;
     // Serangan sendiri tidak bisa di-interrupt oleh hurt yang baru? tetap bisa — prioritaskan hurt.
     player.hp -= amount;
@@ -981,12 +984,20 @@
       player.animTime = 0;
       player.deathT = 0;
       player.vx = 0;
+      // C1: stale attackBox tidak boleh hidup setelah death.
+      player.attackBox = null;
+      player.queued = false;
+      player.didStrikeHit = {};
       return;
     }
     player.state = 'hurt';
     player.animTime = 0;
     player.hurtT = 0;
     player.iframes = PLAYER_IFRAMES;
+    // C1: stale attackBox tidak boleh hidup setelah hurt.
+    player.attackBox = null;
+    player.queued = false;
+    player.didStrikeHit = {};
     var dir = (player.x + player.w / 2) < fromX ? -1 : 1;
     player.vx = dir * PLAYER_KNOCKBACK_X;
     player.vy = -PLAYER_KNOCKBACK_Y;
@@ -1004,6 +1015,11 @@
     // Konsumsi buffer lompat
     if (Input.jumpPressed) { player.jumpBuf = JUMP_BUFFER; Input.jumpPressed = false; }
     else player.jumpBuf = Math.max(0, player.jumpBuf - dt);
+
+    // M2: attackPressed tidak boleh bocor melalui hurt/death.
+    // Serangan hanya valid dari state normal/attack; simpan intent lokal.
+    var wantAttack = !!Input.attackPressed;
+    Input.attackPressed = false;
 
     if (!dead) {
       if (move > 0) player.facing = 1;
@@ -1036,7 +1052,7 @@
       player.attackT += dt;
       var total = ATTACK_WINDUP + ATTACK_STRIKE + ATTACK_RECOVERY;
       // Buffer: serangan ditekan saat recovery => rantai kombo responsif.
-      if (Input.attackPressed) { player.queued = true; Input.attackPressed = false; }
+      if (wantAttack) { player.queued = true; wantAttack = false; }
       // Movement dikunci saat grounded; di udara boleh drift 40%.
       var lockFactor = player.onGround ? 0 : 0.4;
       player.vx = move * PLAYER_SPEED * lockFactor;
@@ -1077,13 +1093,14 @@
       return;
     }
 
-    // Serangan baru? (tidak bisa saat death — sudah di-return di atas)
-    if (Input.attackPressed && player.attackCooldown <= 0) {
-      Input.attackPressed = false;
+    // Serangan baru? (tidak bisa saat death/hurt — sudah di-return di atas,
+    // dan wantAttack sudah dikonsumsi di awal sehingga tidak bocor.)
+    if (wantAttack && player.attackCooldown <= 0) {
+      wantAttack = false;
       playerStartAttack();
       return;
     }
-    Input.attackPressed = false; // abaikan spam saat cooldown
+    wantAttack = false; // abaikan spam saat cooldown
 
     // --- Gerak normal ---
     player.vx = move * PLAYER_SPEED;
@@ -1247,23 +1264,26 @@
     if (s.dead || s.state === 'death' || s.iframes > 0) return false;
     // Stage 9: Defender guard frontal (hanya saat siaga, bukan mid-attack).
     // Tanpa guard stats -> jalur klasik persis (nol perubahan perilaku lama).
-    var effAmount = amount;
+    // M6: blocked hit = no damage + no iframes (feedback saja); hit valid
+    // berikutnya tidak boleh termakan iframe dari block sebelumnya.
     var effKnock = knock || ATTACK_KNOCKBACK;
-    var effSound = s.st.hitSound || 'hit';
-    var blocked = false;
     if (s.st.guard && (s.state === 'patrol' || s.state === 'chase')) {
       var front = (s.dir === 1 && fromX >= s.x + s.w / 2) ||
                   (s.dir === -1 && fromX < s.x + s.w / 2);
       if (front) {
-        blocked = true;
-        effAmount = Math.max(1, Math.round(amount * (1 - s.st.guard.block)));
-        effKnock = effKnock * 0.2;
-        effSound = 'shieldBlock';
+        // Menahan jalur: tetap siaga, hanya terdorong sedikit.
+        // Tanpa damage, tanpa hurt, tanpa iframe burn.
         s.guardFlash = 0.3; // cue visual jelas: serangan TAK hilang sia-sia
         burst(s.x + (s.dir === 1 ? s.w : 0), s.y + s.h / 2, 5, '#cfe3ff', 120, 0.3, 3, 250);
+        burst(s.x + s.w / 2, s.y + s.h / 2, 3, '#ffffff', 120, 0.25, 3, 250);
+        AudioManager.play('shieldBlock');
+        var bdir = (s.x + s.w / 2) < fromX ? -1 : 1;
+        s.vx = bdir * effKnock * 0.2 * 0.3;
+        return true;
       }
     }
-    s.hp -= effAmount;
+    var effSound = s.st.hitSound || 'hit';
+    s.hp -= amount;
     s.iframes = 0.25;
     // Damage feedback: flash (via iframes blink) + cipratan partikel.
     burst(s.x + s.w / 2, s.y + s.h / 2, 6, '#ffffff', 160, 0.3, 3, 250);
@@ -1279,12 +1299,6 @@
       burst(s.x + s.w / 2, s.y + s.h / 2, 5, s.st.light, 120, 0.5, 3, 300);
       triggerScreenShake(SHAKE_DIE, 0.2);
       AudioManager.play('slimeDie');
-      return true;
-    }
-    if (blocked) {
-      // Menahan jalur: tetap siaga, hanya terdorong sedikit (tanpa hurt).
-      var bdir = (s.x + s.w / 2) < fromX ? -1 : 1;
-      s.vx = bdir * effKnock * 0.3;
       return true;
     }
     s.state = 'hurt';
@@ -1304,10 +1318,13 @@
     return Math.abs(px - sx) < s.st.detectX && Math.abs(py - sy) < s.st.detectY;
   }
 
-  function slimeHasGroundAhead(s) {
+  function slimeHasGroundAhead(s, moveDir) {
     // Cek ada pijakan di depan kaki — agar slime tidak jalan off-platform.
+    // M7: arah cek mengikuti arah GERAK aktual (bukan facing visual),
+    // karena archer retreat bergerak mundur (-dir).
     if (!s.onGround) return true;
-    var footX = s.dir === 1 ? s.x + s.w + 4 : s.x - 4;
+    var d = (moveDir === 1 || moveDir === -1) ? moveDir : s.dir;
+    var footX = d === 1 ? s.x + s.w + 4 : s.x - 4;
     var footY = s.y + s.h + 6;
     for (var i = 0; i < Level.platforms.length; i++) {
       var p = Level.platforms[i];
@@ -1412,9 +1429,10 @@
       if (s.x >= s.maxX) { s.x = s.maxX; s.dir = -1; }
     } else {
       // Chase: leash longgar dari titik spawn, bukan kunci zona patrol.
+      // M8: nol-kan vx saat clamp agar tidak jitter mendorong boundary.
       var lo = s.spawnX - SLIME_LEASH, hi = s.spawnX + SLIME_LEASH;
-      if (s.x < lo) s.x = lo;
-      if (s.x > hi) s.x = hi;
+      if (s.x < lo) { s.x = lo; if (s.vx < 0) s.vx = 0; }
+      if (s.x > hi) { s.x = hi; if (s.vx > 0) s.vx = 0; }
     }
 
     if (s.y > WORLD_H + 100) { // jaring pengaman: kembali ke spawn
@@ -1484,9 +1502,10 @@
         if (!slimeHasGroundAhead(s)) s.vx = 0;
         s.state = 'chase';
       } else if (distX < 170) {
-        // Mundur jaga jarak (jangan off-platform).
+        // Mundur jaga jarak; cek tanah ke arah RETREAT (bukan facing).
+        // M7: tanpa ini archer dapat berjalan mundur keluar platform.
         s.vx = -s.dir * s.st.chase * 0.8;
-        if (!slimeHasGroundAhead(s)) s.vx = 0;
+        if (!slimeHasGroundAhead(s, -s.dir)) s.vx = 0;
         s.state = 'chase';
       } else {
         s.vx = 0;
@@ -1509,6 +1528,8 @@
   var shots = [];
 
   function spawnShot(x, y, dir, kind) {
+    // C2: tidak ada projectile baru setelah victory armed.
+    if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
     if (shots.length >= 10) return;
     if (kind === 'bolt') {
       shots.push({ x: x, y: y, w: 16, h: 10, vx: dir * 260, vy: 0,
@@ -1526,12 +1547,29 @@
   function updateShots(dt) {
     for (var i = shots.length - 1; i >= 0; i--) {
       var sh = shots[i];
+      var prevX = sh.x;
       sh.x += sh.vx * dt;
       sh.y += sh.vy * dt;
       sh.life -= dt;
       // Mati saat expired / keluar arena — tak pernah menembus batas.
       var out = sh.life <= 0 || sh.x < -40 || sh.x > WORLD_W + 40 ||
                 sh.y < -60 || sh.y > WORLD_H + 60;
+      // M9: arrow/bolt solid-blocked oleh platform (swept AABB prev->new
+      // agar tidak tunneling). Shockwave bangga: ground-hugging wave yang
+      // by-design melewati platform rendah (diurus updateShocks).
+      if (!out) {
+        var swX0 = prevX < sh.x ? prevX : sh.x;
+        var swX1 = (prevX < sh.x ? sh.x : prevX) + sh.w;
+        for (var pi = 0; pi < Level.platforms.length; pi++) {
+          var pp = Level.platforms[pi];
+          if (swX1 > pp.x && swX0 < pp.x + pp.w &&
+              sh.y + sh.h > pp.y && sh.y < pp.y + pp.h) {
+            out = true;
+            burst(sh.x + sh.w / 2, sh.y + sh.h / 2, 3, '#9aa3c7', 80, 0.25, 2, 200);
+            break;
+          }
+        }
+      }
       if (!out && !sh.hitDone && player.state !== 'death') {
         setR(_r1, sh.x, sh.y, sh.w, sh.h);
         setR(_r2, player.x, player.y, player.w, player.h);
@@ -1576,8 +1614,10 @@
   var Combat = {
     // Pukulan player -> semua slime yang overlap attackBox (sekali per swing).
     // Stage 5: juga mengenai boss (kunci 'boss' agar sekali per ayunan).
+    // C1: hanya proses saat player benar-benar dalam attack state.
     resolvePlayerAttack: function () {
       if (!player.attackBox) return;
+      if (player.state !== 'attack') return;
       for (var i = 0; i < enemies.length; i++) {
         var s = enemies[i];
         if (s.dead || player.didStrikeHit[s.id]) continue;
@@ -1610,7 +1650,9 @@
     },
     // Serangan slime -> player (sekali per attack slime).
     // Stage 5: serangan strike boss (sekali per pola).
+    // C2: setelah victory, enemy tidak boleh melukai player.
     resolveEnemyAttacks: function () {
+      if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
       if (player.state === 'death') return;
       setR(_r2, player.x, player.y, player.w, player.h);
       for (var i = 0; i < enemies.length; i++) {
@@ -1847,12 +1889,9 @@
   function checkGoal() {
     if (!Level.goal || player.state === 'death') return;
     setR(_r1, player.x, player.y, player.w, player.h);
-    // Level ber-goal fisik (L1/L3) -> Level Complete baru; legacy 'win'
-    // dipertahankan untuk kompatibilitas (forceWin/testing).
-    if (rectsOverlap(_r1, goalRect())) {
-      if (Level.goal) showLevelComplete();
-      else showWin();
-    }
+    // Minor D: goal fisik (L1/L3) selalu -> Level Complete.
+    // Legacy showWin() hanya via forceWin test hook, bukan jalur goal.
+    if (rectsOverlap(_r1, goalRect())) showLevelComplete();
   }
 
   function showGameOver() {
@@ -2004,6 +2043,9 @@
       b.vx = 0;
       applyGravity(b, dt);
       moveAndCollide(b, dt, Level.platforms);
+      // Minor E: mayat tetap di arena selama animasi (visual-only).
+      if (b.x < b.arenaMin) b.x = b.arenaMin;
+      if (b.x > b.arenaMax) b.x = b.arenaMax;
       if (b.deathT >= 1.0 && !b.dead) {
         b.dead = true;
         onBossDefeated();
@@ -2016,6 +2058,7 @@
       applyGravity(b, dt);
       moveAndCollide(b, dt, Level.platforms);
       if (b.hurtT >= 0.25) { b.state = 'idle'; b.idleT = 0; }
+      return; // M1: cegah integrasi ganda
     } else if (b.state === 'idle') {
       b.vx = 0;
       b.idleT += dt;
@@ -2098,6 +2141,8 @@
   }
 
   function spawnShocks(b) {
+    // C2: tidak ada shockwave baru setelah victory armed.
+    if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
     if (shocks.length >= 6) return; // batas: tanpa spam
     var gy = b.y + b.h - 40;
     for (var d = -1; d <= 1; d += 2) {
@@ -2108,6 +2153,9 @@
   }
 
   function updateShocks(dt) {
+    // Design rule (M9): shockwave adalah ground-hugging wave — by-design
+    // TIDAK di-block platform (arena boss datar), cleanup via life/arena
+    // bounds. Arrow/bolt sebaliknya solid-blocked (lihat updateShots).
     for (var i = shocks.length - 1; i >= 0; i--) {
       var sh = shocks[i];
       sh.x += sh.vx * dt;
@@ -2208,6 +2256,9 @@
       m.vx = 0;
       applyGravity(m, dt);
       moveAndCollide(m, dt, Level.platforms);
+      // Minor E: mayat tetap di arena selama animasi (visual-only).
+      if (m.x < m.arenaMin) m.x = m.arenaMin;
+      if (m.x > m.arenaMax) m.x = m.arenaMax;
       if (m.deathT >= 1.0 && !m.dead) {
         m.dead = true;
         runStats.kills++;
@@ -2222,6 +2273,7 @@
       applyGravity(m, dt);
       moveAndCollide(m, dt, Level.platforms);
       if (m.hurtT >= 0.25) { m.state = 'idle'; m.idleT = 0; }
+      return; // M1: cegah integrasi ganda
     } else if (m.state === 'idle') {
       m.vx = 0;
       m.idleT += dt;
@@ -2447,6 +2499,9 @@
       b.vx = 0;
       applyGravity(b, dt);
       moveAndCollide(b, dt, Level.platforms);
+      // Minor E: mayat tetap di arena selama animasi (visual-only).
+      if (b.x < b.arenaMin) b.x = b.arenaMin;
+      if (b.x > b.arenaMax) b.x = b.arenaMax;
       if (b.deathT >= 1.0 && !b.dead) {
         b.dead = true;
         onBossDefeated();
@@ -2459,6 +2514,7 @@
       applyGravity(b, dt);
       moveAndCollide(b, dt, Level.platforms);
       if (b.hurtT >= 0.25) { b.state = 'idle'; b.idleT = 0; }
+      return; // M1: cegah integrasi ganda
     } else if (b.state === 'idle') {
       b.vx = 0;
       b.idleT += dt;
@@ -2700,9 +2756,11 @@
     if (d.level2Completed) d.level3Unlocked = true;
     if (d.level3Completed) d.level4Unlocked = true;
     if (d.level4Completed) d.level5Unlocked = true;
-    d.sfxEnabled = !!o.sfxEnabled;
+    // M5: migrasi audio aman — field hilang berarti ON (bukan mute).
+    // "false" hanya jika explicitly saved false (pola !== false).
+    d.sfxEnabled = (o.sfxEnabled !== false);
     d.sfxVolume = Math.round(saveNum(o.sfxVolume, 100, 0, 100));
-    d.musicEnabled = !!o.musicEnabled;
+    d.musicEnabled = (o.musicEnabled !== false);
     d.musicVolume = Math.round(saveNum(o.musicVolume, 70, 0, 100));
     d.inputPreference = (o.inputPreference === 'keyboard' || o.inputPreference === 'touch')
       ? o.inputPreference : 'auto';
@@ -2842,7 +2900,15 @@
     } catch (e) { /* abaikan */ }
   }
 
+  // M4: production entry menghormati unlock. Level terkunci ditolak
+  // (toast + return false) agar progression tidak bisa di-bypass.
+  // Test/debug yang butuh bypass eksplisit memakai forceStartLevel().
   function startLevel(n) {
+    if (!canPlayLevel(n)) {
+      try { showToast('Selesaikan level sebelumnya dulu!'); } catch (e) { /* abaikan */ }
+      debugLog('[game] start level ditolak (locked)', n);
+      return false;
+    }
     loadLevelInternal(n);
     trans.active = false; // start langsung membatalkan transisi yang jalan
     trans.phase = '';
@@ -2852,6 +2918,21 @@
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     AudioManager.updateMusicState(); // BGM gameplay tanpa overlap
     debugLog('[game] start level', n);
+    return true;
+  }
+
+  // Test-only bypass eksplisit (tidak dipakai production UI path).
+  function forceStartLevel(n) {
+    loadLevelInternal(n);
+    trans.active = false;
+    trans.phase = '';
+    gameState = 'playing';
+    hideAllOverlays();
+    setPaused(false);
+    try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    AudioManager.updateMusicState();
+    debugLog('[game] force start level', n);
+    return true;
   }
 
   // PLAY dari menu / PLAY AGAIN: total di-reset lalu transisi ke Level 1.
@@ -2957,15 +3038,22 @@
   }
 
   // Transisi fade-out -> load -> fade-in (pendek, tanpa loading palsu).
+  // M4: target terkunci ditolak (anti bypass progression).
   function startTrans(n) {
     // Guard: level di luar daftar ditolak diam-diam (anti crash console).
-    if (trans.active || !(n >= 1 && n <= Levels.length)) return;
+    if (trans.active || !(n >= 1 && n <= Levels.length)) return false;
+    if (!canPlayLevel(n)) {
+      try { showToast('Selesaikan level sebelumnya dulu!'); } catch (e) { /* abaikan */ }
+      debugLog('[game] start trans ditolak (locked)', n);
+      return false;
+    }
     hideAllOverlays();
     try { AudioManager.unlock(); } catch (e) { /* abaikan */ }
     trans.active = true;
     trans.phase = 'out';
     trans.t = 0;
     trans.target = n;
+    return true;
   }
 
   function updateTrans(dt) {
@@ -2995,8 +3083,12 @@
     return clamp(trans.t / trans.dur, 0, 1);
   }
 
+  // Minor C: completeCurrentLevel() adalah authority final.
+  // showLevelComplete() tidak boleh meninggalkan half-complete jika
+  // dipanggil di L5 dari jalur sah — delegasikan ke game complete.
   function showLevelComplete() {
     if (gameState !== 'playing') return;
+    if (currentLevel >= 5) { showGameComplete(); return; }
     gameState = 'levelcomplete';
     // Persistent per level: unlock berikutnya + best per level.
     if (currentLevel === 1) {
@@ -3016,6 +3108,8 @@
       save.level5Unlocked = true;
       if (save.bestL4 == null || levelStats.time < save.bestL4) save.bestL4 = levelStats.time;
     } else {
+      // Unreachable via completeCurrentLevel (L5 -> showGameComplete),
+      // dipertahankan sebagai fallback aman bila dipanggil langsung.
       save.level5Completed = true;
       if (save.bestL5 == null || levelStats.time < save.bestL5) save.bestL5 = levelStats.time;
     }
@@ -3101,6 +3195,10 @@
     }
     victoryArmed = true;
     victoryT = 0;
+    // C2: boss tumbang -> sterilkan hazard agar victory race tidak terjadi.
+    // Player tidak boleh mati oleh sisa projectile/shock setelah kemenangan.
+    shocks = [];
+    shots = [];
   }
 
   // Level terakhir (5) -> Game Complete; selainnya -> Level Complete.
@@ -3863,7 +3961,16 @@
   /* Stage 5: satu langkah simulasi gameplay. Dipakai frame() dan
    * diekspos sebagai step() untuk testing deterministik headless. */
   function updatePlaying(dt) {
-    if (Input.restartPressed) Input.restartPressed = false;
+    // M3: R/Enter saat PLAYING -> respawn checkpoint (ekspektasi HUD).
+    // Jangan reset campaign/progression; pakai respawn() existing.
+    // Abaikan saat victory armed atau player death (hindari batal victory/death flow).
+    if (Input.restartPressed) {
+      Input.restartPressed = false;
+      if (!victoryArmed && player.state !== 'death') {
+        respawn();
+        return;
+      }
+    }
     timeElapsed += dt;
     levelStats.time += dt;
     if (toast.t > 0) toast.t -= dt;
@@ -4361,6 +4468,7 @@
     getBest: loadBest,
     // Stage 9: skeleton campaign + lich + final (untuk regression tests).
     getLevelCount: function () { return Levels.length; },
+    forceStartLevel: forceStartLevel,
     getMiniboss: function () { return miniboss; },
     hurtMiniboss: function (n, x) { return hurtMiniboss(n, x); },
     getShots: function () { return shots; },
@@ -4368,6 +4476,9 @@
     getLichPhase: function (b) { return lichPhase(b || boss); },
     spawnShot: spawnShot,
     fireArrow: fireArrow,
+    // Hardening hooks (behavior tests, tidak memengaruhi gameplay).
+    getVictoryArmed: function () { return victoryArmed; },
+    getShocks: function () { return shocks; },
     // Stage 6: save/settings/state untuk UI + testing.
     getSave: function () {
       return JSON.parse(JSON.stringify(save));
