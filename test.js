@@ -68,6 +68,8 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'btn-play', 'btn-controls', 'btn-about', 'btn-back-controls', 'btn-back-about',
   'lvlclear', 'lvlclear-stats', 'btn-next', 'btn-replay', 'btn-lvlmenu',
   'gameclear', 'gameclear-stats', 'btn-again2', 'btn-gamemenu',
+  // Bug fix Game Over Menu
+  'btn-gameover-menu',
   // Stage 6: settings + reset + records + mission
   'mission', 'btn-settings', 'settings',
   'set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up', 'set-sfx-vol-val',
@@ -187,7 +189,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 112; // total test milestone ini (104 lama + 8 BGM)
+const EXPECTED_TOTAL = 118; // total test (112 lama + 6 Game Over Menu)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -912,12 +914,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('112 automated test'), 'README harus sebut 112 test, cek jumlah');
+  ok(readme.includes('118 automated test'), 'README harus sebut 118 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 112);
+  eq(EXPECTED_TOTAL, 118);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1031,6 +1033,68 @@ test('112 SFX tidak regresi (independen dari musik)', () => {
   ensureAudioCtx();
   noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('attack'); G.fx.audio.play('bossDie'); });
   G.resetSave();
+});
+
+// ---------- 6 TEST GAME OVER MENU ----------
+// Helper: paksa Game Over sungguhan (mati -> step -> overlay).
+function forceRealGameOver() {
+  G.startLevel(1);
+  G.hurtPlayer(999, 9999);
+  for (let i = 0; i < 70; i++) G.step(1 / 60);
+  eq(G.getState(), 'gameover');
+}
+test('113 btn-gameover-menu ada & unik di HTML produksi', () => {
+  ok(html.includes('id="btn-gameover-menu"'), 'id hilang di index.html');
+  eq(html.split('id="btn-gameover-menu"').length - 1, 1, 'ID duplikat!');
+  ok(html.includes('id="btn-gamemenu"'), 'btn-gamemenu (Game Complete) harus tetap ada');
+  ok(/id="btn-gameover-menu"[^>]*>([^<]*)/.test(html), 'tombol berlabel');
+  srcHas("getElementById('btn-gameover-menu')");
+  srcHas('onClick(btnGameOverMenu');
+});
+test('114 handler menu terpasang via onClick+toMenu', () => {
+  ok(elements['btn-gameover-menu'].listeners['click'].length >= 1, 'handler click hilang');
+  srcHas('onClick(btnGameOverMenu, function () { toMenu(); });');
+});
+test('115 klik MENU: state menu, overlay tukar, save utuh', () => {
+  G.resetSave();
+  completeL1Flow(); // unlock L2 + bestL1 tercatat
+  ok(G.getSave().level2Unlocked, 'pra-kondisi unlock');
+  forceRealGameOver(); // death TERCATAT di sini (benar, sebelum klik MENU)
+  const before = JSON.stringify(G.getSave());
+  ok(!elements['gameover'].classList.contains('hidden'), 'overlay gameover tampil');
+  elements['btn-gameover-menu'].dispatch('click', {});
+  eq(G.getState(), 'menu');
+  ok(elements['gameover'].classList.contains('hidden'), 'overlay gameover sembunyi');
+  ok(!elements['mainmenu'].classList.contains('hidden'), 'menu tampil');
+  eq(JSON.stringify(G.getSave()), before, 'klik MENU tak ubah save');
+  eq(G.isSimActive(), false);
+  G.resetSave();
+});
+test('116 Respawn & Dari Awal tetap berfungsi', () => {
+  forceRealGameOver();
+  elements['btn-respawn'].dispatch('click', {});
+  eq(G.getState(), 'playing');
+  forceRealGameOver();
+  elements['btn-restart'].dispatch('click', {});
+  eq(G.getState(), 'playing');
+  eq(G.getLevel(), 1);
+  G.toMenu();
+});
+test('117 R/Enter tetap Respawn (tak berubah)', () => {
+  forceRealGameOver();
+  fireWin('keydown', { code: 'KeyR', preventDefault() {} });
+  eq(G.input.restartPressed, true, 'KeyR harus set restartPressed');
+  srcHas("if (Input.restartPressed) { Input.restartPressed = false; respawn(); }");
+  G.input.restartPressed = false;
+  G.toMenu();
+});
+test('118 touch sizing Game Over + anti-clip', () => {
+  ok(/#gameover\s+\.btn-primary,\s*#gameover\s+\.btn-secondary\s*{[^}]*min-height:\s*56px/.test(css),
+    'tombol gameover ideal 56px');
+  const blocks = __mediaBlocks(css);
+  const dlg = blocks.filter((b) => b.body.includes('#mainmenu') && b.body.includes('position: fixed'));
+  ok(dlg.length >= 1 && dlg[0].body.includes('#gameover'), '#gameover ikut fullscreen anti-clip');
+  ok(css.includes('.btn-row') && css.includes('flex-wrap: wrap'), 'tombol wrap natural di HP');
 });
 
 // ---------- Ringkasan ----------

@@ -433,6 +433,13 @@ canvas#game {
   outline-offset: 2px;
 }
 
+/* Game Over: tiga tombol (Respawn/Dari Awal/Menu) nyaman disentuh;
+   .btn-row sudah wrap natural di HP. */
+#gameover .btn-primary,
+#gameover .btn-secondary {
+  min-height: 56px;
+}
+
 .footer {
   font-size: 12px;
   color: #7c86b3;

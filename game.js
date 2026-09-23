@@ -1292,6 +1292,7 @@
   var overlayEl = null;
   var restartBtn = null;   // "Ulangi dari Awal" (reset total)
   var respawnBtn = null;   // "Respawn di Checkpoint"
+  var btnGameOverMenu = null; // "MENU" di Game Over -> toMenu() yang ada
   var winOverlayEl = null;
   var againBtn = null;     // "Main Lagi" di layar menang
 
@@ -2832,6 +2833,7 @@
   overlayEl = document.getElementById('gameover');
   restartBtn = document.getElementById('btn-restart');
   respawnBtn = document.getElementById('btn-respawn');
+  btnGameOverMenu = document.getElementById('btn-gameover-menu');
   winOverlayEl = document.getElementById('levelcomplete');
   againBtn = document.getElementById('btn-again');
   // Stage 5: overlay menu + level-complete + game-complete.
@@ -2911,6 +2913,9 @@
   onClick(btnLvlMenu, function () { toMenu(); });
   onClick(btnAgain2, function () { playFresh(); });
   onClick(btnGameMenu, function () { toMenu(); });
+  // Bug fix: Game Over -> Main Menu via toMenu() yang sudah ada.
+  // toMenu() tak menyentuh save/progresi/unlock/best; BGM ikut state menu.
+  onClick(btnGameOverMenu, function () { toMenu(); });
   // Stage 6: settings + reset (semua null-guard, touch-friendly).
   onClick(btnSettings, function () { openSettings(); });
   onClick(setSfx, function () {
