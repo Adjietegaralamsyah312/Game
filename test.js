@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 164 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 177 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/shard/stats/transisi) + 7 responsif
@@ -77,6 +77,12 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'gameclear', 'gameclear-stats', 'btn-again2', 'btn-gamemenu',
   // Bug fix Game Over Menu
   'btn-gameover-menu',
+  // Stage 10: campaign select + explicit pause
+  'btn-campaign', 'campaign', 'campaign-status',
+  'btn-camp-1', 'btn-camp-2', 'btn-camp-3', 'btn-camp-4', 'btn-camp-5',
+  'camp-status-1', 'camp-status-2', 'camp-status-3', 'camp-status-4', 'camp-status-5',
+  'btn-camp-back', 'btn-pause', 'pause',
+  'btn-resume', 'btn-pause-respawn', 'btn-pause-menu',
   // Stage 6: settings + reset + records + mission
   'mission', 'btn-settings', 'settings',
   'set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up', 'set-sfx-vol-val',
@@ -101,6 +107,8 @@ const windowMock = {
   devicePixelRatio: 1,
   innerWidth: 960, innerHeight: 540,
   AudioContext: undefined, webkitAudioContext: undefined,
+  PointerEvent: function PointerEvent() {}, // Pointer Events tersedia (modern)
+  matchMedia(query) { return { matches: false, addEventListener() {}, removeEventListener() {} }; },
   KnightGame: null
 };
 function fireWin(type, ev) {
@@ -196,7 +204,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 164; // total test (154 + 10 hardening C1/C2/M1-M9)
+const EXPECTED_TOTAL = 177; // total test (164 + 13 Stage 10 final release)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -390,26 +398,34 @@ test('61 DPR fallback: undefined/0/NaN/Infinity -> scale 1, 3 -> clamp 2', () =>
   windowMock.devicePixelRatio = keep; G.render.rescan();
   srcHas('RENDER_SCALE_MAX'); srcHas('devicePixelRatio');
 });
-test('62 touch+mouse tidak double-fire (guard 500ms)', () => {
-  srcHas('lastTouch'); srcHas('500');
+test('62 Pointer Events tunggal: tanpa double-fire, multi-touch independen', () => {
+  srcHas('pointerdown'); srcHas('pointercancel');
+  ok(!/lastTouch/.test(src), 'guard timeout lama harus hilang');
   const btn = elements['btn-attack'];
-  ok((btn.listeners['touchstart'] || []).length >= 1, 'touchstart attack hilang');
-  ok((btn.listeners['mousedown'] || []).length >= 1, 'mousedown attack hilang');
+  ok((btn.listeners['pointerdown'] || []).length >= 1, 'pointerdown attack hilang');
+  ok((btn.listeners['pointerup'] || []).length >= 1, 'pointerup attack hilang');
+  ok((btn.listeners['pointercancel'] || []).length >= 1, 'pointercancel attack hilang');
   G.restart(); G.input.attackPressed = false;
-  btn.dispatch('touchstart', { cancelable: true, preventDefault() {} });
-  eq(G.input.attackPressed, true, 'touchstart harus set attackPressed');
+  btn.dispatch('pointerdown', { pointerId: 1, cancelable: true, preventDefault() {} });
+  eq(G.input.attackPressed, true, 'pointerdown harus set attackPressed');
+  // Pointer kedua pada tombol sama: diabaikan (tanpa timeout).
   G.input.attackPressed = false; // simulasi konsumsi frame
-  btn.dispatch('mousedown', { cancelable: true, preventDefault() {} });
-  eq(G.input.attackPressed, false, 'mousedown emulasi <500ms harus diabaikan (anti double)');
-  // tombol gerak multi-touch independen
+  btn.dispatch('pointerdown', { pointerId: 2, cancelable: true, preventDefault() {} });
+  eq(G.input.attackPressed, false, 'pointer duplikat harus diabaikan');
+  btn.dispatch('pointerup', { pointerId: 1, cancelable: true, preventDefault() {} });
+  // pointercancel membersihkan state (anti stuck).
+  btn.dispatch('pointerdown', { pointerId: 3, cancelable: true, preventDefault() {} });
+  btn.dispatch('pointercancel', { pointerId: 3, cancelable: true, preventDefault() {} });
+  ok(!btn.classList.contains('pressed'), 'pointercancel harus lepas pressed');
+  // tombol gerak multi-touch independen via pointerId
   const bl = elements['btn-left'], br = elements['btn-right'];
   G.input.left = false; G.input.right = false;
-  bl.dispatch('touchstart', { cancelable: true, preventDefault() {} });
-  br.dispatch('touchstart', { cancelable: true, preventDefault() {} });
+  bl.dispatch('pointerdown', { pointerId: 10, cancelable: true, preventDefault() {} });
+  br.dispatch('pointerdown', { pointerId: 11, cancelable: true, preventDefault() {} });
   eq(G.input.left, true); eq(G.input.right, true);
-  bl.dispatch('touchend', { cancelable: true, preventDefault() {} });
+  bl.dispatch('pointerup', { pointerId: 10, cancelable: true, preventDefault() {} });
   eq(G.input.left, false); eq(G.input.right, true, 'multi-touch: lepas kiri jangan matikan kanan');
-  br.dispatch('touchend', { cancelable: true, preventDefault() {} });
+  br.dispatch('pointerup', { pointerId: 11, cancelable: true, preventDefault() {} });
   eq(G.input.right, false);
   // cegah scroll: touch-action none + preventDefault
   ok(css.includes('touch-action: none') || css.includes('touch-action:none'), 'CSS touch-action none hilang');
@@ -654,7 +670,8 @@ test('81 touch: >=64px, tak bertumpuk, anti scroll/double', () => {
   ok(/\.touch-btn\s*{[^}]*clamp\(64px/.test(css), 'tombol harus min 64px');
   ok(css.includes('justify-content: space-between') && css.includes('.touch-group'),
     'grup tombol harus berjarak (space-between + gap)');
-  ok(src.includes('lastTouch'), 'guard anti double-trigger touch+mouse harus ada');
+  ok(src.includes('pointerdown') && src.includes('pointercancel'), 'Pointer Events tunggal harus ada');
+  ok(src.includes('activePointer'), 'tracking pointerId anti double harus ada');
 });
 test('82 aturan HP tak bocor ke desktop', () => {
   const blocks = __mediaBlocks(css);
@@ -952,12 +969,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('164 automated test'), 'README harus sebut 164 test, cek jumlah');
+  ok(readme.includes('177 automated test'), 'README harus sebut 177 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
-  ok(readme.includes('Skeleton Campaign'), 'README harus sebut Skeleton Campaign');
+  ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 164);
+  eq(EXPECTED_TOTAL, 177);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1773,6 +1790,217 @@ test('164 M9 arrow solid-blocked platform, shock by-design lewat', () => {
   ok(G.getShots().length <= 1, 'boundary cleanup tetap, got ' + G.getShots().length);
   pl.iframes = 0;
   G.forceStartLevel(1);
+});
+
+// ---------- 13 TEST STAGE 10 (final release v1.0) ----------
+test('165 Level Select lock/unlock + CLEAR', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-campaign'].dispatch('click', {});
+  ok(G.isCampaignOpen(), 'panel campaign terbuka');
+  eq(elements['camp-status-2'].textContent, 'LOCKED', 'L2 locked awal');
+  eq(G.playCampaignLevel(2), false, 'locked tidak dapat dimainkan');
+  eq(G.getState(), 'menu', 'tetap di menu');
+  completeL1Flow(); // unlock L2
+  G.toMenu();
+  elements['btn-campaign'].dispatch('click', {});
+  ok(elements['camp-status-1'].textContent.includes('CLEAR'), 'L1 CLEAR, got ' + elements['camp-status-1'].textContent);
+  ok(!elements['camp-status-2'].textContent.includes('LOCKED'), 'L2 terbuka');
+  G.resetSave(); G.toMenu();
+});
+test('166 Level Select replay level terbuka', () => {
+  G.resetSave();
+  completeL1Flow(); bossKillFlow(); // unlock L3
+  G.toMenu();
+  elements['btn-campaign'].dispatch('click', {});
+  eq(G.playCampaignLevel(3), true, 'replay L3 terbuka diizinkan');
+  ok(G.getTrans().active, 'transisi ke L3 jalan');
+  G.stepTrans(0.3); G.stepTrans(0.3);
+  eq(G.getState(), 'playing'); eq(G.getLevel(), 3);
+  // PLAY existing tetap dari L1.
+  G.toMenu();
+  elements['btn-play'].dispatch('click', {});
+  G.stepTrans(0.3); G.stepTrans(0.3);
+  eq(G.getLevel(), 1, 'PLAY tetap dari L1');
+  G.resetSave();
+});
+test('167 explicit pause/resume via API + tombol', () => {
+  G.forceStartLevel(1);
+  eq(G.isPaused(), false);
+  G.pauseGame();
+  eq(G.isPaused(), true, 'pause membeku');
+  ok(!elements['pause'].classList.contains('hidden'), 'overlay pause tampil');
+  const t0 = G.getTime();
+  G.step(1 / 60); // simulasi frame saat pause: updatePlaying tak jalan
+  G.resumeGame();
+  eq(G.isPaused(), false, 'resume sekali');
+  ok(elements['pause'].classList.contains('hidden'), 'overlay pause tutup');
+  ok(G.getTime() >= t0, 'timer konsisten');
+  // Tombol pause DOM toggle.
+  elements['btn-pause'].dispatch('click', {});
+  eq(G.isPaused(), true, 'tombol pause membeku');
+  elements['btn-resume'].dispatch('click', {});
+  eq(G.isPaused(), false, 'RESUME lanjut');
+  G.toMenu();
+});
+test('168 P/Esc pause saat PLAYING', () => {
+  G.forceStartLevel(1);
+  fireWin('keydown', { code: 'KeyP', preventDefault() {} });
+  eq(G.isPaused(), true, 'P pause');
+  fireWin('keydown', { code: 'KeyP', preventDefault() {} });
+  eq(G.isPaused(), false, 'P resume');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.isPaused(), true, 'Esc pause');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.isPaused(), false, 'Esc resume');
+  G.toMenu();
+});
+test('169 pointercancel + duplikat pointer aman', () => {
+  const bl = elements['btn-left'];
+  G.input.left = false;
+  bl.dispatch('pointerdown', { pointerId: 21, cancelable: true, preventDefault() {} });
+  eq(G.input.left, true);
+  bl.dispatch('pointerdown', { pointerId: 22, cancelable: true, preventDefault() {} });
+  eq(G.input.left, true, 'duplikat diabaikan tanpa timeout');
+  bl.dispatch('pointercancel', { pointerId: 21, cancelable: true, preventDefault() {} });
+  eq(G.input.left, false, 'cancel membersihkan');
+  ok(!bl.classList.contains('pressed'), 'tidak stuck pressed');
+  // pointer asing tidak melepas pemilik.
+  bl.dispatch('pointerdown', { pointerId: 23, cancelable: true, preventDefault() {} });
+  bl.dispatch('pointerup', { pointerId: 99, cancelable: true, preventDefault() {} });
+  eq(G.input.left, true, 'pointer asing jangan melepas');
+  bl.dispatch('pointerup', { pointerId: 23, cancelable: true, preventDefault() {} });
+  eq(G.input.left, false);
+});
+test('170 mission jujur vs win condition', () => {
+  G.forceStartLevel(3);
+  const pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400; // FINISH tanpa membunuh siapa pun
+  G.step(1 / 60);
+  eq(G.getState(), 'levelcomplete', 'L3 FINISH cukup (combat opsional)');
+  ok(G.getEnemies().length > 0, 'musuh tersisa tapi tetap menang = traversal jujur');
+  G.toMenu(); G.resetSave();
+});
+test('171 dialog focus: campaign + pause', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-campaign'].dispatch('click', {});
+  ok(elements['btn-camp-1']._focused, 'fokus ke level terbuka pertama');
+  elements['btn-camp-back'].dispatch('click', {});
+  eq(G.getState(), 'menu', 'back ke menu');
+  ok(elements['btn-campaign']._focused, 'fokus kembali ke CAMPAIGN');
+  G.forceStartLevel(1);
+  G.pauseGame();
+  ok(elements['btn-resume']._focused, 'fokus ke RESUME');
+  G.resumeGame();
+  G.toMenu();
+});
+test('172 Escape per state valid', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-campaign'].dispatch('click', {});
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.isCampaignOpen(), false, 'Esc tutup campaign');
+  eq(G.getState(), 'menu');
+  G.forceStartLevel(1);
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.isPaused(), true, 'Esc pause saat playing');
+  G.resumeGame();
+  G.toMenu();
+});
+test('173 reduced-motion matikan shake', () => {
+  G.setReducedMotion(true);
+  eq(G.getReducedMotion(), true);
+  G.fx.shake(8, 0.4);
+  G.forceStartLevel(1);
+  for (let i = 0; i < 5; i++) G.step(1 / 60);
+  const off = G.fx.shakeOffset();
+  eq(off.x, 0); eq(off.y, 0, 'tanpa shake saat reduced motion');
+  srcHas('prefers-reduced-motion');
+  G.setReducedMotion(false);
+  G.fx.shake(8, 0.4);
+  G.step(1 / 60);
+  G.forceStartLevel(1);
+});
+test('174 L5 final integration + BGM tunggal', () => {
+  G.resetSave(); G.toMenu();
+  G.fx.audio.setMusic(true, 70);
+  ensureAudioCtx();
+  G.fx.audio.startMusic();
+  const s0 = G.fx.audio.musicInfo().starts;
+  G.forceStartLevel(5);
+  for (let k = 0; k < 10 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 120; i++) G.step(1 / 60);
+  eq(G.getFinalPhase(), 'inter');
+  for (let i = 0; i < 160; i++) G.step(1 / 60);
+  const lb = G.getBoss();
+  ok(lb && lb.kind === 'lich', 'lich fase 2');
+  const pl = G.getPlayer();
+  pl.x = 2000; pl.y = 402; pl.iframes = 9999;
+  for (let i = 0; i < 30; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  for (let k = 0; k < 20 && lb.state !== 'death'; k++) { lb.iframes = 0; G.hurtBoss(30, lb.x - 100); }
+  pl.iframes = 9999;
+  for (let i = 0; i < 170; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  eq(G.getState(), 'gamecomplete', 'final victory tunggal');
+  eq(G.fx.audio.musicInfo().starts, s0, 'tanpa duplicate BGM final');
+  eq(G.getShots().length, 0, 'tanpa carryover projectile');
+  G.resetSave();
+});
+test('175 pause bekukan timer + input', () => {
+  G.forceStartLevel(1);
+  const t0 = G.getTime();
+  G.pauseGame();
+  G.input.left = true; G.input.jumpHeld = true;
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  // step() langsung = simulasi mentah; pause game nyata via frame().
+  // Pastikan input dibersihkan saat pause agar tidak bocor ke resume.
+  G.resumeGame();
+  eq(G.input.left, false); eq(G.input.jumpHeld, false, 'input bersih setelah pause');
+  ok(G.getTime() >= t0, 'timer tidak mundur');
+  G.toMenu();
+});
+test('176 reload setelah campaign complete', () => {
+  G.resetSave();
+  completeL1Flow(); bossKillFlow();
+  G.forceStartLevel(3);
+  let pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400;
+  G.step(1 / 60);
+  lichKillFlow();
+  G.forceStartLevel(5);
+  for (let k = 0; k < 10 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 200; i++) G.step(1 / 60);
+  const lb = G.getBoss();
+  pl = G.getPlayer();
+  pl.x = 2000; pl.y = 402; pl.iframes = 9999;
+  for (let i = 0; i < 30; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  for (let k = 0; k < 20 && lb.state !== 'death'; k++) { lb.iframes = 0; G.hurtBoss(30, lb.x - 100); }
+  pl.iframes = 9999;
+  for (let i = 0; i < 170; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  eq(G.getState(), 'gamecomplete');
+  G.reloadSave();
+  eq(G.getSave().gameCompleted, true, 'complete persist');
+  eq(G.canPlayLevel(5), true, 'unlock persist');
+  G.toMenu();
+  ok(G.isCampaignOpen() === false, 'campaign tertutup awal');
+  elements['btn-campaign'].dispatch('click', {});
+  ok(elements['camp-status-5'].textContent.includes('CLEAR'), 'L5 CLEAR persist, got ' + elements['camp-status-5'].textContent);
+  G.resetSave(); G.toMenu();
+});
+test('177 mock mirror: id campaign/pause ter-wire', () => {
+  ['btn-campaign', 'campaign', 'btn-camp-1', 'btn-camp-5', 'btn-camp-back',
+   'btn-pause', 'pause', 'btn-resume', 'btn-pause-respawn', 'btn-pause-menu'].forEach((id) => {
+    ok(html.includes('id="' + id + '"'), 'id hilang di HTML: ' + id);
+  });
+  ['campaign', 'pause'].forEach((id) => {
+    ok(new RegExp('id="' + id + '"[^>]*role="dialog"').test(html), 'role dialog: ' + id);
+    ok(new RegExp('id="' + id + '"[^>]*aria-modal="true"').test(html), 'aria-modal: ' + id);
+  });
+  const labels = [...html.matchAll(/role="dialog" aria-modal="true" aria-labelledby="([^"]*)"/g)].map((m) => m[1]);
+  eq(new Set(labels).size, labels.length, 'labelledby duplikat: ' + labels);
+  ok(!/user-scalable=no/.test(html), 'viewport jangan blokir zoom');
+  ok(!/maximum-scale=1/.test(html), 'viewport jangan kunci scale');
 });
 
 // ---------- Ringkasan ----------

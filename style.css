@@ -151,14 +151,16 @@ canvas#game {
   background: #b23a3a;
 }
 
-/* --- Overlay Game Over / Win / Menu / Clear / Settings (Stage 5-6) --- */
+/* --- Overlay Game Over / Win / Menu / Clear / Settings / Campaign / Pause --- */
 #gameover,
 #levelcomplete,
 #mainmenu,
 #lvlclear,
 #gameclear,
 #settings,
-#reset-confirm {
+#reset-confirm,
+#campaign,
+#pause {
   position: absolute;
   inset: 0;
   display: flex;
@@ -178,7 +180,9 @@ canvas#game {
 #lvlclear.hidden,
 #gameclear.hidden,
 #settings.hidden,
-#reset-confirm.hidden {
+#reset-confirm.hidden,
+#campaign.hidden,
+#pause.hidden {
   display: none;
 }
 
@@ -197,7 +201,9 @@ canvas#game {
 
 #levelcomplete h2.win,
 #lvlclear h2.win,
-#gameclear h2.win {
+#gameclear h2.win,
+#campaign h2.win,
+#pause h2.win {
   font-size: clamp(26px, 6vw, 48px);
   letter-spacing: 3px;
   color: #ffd23f;
@@ -351,7 +357,9 @@ canvas#game {
 #lvlclear p,
 #gameclear p,
 #settings p,
-#reset-confirm p {
+#reset-confirm p,
+#campaign p,
+#pause p {
   color: #c6ccea;
   font-size: clamp(13px, 3vw, 17px);
 }
@@ -362,7 +370,9 @@ canvas#game {
 #lvlclear .tiny,
 #gameclear .tiny,
 #settings .tiny,
-#reset-confirm .tiny {
+#reset-confirm .tiny,
+#campaign .tiny,
+#pause .tiny {
   font-size: 12px;
   color: #7c86b3;
 }
@@ -549,11 +559,71 @@ canvas#game {
   #canvas-container #lvlclear,
   #canvas-container #gameclear,
   #canvas-container #settings,
+  #canvas-container #campaign,
+  #canvas-container #pause,
   #canvas-container #reset-confirm {
     position: fixed;
     inset: 0;
     z-index: 50;
     overflow-y: auto;
     border-radius: 0;
+  }
+}
+
+/* --- Campaign Select: baris level + status CLEAR/LOCK --- */
+#campaign .camp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: min(320px, 80vw);
+  justify-content: space-between;
+}
+#campaign .camp-row .btn-small {
+  min-width: 150px;
+}
+#campaign .camp-status {
+  font-size: clamp(11px, 2.6vw, 13px);
+  color: #8a8fa8;
+  min-width: 110px;
+  text-align: left;
+}
+#campaign .camp-status.clear {
+  color: #5ec46f;
+}
+#campaign .camp-status.locked {
+  color: #6e7390;
+}
+
+/* --- Tombol pause eksplisit (DOM, di atas kanvas) --- */
+#btn-pause {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  border-radius: 10px;
+  border: 2px solid #4a558f;
+  background: rgba(20, 26, 58, 0.75);
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#btn-pause:hover,
+#btn-pause:focus-visible {
+  background: #2a3570;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+#btn-pause.hidden {
+  display: none;
+}
+
+/* --- Reduced motion: matikan animasi/transisi CSS non-esensial --- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
   }
 }

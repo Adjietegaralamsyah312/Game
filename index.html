@@ -10,10 +10,15 @@
   <meta property="og:title" content="Knight Platformer — Skeleton Campaign" />
   <meta property="og:description" content="Platformer 2D side-view: 5 level, kalahkan slime dan skeleton, miniboss Panglima Tulang, RAJA SLIME dan RAJA LICH, kumpulkan Gold Shard. Vanilla JS + Canvas, tanpa dependency." />
   <meta property="og:url" content="https://adjietegaralamsyah312.github.io/Game/" />
-  <meta property="og:image" content="https://adjietegaralamsyah312.github.io/Game/assets/knight/idle_0.png" />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:image" content="https://adjietegaralamsyah312.github.io/Game/assets/og/knight-platformer-og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Knight Platformer — ksatria, slime, dan skeleton di medan malam" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Knight Platformer — Skeleton Campaign" />
   <meta name="twitter:description" content="Platformer 2D side-view (vanilla JS + Canvas): 5 level, boss RAJA SLIME dan RAJA LICH, Gold Shard, checkpoint." />
+  <meta name="twitter:image" content="https://adjietegaralamsyah312.github.io/Game/assets/og/knight-platformer-og.png" />
+  <meta name="twitter:image:alt" content="Knight Platformer — ksatria, slime, dan skeleton di medan malam" />
   <title>Knight Platformer — Skeleton Campaign</title>
   <link rel="icon" type="image/png" href="assets/knight/idle_0.png" />
   <link rel="stylesheet" href="style.css" />
@@ -25,14 +30,15 @@
       <b>A / D</b> atau <b>◀ / ▶</b> bergerak &nbsp;•&nbsp; <b>Space</b> lompat
       &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>R</b> respawn
     </p>
-    <p id="mission" class="mission">L1: shard • kalahkan slime • checkpoint • capai <b>FINISH</b>.</p>
+    <p id="mission" class="mission">L1: shard • checkpoint • capai <b>FINISH</b>.</p>
 
     <div id="canvas-container">
       <canvas id="game" width="960" height="540" role="img" aria-label="Arena game Knight Platformer: ksatria, platform, slime, dan garis finish"></canvas>
+      <button id="btn-pause" class="hidden" aria-label="Pause atau lanjutkan game">⏸</button>
 
       <!-- Overlay Game Over: respawn checkpoint (primer) atau ulang total -->
-      <div id="gameover" class="hidden" role="dialog" aria-label="Game Over">
-        <h2>GAME OVER</h2>
+      <div id="gameover" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gameover-title" aria-label="Game Over">
+        <h2 id="gameover-title">GAME OVER</h2>
         <p>Ksatria gugur. Bangkit di checkpoint terakhir?</p>
         <div class="btn-row">
           <button id="btn-respawn" class="btn-primary">⚑ Respawn</button>
@@ -43,8 +49,8 @@
       </div>
 
       <!-- Overlay Level Complete (legacy, hanya via testing) -->
-      <div id="levelcomplete" class="hidden" role="dialog" aria-label="Level Complete Lama">
-        <h2 class="win">LEVEL COMPLETE!</h2>
+      <div id="levelcomplete" class="hidden" role="dialog" aria-modal="true" aria-labelledby="levelcomplete-title" aria-label="Level Complete Lama">
+        <h2 id="levelcomplete-title" class="win">LEVEL COMPLETE!</h2>
         <p id="win-stats">-</p>
         <div class="btn-row">
           <button id="btn-again" class="btn-primary">▶ Main Lagi</button>
@@ -52,18 +58,19 @@
         <p class="tiny">R / Enter = main lagi</p>
       </div>
 
-      <!-- Menu utama (Stage 5): PLAY / CONTROLS / ABOUT -->
-      <div id="mainmenu" class="hidden" role="dialog" aria-label="Menu Utama">
-        <h2 class="game-title">KNIGHT<br />PLATFORMER</h2>
-        <p class="build-tag">Content Expansion Build</p>
+      <!-- Menu utama (Stage 5): PLAY / CAMPAIGN / CONTROLS / ABOUT -->
+      <div id="mainmenu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mainmenu-title" aria-label="Menu Utama">
+        <h2 id="mainmenu-title" class="game-title">KNIGHT<br />PLATFORMER</h2>
+        <p class="build-tag">Final Release v1.0</p>
         <div id="menu-main" class="btn-col">
           <button id="btn-play" class="btn-primary">▶ PLAY</button>
+          <button id="btn-campaign" class="btn-secondary">🗺 CAMPAIGN</button>
           <button id="btn-controls" class="btn-secondary">🎮 CONTROLS</button>
           <button id="btn-settings" class="btn-secondary">⚙ SETTINGS</button>
           <button id="btn-about" class="btn-secondary">ℹ ABOUT</button>
         </div>
         <div id="menu-controls" class="hidden btn-col" aria-label="Kontrol game">
-          <p class="menu-lines">⌨ <b>A/D</b> gerak • <b>Space</b> lompat<br /><b>J/X</b> serang • <b>R</b> respawn</p>
+          <p class="menu-lines">⌨ <b>A/D</b> gerak • <b>Space</b> lompat<br /><b>J/X</b> serang • <b>R</b> respawn • <b>P/Esc</b> pause</p>
           <p class="menu-lines">📱 <b>◀ ▶</b> gerak • <b>⤒</b> lompat • <b>❖</b> serang</p>
           <button id="btn-back-controls" class="btn-secondary">← BACK</button>
         </div>
@@ -75,9 +82,24 @@
         <p class="tiny">↑/↓ pilih • Enter mulai • Esc kembali</p>
       </div>
 
+      <!-- Campaign Select: replay level terbuka (Stage 10) -->
+      <div id="campaign" class="hidden" role="dialog" aria-modal="true" aria-labelledby="campaign-title" aria-describedby="campaign-status" aria-label="Campaign Select">
+        <h2 id="campaign-title" class="win">CAMPAIGN</h2>
+        <p id="campaign-status" class="menu-lines">-</p>
+        <div class="btn-col" aria-label="Daftar level">
+          <div class="camp-row"><button id="btn-camp-1" class="btn-small">LEVEL 1</button><span id="camp-status-1" class="camp-status">-</span></div>
+          <div class="camp-row"><button id="btn-camp-2" class="btn-small">LEVEL 2</button><span id="camp-status-2" class="camp-status">-</span></div>
+          <div class="camp-row"><button id="btn-camp-3" class="btn-small">LEVEL 3</button><span id="camp-status-3" class="camp-status">-</span></div>
+          <div class="camp-row"><button id="btn-camp-4" class="btn-small">LEVEL 4</button><span id="camp-status-4" class="camp-status">-</span></div>
+          <div class="camp-row"><button id="btn-camp-5" class="btn-small">LEVEL 5</button><span id="camp-status-5" class="camp-status">-</span></div>
+          <button id="btn-camp-back" class="btn-secondary">← BACK</button>
+        </div>
+        <p class="tiny">↑/↓ pilih • Enter mulai • Esc kembali</p>
+      </div>
+
       <!-- Level Complete (Stage 5): NEXT / REPLAY / MENU -->
-      <div id="lvlclear" class="hidden" role="dialog" aria-label="Level Complete">
-        <h2 class="win">LEVEL COMPLETE!</h2>
+      <div id="lvlclear" class="hidden" role="dialog" aria-modal="true" aria-labelledby="lvlclear-title" aria-label="Level Complete">
+        <h2 id="lvlclear-title" class="win">LEVEL COMPLETE!</h2>
         <p id="lvlclear-stats">-</p>
         <div class="btn-row">
           <button id="btn-next" class="btn-primary">➤ NEXT LEVEL</button>
@@ -88,8 +110,8 @@
       </div>
 
       <!-- Settings (Stage 6): audio + input + reset, tanpa BGM palsu -->
-      <div id="settings" class="hidden" role="dialog" aria-label="Settings">
-        <h2 class="win">SETTINGS</h2>
+      <div id="settings" class="hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-label="Settings">
+        <h2 id="settings-title" class="win">SETTINGS</h2>
         <div class="set-col">
           <div class="set-row">
             <span class="set-label">Efek suara</span>
@@ -131,8 +153,8 @@
       </div>
 
       <!-- Konfirmasi reset (anti kepencet di HP) -->
-      <div id="reset-confirm" class="hidden" role="dialog" aria-label="Konfirmasi reset">
-        <h2>RESET DATA?</h2>
+      <div id="reset-confirm" class="hidden" role="dialog" aria-modal="true" aria-labelledby="reset-title" aria-label="Konfirmasi reset">
+        <h2 id="reset-title">RESET DATA?</h2>
         <p>Reset all saved progress and settings?</p>
         <div class="btn-row">
           <button id="btn-reset-cancel" class="btn-secondary">CANCEL</button>
@@ -141,14 +163,25 @@
       </div>
 
       <!-- Game Complete (Stage 5): PLAY AGAIN / MENU -->
-      <div id="gameclear" class="hidden" role="dialog" aria-label="Game Complete">
-        <h2 class="win">GAME COMPLETE!</h2>
+      <div id="gameclear" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gameclear-title" aria-describedby="gameclear-stats" aria-label="Game Complete">
+        <h2 id="gameclear-title" class="win">GAME COMPLETE!</h2>
         <p id="gameclear-stats">-</p>
         <div class="btn-row">
           <button id="btn-again2" class="btn-primary">▶ PLAY AGAIN</button>
           <button id="btn-gamemenu" class="btn-secondary">☰ MENU</button>
         </div>
         <p class="tiny">R / Enter = main lagi</p>
+      </div>
+
+      <!-- Pause eksplisit (Stage 10): RESUME / RESPAWN / MENU -->
+      <div id="pause" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pause-title" aria-label="Pause">
+        <h2 id="pause-title" class="win">PAUSED</h2>
+        <div class="btn-row">
+          <button id="btn-resume" class="btn-primary">▶ RESUME</button>
+          <button id="btn-pause-respawn" class="btn-secondary">⚑ RESPAWN</button>
+          <button id="btn-pause-menu" class="btn-secondary">☰ MENU</button>
+        </div>
+        <p class="tiny">P / Esc = lanjut • R = respawn</p>
       </div>
     </div>
 

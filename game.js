@@ -1,21 +1,27 @@
 /* ==========================================================================
- * Knight 2D Platformer — release candidate Tahap 4 (vanilla JS + Canvas)
+ * Knight Platformer v1.0.0 — Final Release (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
- *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input /
- *   Level / Physics / Animation / Player / Enemy (slime prosedural) /
- *   Combat / FX (partikel pool, shake, dekor parallax) / Kamera /
- *   Checkpoint+Goal / UI-HUD / Game state + respawn/restart / Main loop
+ *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
+ *   (keyboard + Pointer Events) / Level 1-5 / Physics / Animation / Player /
+ *   Enemy (slime + skeleton prosedural) / Miniboss + Boss (RAJA SLIME,
+ *   RAJA LICH) / Combat / FX (partikel pool, shake, dekor parallax) /
+ *   Kamera / Checkpoint+Goal / UI-HUD / Campaign Select / Pause /
+ *   Game state + respawn/restart / Save v2 / Main loop (satu rAF)
  *
  * Kontrol : A/D atau Panah = gerak | Space/W/Panah-atas = lompat |
- *           J/X = serang | R/Enter = respawn (saat Game Over) / ulangi (menang)
- * Sentuh  : tombol ◀ ▶ ⤒ + ATTACK (❖)
- * Misi    : lewati 2 celah, kalahkan slime, sentuh CP, capai FINISH.
+ *           J/X = serang | R = respawn checkpoint (playing) / Enter = lanjut |
+ *           P/Esc = pause/resume (saat playing)
+ * Sentuh  : tombol ◀ ▶ ⤒ + ATTACK (❖) via Pointer Events + tombol pause ⏸
+ * Misi    : L1/L3 capai FINISH | L2 kalahkan RAJA SLIME |
+ *           L4 kalahkan RAJA LICH | L5 kalahkan KEDUA RAJA.
+ * L5 final gauntlet resets to the beginning on death (by design).
  * ========================================================================== */
 (function () {
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
+  var GAME_VERSION = '1.0.0';
   const DEBUG = false;
 
   var VIEW_W = 960;
@@ -517,51 +523,70 @@
     else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') Input.jumpHeld = false;
   });
 
+  /* Stage 10: satu jalur Pointer Events (pointerdown/up/cancel/leave).
+   * Multi-touch native via pointerId (left+jump, right+attack, dst).
+   * Tidak ada guard timeout: tidak double-trigger by-design (satu pointer
+   * aktif per tombol, pointer kedua diabaikan). pointercancel + rotasi
+   * membersihkan state agar tidak stuck pressed. */
   function bindHoldButton(id, onDown, onUp) {
     var el = document.getElementById(id);
     if (!el) { debugLog('[input] tombol tidak ditemukan:', id); return; }
-    // Guard: browser Android mengirim mouse emulasi <500ms setelah touch.
-    // Tanpa guard, mousedown emulasi memicu edge kedua (double jump/dll).
-    var lastTouch = -9999;
-    var start = function (e) {
+    var activePointer = null; // pointerId penahan saat ini (satu per tombol)
+    var pidOf = function (e) {
+      return (e && e.pointerId !== undefined && e.pointerId !== null) ? e.pointerId : 'mouse';
+    };
+    var down = function (e, pid) {
+      if (activePointer !== null) return; // duplikat: abaikan
+      activePointer = pid;
       if (e && e.cancelable) e.preventDefault();
       el.classList.add('pressed');
       onDown();
     };
-    var end = function (e) {
+    var up = function (e, pid) {
+      if (activePointer !== null && pid !== activePointer) return;
+      activePointer = null;
       if (e && e.cancelable) e.preventDefault();
-      el.classList.remove('pressed');
+      try { el.classList.remove('pressed'); } catch (err) { /* abaikan */ }
       onUp();
     };
-    var startTouch = function (e) {
-      try { lastTouch = nowPerf(); } catch (err) { lastTouch = 0; }
-      start(e);
+    var clearHold = function () {
+      activePointer = null;
+      try { el.classList.remove('pressed'); } catch (err) { /* abaikan */ }
+      try {
+        if (id === 'btn-left') Input.left = false;
+        else if (id === 'btn-right') Input.right = false;
+        else if (id === 'btn-jump') Input.jumpHeld = false;
+      } catch (err) { /* abaikan */ }
     };
-    var startMouse = function (e) {
-      try { if (nowPerf() - lastTouch < 500) return; } catch (err) { /* lanjut */ }
-      start(e);
-    };
-    var endMouse = function (e) {
-      try { if (nowPerf() - lastTouch < 500) { el.classList.remove('pressed'); return; } }
-      catch (err) { /* lanjut */ }
-      end(e);
-    };
-    el.addEventListener('touchstart', startTouch, { passive: false });
-    el.addEventListener('touchend', end);
-    el.addEventListener('touchcancel', end);
-    el.addEventListener('mousedown', startMouse);
-    el.addEventListener('mouseup', endMouse);
-    el.addEventListener('mouseleave', function () {
-      if (el.classList.contains('pressed')) end();
-    });
+    if (typeof window !== 'undefined' && window.PointerEvent) {
+      el.addEventListener('pointerdown', function (e) { down(e, pidOf(e)); });
+      el.addEventListener('pointerup', function (e) { up(e, pidOf(e)); });
+      el.addEventListener('pointercancel', function (e) { up(e, pidOf(e)); });
+      el.addEventListener('pointerleave', function (e) {
+        if (activePointer !== null) up(e, pidOf(e));
+      });
+    } else {
+      // Fallback legacy (browser sangat lama tanpa PointerEvent).
+      el.addEventListener('touchstart', function (e) { down(e, 'touch'); }, { passive: false });
+      el.addEventListener('touchend', function (e) { up(e, 'touch'); });
+      el.addEventListener('touchcancel', function (e) { up(e, 'touch'); });
+      el.addEventListener('mousedown', function (e) { down(e, 'mouse'); });
+      el.addEventListener('mouseup', function (e) { up(e, 'mouse'); });
+    }
+    // Rotasi/orientasi: jangan tinggalkan tombol pressed (anti stuck).
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      try {
+        window.addEventListener('orientationchange', function () { clearHold(); });
+      } catch (err) { /* abaikan */ }
+    }
     el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
 
   /* ========================= 6. LEVEL DATA =========================
-   * Stage 5: dua level dalam struktur data yang sama (mudah diedit).
+   * Lima level dalam struktur data yang sama (mudah diedit).
    * Level 1 = level existing PERSIS (physics/layout musuh/checkpoint/goal
    * tidak berubah) + rute Gold Shard (non-colliding, nol risiko regresi).
-   * Level 2 = konten baru: traversal, 2 celah, encounter Fast+Heavy,
+   * Level 2 = traversal, 3 celah, encounter Fast+Heavy,
    * checkpoint, arena boss RAJA SLIME.
    * Zona Level 1:
    *   x 0-520     : starting area (tanah datar, spawn 80)
@@ -851,13 +876,14 @@
   // Stage 9: indeks mood BGM aktif (0 slime, 1 dungeon, 2 final).
   // Diganti saat load level; scheduler lanjut mulus tanpa restart.
   var musicSetIdx = 0;
-  // Copy misi per level (§5 plant): pendek, akurat, ramah HP.
+  // Copy misi per level: jujur terhadap kondisi menang aktual (Option A).
+  // L1/L3 menang via FINISH (combat opsional); L2/L4/L5 via boss.
   var MISSION_COPY = {
-    1: 'L1: shard • kalahkan slime • checkpoint • capai <b>FINISH</b>',
+    1: 'L1: shard • checkpoint • capai <b>FINISH</b>',
     2: 'L2: lewati celah • shard • checkpoint • kalahkan <b>RAJA SLIME</b>',
-    3: 'L3: kalahkan skeleton • shard • checkpoint • capai <b>FINISH</b>',
-    4: 'L4: miniboss • shard • checkpoint • kalahkan <b>RAJA LICH</b>',
-    5: 'L5: slime + skeleton • shard • kalahkan <b> KEDUA RAJA</b>'
+    3: 'L3: shard • checkpoint • capai <b>FINISH</b>',
+    4: 'L4: shard • checkpoint • kalahkan <b>RAJA LICH</b>',
+    5: 'L5: shard • kalahkan <b>KEDUA RAJA</b>'
   };
   // Pointer level aktif — seluruh sistem (fisika, kamera, render) membaca
   // dari sini sehingga ganti level = tukar pointer + reset state.
@@ -1762,6 +1788,8 @@
   var shake = { mag: 0, t: 1, dur: 1, ox: 0, oy: 0 };
 
   function triggerScreenShake(amount, duration) {
+    // Reduced motion: shake visual dinonaktifkan, gameplay tidak berubah.
+    if (reducedMotion) return;
     if (amount >= shake.mag || shake.t >= shake.dur) {
       shake.mag = amount;
       shake.t = 0;
@@ -2826,7 +2854,7 @@
   /* ---- Overlay & panel ---- */
   function hideAllOverlays() {
     var els = [overlayEl, winOverlayEl, menuEl, lvlclearEl, gameclearEl,
-               settingsEl, resetEl];
+               settingsEl, resetEl, campaignEl, pauseEl];
     for (var i = 0; i < els.length; i++) {
       if (els[i]) els[i].classList.add('hidden');
     }
@@ -2987,6 +3015,158 @@
   function settingsBack() {
     toMenu(); // parent settings selalu Main Menu
   }
+
+  /* ---- 11e. CAMPAIGN SELECT (Stage 10): replay level terbuka ----
+   * Panel di dalam menu (bukan state baru): L1 selalu terbuka, L2-L5 ikut
+   * save unlock. Locked tidak dapat dimainkan. PLAY existing tak berubah
+   * (selalu campaign dari L1). Start via select = fresh run dari level itu
+   * (resetTotals) agar best-time tidak tercemar run parsial. */
+  var campaignEl = null, campStatusEl = null;
+  var btnCampaign = null, btnCampBack = null;
+  var campBtns = [null, null, null, null, null];
+  var campStats = [null, null, null, null, null];
+  var LEVEL_NAMES = {
+    1: 'Slime Grounds', 2: 'Slime Dominion', 3: 'Skeleton Fortress',
+    4: 'Lich Domain', 5: 'Final Convergence'
+  };
+  var LEVEL_BEST = { 1: 'bestL1', 2: 'bestL2', 3: 'bestL3', 4: 'bestL4', 5: 'bestL5' };
+  var LEVEL_DONE = { 1: 'level1Completed', 2: 'level2Completed', 3: 'level3Completed',
+                     4: 'level4Completed', 5: 'level5Completed' };
+
+  function campBestText(n) {
+    var v = save[LEVEL_BEST[n]];
+    return (v == null || !isFinite(v)) ? '-/-' : Number(v).toFixed(1) + 's';
+  }
+
+  function refreshCampaignUI() {
+    try {
+      var doneCount = 0;
+      for (var n = 1; n <= 5; n++) {
+        var open = canPlayLevel(n);
+        var done = !!save[LEVEL_DONE[n]];
+        if (done) doneCount++;
+        var b = campBtns[n - 1], st = campStats[n - 1];
+        if (b) b.textContent = (open ? '' : '🔒 ') + 'LEVEL ' + n + ' — ' + LEVEL_NAMES[n];
+        if (st) {
+          st.textContent = done ? '✓ CLEAR ' + campBestText(n)
+                         : (open ? 'OPEN ' + campBestText(n) : 'LOCKED');
+          st.className = 'camp-status' + (done ? ' clear' : (open ? '' : ' locked'));
+        }
+      }
+      if (campStatusEl) campStatusEl.textContent = 'Selesai: ' + doneCount + '/5 • Pilih level terbuka untuk replay.';
+    } catch (e) { /* abaikan */ }
+  }
+
+  function openCampaign() {
+    if (gameState !== 'menu') return;
+    hideAllOverlays();
+    if (menuEl) menuEl.classList.remove('hidden');
+    showMenuPanel('main'); // panel menu tetap main (campaign overlay di atas)
+    if (campaignEl) campaignEl.classList.remove('hidden');
+    clearInput();
+    refreshCampaignUI();
+    var first = null;
+    for (var n = 1; n <= 5; n++) {
+      if (canPlayLevel(n) && campBtns[n - 1]) { first = campBtns[n - 1]; break; }
+    }
+    if (first && first.focus) {
+      try { first.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+    debugLog('[game] campaign dibuka');
+  }
+
+  function campaignBack() {
+    toMenu();
+    if (btnCampaign && btnCampaign.focus) {
+      try { btnCampaign.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+  }
+
+  function isCampaignOpen() {
+    try { return !!(campaignEl && !campaignEl.classList.contains('hidden')); }
+    catch (e) { return false; }
+  }
+
+  function playCampaignLevel(n) {
+    n = Math.floor(Number(n));
+    if (!(n >= 1 && n <= Levels.length)) return false;
+    if (!canPlayLevel(n)) {
+      showToast('Selesaikan level sebelumnya dulu!');
+      AudioManager.play('click');
+      return false;
+    }
+    resetTotals();
+    startTrans(n);
+    return true;
+  }
+
+  /* ---- 11f. EXPLICIT PAUSE (Stage 10): P / Esc / tombol DOM ----
+   * Pause membekukan simulasi (frame return dini), men-suspend audio,
+   * membersihkan input agar tidak bocor saat resume. Satu rAF tetap. */
+  var pauseEl = null, btnPause = null;
+  var btnResume = null, btnPauseRespawn = null, btnPauseMenu = null;
+
+  function refreshPauseBtn() {
+    try {
+      if (!btnPause) return;
+      if (gameState === 'playing') {
+        btnPause.classList.remove('hidden');
+        btnPause.textContent = paused ? '▶' : '⏸';
+        btnPause.setAttribute('aria-label', paused ? 'Lanjutkan game' : 'Pause game');
+      } else {
+        btnPause.classList.add('hidden');
+      }
+    } catch (e) { /* abaikan */ }
+  }
+
+  function isPauseOpen() {
+    try { return !!(pauseEl && !pauseEl.classList.contains('hidden')); }
+    catch (e) { return false; }
+  }
+
+  function pauseGame() {
+    if (gameState !== 'playing' || paused) return;
+    clearInput();
+    setPaused(true);
+    hideAllOverlays();
+    if (pauseEl) pauseEl.classList.remove('hidden');
+    refreshPauseBtn();
+    if (btnResume && btnResume.focus) {
+      try { btnResume.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+    debugLog('[game] pause eksplisit');
+  }
+
+  function resumeGame() {
+    if (gameState !== 'playing' || !paused) return;
+    clearInput();
+    if (pauseEl) pauseEl.classList.add('hidden');
+    setPaused(false);
+    try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    try { AudioManager.unlock(); } catch (e) { /* abaikan */ }
+    refreshPauseBtn();
+    if (btnPause && btnPause.focus) {
+      try { btnPause.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+    debugLog('[game] resume eksplisit');
+  }
+
+  function togglePause() {
+    if (gameState !== 'playing') return;
+    if (paused) resumeGame();
+    else pauseGame();
+  }
+
+  /* ---- 11g. REDUCED MOTION (Stage 10): hormati preferensi OS ----
+   * Saat aktif: screen shake dinonaktifkan (visual-only, gameplay utuh). */
+  var reducedMotion = false;
+  function applyReducedMotionPref() {
+    try {
+      var mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+      reducedMotion = !!(mq && mq.matches);
+    } catch (e) { reducedMotion = false; }
+  }
+  function setReducedMotion(v) { reducedMotion = !!v; }
 
   function refreshSettingsUI() {
     try {
@@ -3260,6 +3440,7 @@
     if (v === paused) return;
     paused = v;
     if (v) AudioManager.suspend();
+    refreshPauseBtn();
     debugLog('[game] paused=', v);
   }
 
@@ -3272,7 +3453,8 @@
     try {
       var hidden = !!(typeof document !== 'undefined' && document.hidden);
       setPaused(hidden);
-      if (!hidden) last = nowPerf(); // cegah delta melonjak saat kembali
+      if (hidden) clearInput(); // pointer-up bisa hilang saat tab hidden
+      else last = nowPerf(); // cegah delta melonjak saat kembali
     } catch (e) { /* abaikan */ }
   }
 
@@ -3880,28 +4062,34 @@
 
   function drawDebug(fps) {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(12, 92, 360, 128);
+    ctx.fillRect(12, 92, 360, 160);
     ctx.fillStyle = '#8fff9f';
     ctx.font = '12px monospace';
     var label = player.state.toUpperCase();
     ctx.fillText('STATE:' + label + ' FACE:' + (player.facing === 1 ? 'R' : 'L'), 20, 106);
     ctx.fillText('FPS:' + fps.toFixed(0) + ' (' + msShown.toFixed(1) + 'ms)', 20, 122);
+    ctx.fillText('FT avg:' + ftAvg.toFixed(1) + 'ms peak:' + ftPeak.toFixed(1) +
+      'ms p95:' + ftP95.toFixed(1) + 'ms', 20, 138);
     ctx.fillText('POS:' + Math.round(player.x) + ',' + Math.round(player.y) +
-      ' VY:' + Math.round(player.vy) + (player.onGround ? ' GND' : ' AIR'), 20, 138);
+      ' VY:' + Math.round(player.vy) + (player.onGround ? ' GND' : ' AIR'), 20, 154);
     ctx.fillText('CAM:' + Math.round(camera.x) + ' PROG:' + Math.round(getProgress() * 100) +
       '% CP:' + Level.checkpoints.map(function (c) { return c.activated ? 1 : 0; }).join('') +
-      ' GS:' + gameState, 20, 154);
+      ' GS:' + gameState, 20, 170);
     ctx.fillText('PART:' + particleCount + '/' + MAX_PARTICLES +
-      ' EN:' + enemies.length + ' SHAKE:' + shake.mag.toFixed(1), 20, 170);
+      ' EN:' + enemies.length + ' SHOT:' + shots.length +
+      ' SHAKE:' + shake.mag.toFixed(1), 20, 186);
     var dprTxt = '1';
     try { dprTxt = String(window.devicePixelRatio || 1); } catch (e) { /* abaikan */ }
     ctx.fillText('DSP:' + canvas.width + 'x' + canvas.height +
-      ' DPR:' + dprTxt + ' x' + renderScale.toFixed(2), 20, 186);
+      ' DPR:' + dprTxt + ' x' + renderScale.toFixed(2), 20, 202);
     ctx.fillText('ATK box:' + (player.attackBox ? 'ON' : 'off') +
       ' EN0 hp:' + (enemies[0] ? enemies[0].hp : '-') +
       ' st:' + (enemies[0] ? enemies[0].state : '-') +
       ' LV:' + currentLevel +
-      (boss ? ' BOSS:' + boss.hp + '/' + boss.state : ''), 20, 202);
+      (boss ? ' BOSS:' + boss.hp + '/' + boss.state : ''), 20, 218);
+    ctx.fillText('RM:' + (reducedMotion ? 'ON' : 'off') +
+      ' PAUSE:' + (paused ? 'ON' : 'off') +
+      ' MOOD:' + musicSetIdx, 20, 234);
   }
 
   // Hitbox overlay — world-space, dipanggil di dalam transform kamera.
@@ -3944,6 +4132,11 @@
 
   /* ========================= 14. MAIN LOOP ========================= */
   var last = 0, fpsAcc = 0, fpsN = 0, fpsShown = 60, msShown = 16.7;
+  var lastPauseBtnState = '';
+  // Stage 10: ring histori frame-time untuk avg/peak/p95 (DEBUG saja).
+  // Preallocated sekali (bukan per-frame) agar tidak menambah GC.
+  var FT_N = 120, ftRing = new Float64Array(120), ftIdx = 0, ftCount = 0;
+  var ftAvg = 16.7, ftPeak = 16.7, ftP95 = 16.7;
 
   function drawPaused() {
     ctx.fillStyle = 'rgba(8,10,25,0.65)';
@@ -4080,10 +4273,27 @@
 
     if (DEBUG) {
       fpsAcc += 1 / dt; fpsN++;
+      // Histori frame-time (ms) untuk avg/peak/p95.
+      ftRing[ftIdx] = dt * 1000;
+      ftIdx = (ftIdx + 1) % FT_N;
+      if (ftCount < FT_N) ftCount++;
       if (fpsN >= 20) {
         fpsShown = fpsAcc / fpsN;
         msShown = 1000 / (fpsShown > 0 ? fpsShown : 60);
         fpsAcc = 0; fpsN = 0;
+        // Snapshot avg/peak/p95 dari ring (DEBUG saja, tiap 20 frame).
+        var sum = 0, peak = 0, k;
+        for (k = 0; k < ftCount; k++) {
+          var vv = ftRing[k];
+          sum += vv;
+          if (vv > peak) peak = vv;
+        }
+        ftAvg = ftCount ? sum / ftCount : 0;
+        ftPeak = peak;
+        var cp = [];
+        for (k = 0; k < ftCount; k++) cp.push(ftRing[k]);
+        cp.sort(function (a, b) { return a - b; });
+        ftP95 = ftCount ? cp[Math.min(ftCount - 1, Math.floor(ftCount * 0.95))] : 0;
       }
     }
 
@@ -4093,6 +4303,12 @@
     updateTrans(dt);
     // Scheduler BGM (lookahead via Web Audio clock; no-op bila diam).
     AudioManager.musicTick();
+    // Sinkron tombol pause DOM hanya saat state berubah (tanpa DOM per-frame).
+    var pkState = gameState + (paused ? 'P' : '');
+    if (pkState !== lastPauseBtnState) {
+      lastPauseBtnState = pkState;
+      refreshPauseBtn();
+    }
 
     if (gameState === 'menu') {
       drawMenuVista();
@@ -4117,7 +4333,7 @@
       if (Input.restartPressed) { Input.restartPressed = false; respawn(); }
     } else if (gameState === 'levelcomplete') {
       updateShake(dt);
-      // R / Enter = lanjut ke Level 2 (terkunci sampai L1 selesai).
+      // R / Enter = lanjut ke level berikutnya (gate unlock).
       if (Input.restartPressed) { Input.restartPressed = false; nextLevel(); }
     } else if (gameState === 'gamecomplete') {
       updateShake(dt);
@@ -4180,6 +4396,27 @@
   btnResetCancel = document.getElementById('btn-reset-cancel');
   btnResetConfirm = document.getElementById('btn-reset-confirm');
   aboutRecords = document.getElementById('about-records');
+  // Stage 10: campaign select + explicit pause.
+  btnCampaign = document.getElementById('btn-campaign');
+  campaignEl = document.getElementById('campaign');
+  campStatusEl = document.getElementById('campaign-status');
+  for (var cni = 1; cni <= 5; cni++) {
+    campBtns[cni - 1] = document.getElementById('btn-camp-' + cni);
+    campStats[cni - 1] = document.getElementById('camp-status-' + cni);
+  }
+  btnCampBack = document.getElementById('btn-camp-back');
+  pauseEl = document.getElementById('pause');
+  btnPause = document.getElementById('btn-pause');
+  btnResume = document.getElementById('btn-resume');
+  btnPauseRespawn = document.getElementById('btn-pause-respawn');
+  btnPauseMenu = document.getElementById('btn-pause-menu');
+  applyReducedMotionPref();
+  try {
+    var rmq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (rmq && rmq.addEventListener) {
+      rmq.addEventListener('change', function (e) { reducedMotion = !!e.matches; });
+    }
+  } catch (e) { /* abaikan */ }
 
   bindHoldButton('btn-left',
     function () { Input.left = true; },
@@ -4211,6 +4448,13 @@
     });
   }
   onClick(btnPlay, function () { playFresh(); });
+  onClick(btnCampaign, function () { openCampaign(); });
+  onClick(btnCampBack, function () { campaignBack(); });
+  for (var cpi = 1; cpi <= 5; cpi++) {
+    (function (n) {
+      onClick(campBtns[n - 1], function () { playCampaignLevel(n); });
+    })(cpi);
+  }
   onClick(btnControls, function () { showMenuPanel('controls'); });
   onClick(btnAbout, function () { showMenuPanel('about'); });
   onClick(btnBackC, function () { showMenuPanel('main'); });
@@ -4256,11 +4500,27 @@
     if (resetEl) resetEl.classList.add('hidden');
     resetSave();
   });
+  // Stage 10: explicit pause (null-guard, touch-friendly).
+  // NOTE: tombol pause memakai click mentah (tanpa bunyi 'click' onClick)
+  // agar tidak ada SFX baru saat pause; resume via tombol tetap hening.
+  if (btnPause) btnPause.addEventListener('click', function () {
+    if (gameState !== 'playing') return;
+    togglePause();
+  });
+  onClick(btnResume, function () { resumeGame(); });
+  onClick(btnPauseRespawn, function () {
+    if (pauseEl) pauseEl.classList.add('hidden');
+    setPaused(false);
+    respawn();
+  });
+  onClick(btnPauseMenu, function () { toMenu(); });
 
-  // Navigasi keyboard: menu (panel utama/kontrol/about), settings,
-  // dan dialog reset. Atas/Bawah pindah tombol, Escape kembali.
-  // Tidak menyentuh input gameplay.
-  var menuNavIds = ['btn-play', 'btn-controls', 'btn-settings', 'btn-about'];
+  // Navigasi keyboard: menu (panel utama/kontrol/about/campaign), settings,
+  // dialog reset, dan explicit pause. Atas/Bawah pindah tombol, Escape kembali.
+  // Tidak menyentuh input gameplay. P/Esc saat playing = pause/resume.
+  var menuNavIds = ['btn-play', 'btn-campaign', 'btn-controls', 'btn-settings', 'btn-about'];
+  var campNavIds = ['btn-camp-1', 'btn-camp-2', 'btn-camp-3', 'btn-camp-4',
+    'btn-camp-5', 'btn-camp-back'];
   // Navigasi settings: Atas/Bawah antar kontrol, Escape kembali ke menu.
   var settingsNavIds = ['set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up',
     'set-music', 'set-music-vol-down', 'set-music-vol-up',
@@ -4304,7 +4564,34 @@
       focusNavId(settingsNavIds, e.code === 'ArrowDown');
       return;
     }
+    if (gameState === 'playing') {
+      // Explicit pause: P toggle, Esc toggle (valid: pause <-> resume).
+      if (e.code === 'KeyP') {
+        togglePause();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code === 'Escape') {
+        togglePause();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      return; // sisa input playing diurus listener gameplay
+    }
     if (gameState !== 'menu') return;
+    // Campaign overlay di atas menu: Esc kembali, panah navigasi level.
+    if (isCampaignOpen()) {
+      if (e.code === 'Escape') {
+        campaignBack();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown' && e.code !== 'Enter') return;
+      if (e.code === 'Enter') return; // aktivasi native via fokus tombol
+      if (e.preventDefault) e.preventDefault();
+      focusNavId(campNavIds, e.code === 'ArrowDown');
+      return;
+    }
     if (e.code === 'Escape') {
       showMenuPanel('main');
       if (e.preventDefault) e.preventDefault();
@@ -4332,7 +4619,7 @@
       document.addEventListener('visibilitychange', onVisibility);
     }
   } catch (e) { /* abaikan */ }
-  window.addEventListener('blur', function () { setPaused(true); });
+  window.addEventListener('blur', function () { setPaused(true); clearInput(); });
   window.addEventListener('focus', function () {
     try {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -4408,6 +4695,7 @@
   // Handle kecil untuk testing otomatis (tidak memengaruhi gameplay).
   window.KnightGame = {
     input: Input,
+    version: GAME_VERSION,
     config: { DEBUG: DEBUG },
     getPlayer: function () { return player; },
     getEnemies: function () { return enemies; },
@@ -4479,6 +4767,18 @@
     // Hardening hooks (behavior tests, tidak memengaruhi gameplay).
     getVictoryArmed: function () { return victoryArmed; },
     getShocks: function () { return shocks; },
+    // Stage 10: campaign select + explicit pause + reduced motion.
+    openCampaign: openCampaign,
+    campaignBack: campaignBack,
+    isCampaignOpen: isCampaignOpen,
+    refreshCampaignUI: refreshCampaignUI,
+    playCampaignLevel: playCampaignLevel,
+    pauseGame: pauseGame,
+    resumeGame: resumeGame,
+    togglePause: togglePause,
+    isPauseOpen: isPauseOpen,
+    getReducedMotion: function () { return reducedMotion; },
+    setReducedMotion: setReducedMotion,
     // Stage 6: save/settings/state untuk UI + testing.
     getSave: function () {
       return JSON.parse(JSON.stringify(save));
