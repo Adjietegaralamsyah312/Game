@@ -189,7 +189,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 129; // total test (123 lama + 6 Stage 8)
+const EXPECTED_TOTAL = 131; // total test (129 lama + 2 audit)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -914,12 +914,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('129 automated test'), 'README harus sebut 129 test, cek jumlah');
+  ok(readme.includes('131 automated test'), 'README harus sebut 131 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 129);
+  eq(EXPECTED_TOTAL, 131);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1237,6 +1237,23 @@ test('129 feedback Terkena: partikel + shake boss', () => {
   ok(G.fx.count() > c0, 'hurt harus burst partikel');
   srcHas('triggerScreenShake(SHAKE_HIT, 0.12)'); // boss hit lebih kuat
   G.restart();
+});
+
+// ---------- 2 TEST AUDIT PUTARAN DUA ----------
+test('130 startTrans menolak level invalid tanpa crash', () => {
+  G.toMenu();
+  const st0 = G.getState();
+  noThrow(() => { G.startTrans(0); G.startTrans(99); G.startTrans(-1); G.startTrans(NaN); });
+  eq(G.getTrans().active, false, 'transisi invalid jangan jalan');
+  eq(G.getState(), st0, 'state jangan berubah');
+  eq(G.getLevel(), 1);
+  srcHas('n <= Levels.length');
+});
+test('131 hygiene: tanpa field mati + aria dialog unik', () => {
+  ok(!/swingId/.test(src), 'swingId write-only harus hilang');
+  ok(!/removeT/.test(src), 'removeT tak-terbaca harus hilang');
+  const labels = [...html.matchAll(/role="dialog" aria-label="([^"]*)"/g)].map((m) => m[1]);
+  eq(new Set(labels).size, labels.length, 'aria-label dialog duplikat: ' + labels);
 });
 
 // ---------- Ringkasan ----------

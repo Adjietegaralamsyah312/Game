@@ -715,7 +715,7 @@
       state: 'idle',      // idle|run|jump|fall|attack|hurt|death
       animTime: 0,
       coyote: 0, jumpBuf: 0,
-      attackT: 0, attackCooldown: 0, swingId: 0, didStrikeHit: {},
+      attackT: 0, attackCooldown: 0, didStrikeHit: {},
       hurtT: 0, iframes: 0,
       deathT: 0, attackBox: null,
       landT: 0,      // squash pendaratan (polish Tahap 3)
@@ -728,7 +728,6 @@
     player.state = 'attack';
     player.animTime = 0;
     player.attackT = 0;
-    player.swingId++;
     player.didStrikeHit = {};
     player.attackBox = null;
     // Ayunan baru selalu mulai tanpa buffer (B2): queued basi dari ayunan
@@ -988,7 +987,7 @@
       animTime: Math.random() * 10,
       atkT: 0, cooldown: 0, hurtT: 0, deathT: 0,
       iframes: 0, struckPlayer: false,
-      dead: false, removeT: 0
+      dead: false
     };
   }
   var enemies = [];
@@ -2018,7 +2017,8 @@
 
   // Transisi fade-out -> load -> fade-in (pendek, tanpa loading palsu).
   function startTrans(n) {
-    if (trans.active) return;
+    // Guard: level di luar daftar ditolak diam-diam (anti crash console).
+    if (trans.active || !(n >= 1 && n <= Levels.length)) return;
     hideAllOverlays();
     try { AudioManager.unlock(); } catch (e) { /* abaikan */ }
     trans.active = true;
@@ -2036,17 +2036,17 @@
         trans.phase = 'in';
         trans.t = trans.dur;
       }
-      } else {
-        trans.t -= dt;
-        if (trans.t <= 0) {
-          trans.active = false;
-          trans.phase = '';
-          gameState = 'playing';
-          setPaused(false);
-          try { last = nowPerf(); } catch (e) { /* abaikan */ }
-          AudioManager.updateMusicState();
-        }
+    } else {
+      trans.t -= dt;
+      if (trans.t <= 0) {
+        trans.active = false;
+        trans.phase = '';
+        gameState = 'playing';
+        setPaused(false);
+        try { last = nowPerf(); } catch (e) { /* abaikan */ }
+        AudioManager.updateMusicState();
       }
+    }
   }
 
   function transAlpha() {
@@ -2352,7 +2352,10 @@
     var dw = PLAYER_DRAW, dh = PLAYER_DRAW;
     if (player.landT > 0) { dw = PLAYER_DRAW + 8; dh = PLAYER_DRAW - 8; }
     var dx = Math.round(player.x + player.w / 2 - dw / 2);
-    var dy = Math.round(player.y + player.h - dh + 6);
+    // Kaki menapak tanah: baris opaque terbawah sprite (baris 26 dari 32,
+    // terukur) harus tepat di hitbox bawah: dy + 27*3 = y + 78 -> +3.
+    // (+6 lama membuat kaki melayang ~9px di atas tanah.)
+    var dy = Math.round(player.y + player.h - dh + 3);
     if (player.state === 'idle') dy += Math.round(Math.sin(player.animTime * 9));
     var cx = dx + dw / 2;
     drawFacing(function () {

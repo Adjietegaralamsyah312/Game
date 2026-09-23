@@ -93,7 +93,7 @@ knight_game/
 ├── index.html          # kanvas + overlay (menu/settings/clear) + metadata
 ├── game.js             # seluruh game (menu, 2 level, varian, boss, save, BGM)
 ├── style.css           # tema + responsif + safe-area Android
-├── test.js             # 129 automated test headless (node test.js)
+├── test.js             # 131 automated test headless (node test.js)
 ├── README.md           # file ini
 └── assets/knight/      # 18 sprite PNG (idle/run/jump/fall/attack/hurt/death)
 ```
@@ -118,7 +118,7 @@ node test.js
 git diff --check
 ```
 
-129 automated test (123 dasar/responsif/settings/BGM/menu/audit + 6 Stage 8) —
+131 automated test (129 dasar/responsif/settings/BGM/menu/audit + 2 audit) —
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
