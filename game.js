@@ -712,6 +712,10 @@
     player.swingId++;
     player.didStrikeHit = {};
     player.attackBox = null;
+    // Ayunan baru selalu mulai tanpa buffer (B2): queued basi dari ayunan
+    // yang di-interrupt hurt/death tidak boleh bocor ke kombo berikutnya.
+    // Kombo/buffer normal aman: queued hanya di-set selama ayunan berjalan.
+    player.queued = false;
     AudioManager.play('attack');
   }
 
@@ -874,7 +878,7 @@
       player.deathT = 0;
       player.vx = 0;
       player.vy = 0;
-      AudioManager.play('die');
+      AudioManager.play('hurt'); // umpan instan; jingle 'gameover' menyusul di overlay
       return;
     }
 
@@ -940,11 +944,18 @@
       body: '#9a5fc9', dark: '#5a2a8a', light: '#d0a5f0', label: 'HEAVY' }
   };
 
+  // R1: lookup own-property yang aman — kunci prototype-chain seperti
+  // 'constructor'/'toString' tak boleh menghasilkan stat invalid/NaN.
+  function enemyKindOf(type) {
+    return Object.prototype.hasOwnProperty.call(ENEMY_STATS, type) ? type : 'slime';
+  }
+
   function createSlime(spawn) {
-    var st = ENEMY_STATS[spawn.type] || ENEMY_STATS.slime;
+    var kind = enemyKindOf(spawn.type);
+    var st = ENEMY_STATS[kind];
     return {
       id: ++slimeUid,
-      kind: (spawn.type in ENEMY_STATS) ? spawn.type : 'slime',
+      kind: kind,
       st: st,
       x: spawn.x, y: spawn.y, w: st.w, h: st.h,
       vx: 0, vy: 0, onGround: false, hitWall: false,
@@ -1096,8 +1107,10 @@
 
     if (s.state === 'patrol') {
       // Balik arah saat menabrak tembok / tepi platform / batas patrol.
+      // B3: hanya SATU reversal per frame (else-if) agar keduanya tak
+      // saling membatalkan saat terjadi bersamaan.
       if (s.hitWall) s.dir *= -1;
-      if (!slimeHasGroundAhead(s)) s.dir *= -1;
+      else if (!slimeHasGroundAhead(s)) s.dir *= -1;
       if (s.x <= s.minX) { s.x = s.minX; s.dir = 1; }
       if (s.x >= s.maxX) { s.x = s.maxX; s.dir = -1; }
     } else {
@@ -1475,13 +1488,7 @@
     burst(b.x + b.w / 2, b.y + b.h / 2, 8, '#ffffff', 180, 0.3, 3, 250);
     burst(b.x + b.w / 2, b.y + b.h / 2, 5, '#ffd23f', 140, 0.35, 3, 250);
     AudioManager.play('bossHurt');
-    if (!b.enraged && b.hp <= 40) {
-      b.enraged = true;
-      burst(b.x + b.w / 2, b.y, 12, '#e05252', 200, 0.6, 4, 300);
-      triggerScreenShake(SHAKE_HURT, 0.3);
-      AudioManager.play('bossAttack');
-      showToast('RAJA SLIME MURKA!');
-    }
+    // B4: death diprioritaskan — killing blow tak boleh memicu enrage.
     if (b.hp <= 0) {
       b.hp = 0;
       b.state = 'death';
@@ -1492,6 +1499,13 @@
       triggerScreenShake(SHAKE_DIE + 2, 0.4);
       AudioManager.play('bossDie');
       return true;
+    }
+    if (!b.enraged && b.hp <= 40) {
+      b.enraged = true;
+      burst(b.x + b.w / 2, b.y, 12, '#e05252', 200, 0.6, 4, 300);
+      triggerScreenShake(SHAKE_HURT, 0.3);
+      AudioManager.play('bossAttack');
+      showToast('RAJA SLIME MURKA!');
     }
     b.state = 'hurt';
     b.hurtT = 0;
@@ -1746,6 +1760,9 @@
         persistSave();
       }
     }
+    // R2: migrasi satu-kali — hapus key lama 'knightBestV1' (guarded,
+    // idempotent). Tak menyentuh knightSaveV1, progresi, best, atau fallback.
+    try { storeDel('knightBestV1'); } catch (e) { /* abaikan */ }
     applyAudioSettings(); // audio selalu ikut save yang aktif
     return save;
   }
@@ -3139,6 +3156,7 @@
       }
       return false;
     },
+    enemyKindOf: enemyKindOf,
     getShards: function () {
       var first = null;
       for (var i = 0; i < shards.length; i++) {

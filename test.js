@@ -189,7 +189,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 118; // total test (112 lama + 6 Game Over Menu)
+const EXPECTED_TOTAL = 123; // total test (118 lama + 5 audit)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -914,12 +914,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('118 automated test'), 'README harus sebut 118 test, cek jumlah');
+  ok(readme.includes('123 automated test'), 'README harus sebut 123 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 118);
+  eq(EXPECTED_TOTAL, 123);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1095,6 +1095,72 @@ test('118 touch sizing Game Over + anti-clip', () => {
   const dlg = blocks.filter((b) => b.body.includes('#mainmenu') && b.body.includes('position: fixed'));
   ok(dlg.length >= 1 && dlg[0].body.includes('#gameover'), '#gameover ikut fullscreen anti-clip');
   ok(css.includes('.btn-row') && css.includes('flex-wrap: wrap'), 'tombol wrap natural di HP');
+});
+
+// ---------- 5 REGRESSION TEST AUDIT (B2, B3, B4, R1, R2) ----------
+test('119 B2: queued basi bersih saat ayunan baru (tanpa phantom combo)', () => {
+  G.startLevel(1);
+  const pl = G.getPlayer();
+  pl.queued = true; // simulasi buffer basi dari ayunan yang di-interrupt
+  pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  G.step(1 / 60);
+  eq(pl.state, 'attack');
+  eq(pl.queued, false, 'queued harus reset saat ayunan baru dimulai');
+  for (let i = 0; i < 45; i++) G.step(1 / 60); // ayunan + cooldown selesai
+  ok(pl.state !== 'attack', 'tak boleh auto-chain, state=' + pl.state);
+  // Kombo normal tetap bekerja: buffer saat swing -> chain sekali.
+  G.input.attackPressed = true;
+  G.step(1 / 60);
+  eq(G.getPlayer().state, 'attack');
+  G.restart();
+});
+test('120 B3: satu reversal per frame + patrol tetap terkekang', () => {
+  srcHas('else if (!slimeHasGroundAhead(s))');
+  G.startLevel(1);
+  for (let i = 0; i < 300; i++) G.step(1 / 60);
+  G.getEnemies().forEach((s) => {
+    ok(s.x >= s.minX - 1 && s.x <= s.maxX + 1, 'patrol keluar zona: ' + s.x);
+    ok(['patrol', 'chase', 'attack', 'hurt'].includes(s.state) || s.dead, 'state aneh: ' + s.state);
+  });
+  G.restart();
+});
+test('121 B4: killing blow tak picu enrage; non-lethal tetap enrage', () => {
+  G.startLevel(2);
+  let b = G.getBoss();
+  b.hp = 45; b.iframes = 0;
+  G.hurtBoss(50, 0); // 45 -> -5: mati, lewati threshold 40
+  eq(b.state, 'death');
+  eq(b.enraged, false, 'killing blow jangan enrage');
+  G.startLevel(2);
+  b = G.getBoss(); b.iframes = 0;
+  G.hurtBoss(90, 0); // 120 -> 30: hidup, di bawah threshold
+  eq(b.state, 'hurt');
+  eq(b.enraged, true, 'non-lethal di bawah threshold tetap enrage');
+  G.toMenu(); G.resetSave();
+});
+test('122 R1: lookup varian aman dari prototype chain', () => {
+  eq(G.enemyKindOf('slime'), 'slime');
+  eq(G.enemyKindOf('fast'), 'fast');
+  eq(G.enemyKindOf('heavy'), 'heavy');
+  ['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf', undefined, null, 42].forEach((t) => {
+    eq(G.enemyKindOf(t), 'slime', 'fallback slime untuk: ' + String(t));
+  });
+  srcHas('hasOwnProperty.call(ENEMY_STATS');
+  ok(!/ENEMY_STATS\[spawn\.type\] \|\|/.test(src), 'lookup lama ber-|| harus hilang');
+  ok(!/spawn\.type in ENEMY_STATS/.test(src), 'operator in harus hilang');
+});
+test('123 R2: key lama dibersihkan, save aktif utuh', () => {
+  testStorage._map.set('knightBestV1', JSON.stringify({ time: 5 }));
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 12.5, level2Unlocked: true }));
+  G.reloadSave();
+  ok(!testStorage._map.has('knightBestV1'), 'key lama harus terhapus');
+  const raw = testStorage._map.get('knightSaveV1');
+  ok(raw !== null, 'knightSaveV1 jangan terhapus');
+  const s = G.getSave();
+  eq(s.bestL1, 12.5); eq(s.level2Unlocked, true);
+  noThrow(() => { G.startLevel(1); G.step(1 / 60); });
+  G.resetSave();
 });
 
 // ---------- Ringkasan ----------
