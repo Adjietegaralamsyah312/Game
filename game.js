@@ -115,6 +115,15 @@
    * =================================================================== */
   var AudioManager = (function () {
     var ctx = null, master = null, noiseBuf = null;
+    // Stage 6: pengaturan audio (default = perilaku lama persis).
+    var sfxOn = true, sfxVol = 1, musicOn = true, musicVol = 0.7;
+    var BASE_GAIN = 0.16;
+
+    function applyGain() {
+      try {
+        if (master) master.gain.value = BASE_GAIN * (sfxOn ? sfxVol : 0);
+      } catch (e) { /* abaikan */ }
+    }
 
     function ensure() {
       if (ctx) return true;
@@ -124,7 +133,7 @@
         if (!AC) return false;
         ctx = new AC();
         master = ctx.createGain();
-        master.gain.value = 0.16;
+        applyGain(); // hormati pengaturan (default = 0.16, perilaku lama)
         master.connect(ctx.destination);
         // Buffer noise 0.5 dtk — dibuat sekali, dipakai ulang semua SFX.
         noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
@@ -206,11 +215,31 @@
 
     return {
       play: function (name) {
+        // OFF / volume 0 = benar-benar diam (tanpa membuat node audio).
+        if (!sfxOn || sfxVol <= 0) return;
         try { if (ctx && SFX[name]) SFX[name](); } catch (e) { /* abaikan */ }
       },
       unlock: unlock,
       suspend: suspend,
-      isReady: function () { return !!ctx; }
+      isReady: function () { return !!ctx; },
+      // Stage 6: volume 0-100 (clamp), berlaku langsung tanpa reload.
+      // Music hanya disimpan (belum ada mesin BGM — tanpa audio palsu).
+      setSfx: function (on, vol) {
+        sfxOn = !!on;
+        sfxVol = clamp(Math.round(Number(vol)) / 100, 0, 1);
+        if (!(sfxVol >= 0)) sfxVol = 1;
+        applyGain();
+      },
+      setMusic: function (on, vol) {
+        musicOn = !!on;
+        musicVol = clamp(Math.round(Number(vol)) / 100, 0, 1);
+        if (!(musicVol >= 0)) musicVol = 0.7;
+      },
+      getCfg: function () {
+        return { sfxOn: sfxOn, sfxVol: Math.round(sfxVol * 100),
+                 musicOn: musicOn, musicVol: Math.round(musicVol * 100),
+                 muted: !(sfxOn && sfxVol > 0) };
+      }
     };
   })();
 
@@ -1180,6 +1209,9 @@
     gameState = 'gameover';
     gameOverT = 0;
     deaths++;
+    // Persistent: total kematian lintas sesi (event-driven, bukan per-frame).
+    save.totalDeaths++;
+    persistSave();
     AudioManager.play('gameover');
     if (overlayEl) overlayEl.classList.remove('hidden');
     if (respawnBtn && respawnBtn.focus) {
@@ -1444,39 +1476,142 @@
         s.taken = true;
         runStats.shards++;
         levelStats.shards++;
+        // Persistent: total shard lintas sesi (event, bukan per-frame).
+        save.totalShards++;
+        persistSave();
         burst(s.x, s.y, 8, '#ffd23f', 140, 0.5, 3, 250);
         AudioManager.play('pickup');
       }
     }
   }
 
-  /* ---- Best sederhana (localStorage, guarded, tanpa save kompleks) ---- */
-  var BEST_KEY = 'knightBestV1';
+  /* ---- 11c. PERSISTENCE (Stage 6): satu key terversi, guarded ----
+   * knightSaveV1 menyimpan progres + settings saja (tanpa data sensitif,
+   * tanpa state runtime). IO event-driven: settings, checkpoint/progress,
+   * complete, death, reset — TIDAK PERNAH per-frame. localStorage rusak /
+   * hilang -> fallback in-memory + default, tanpa console spam. */
+  var SAVE_KEY = 'knightSaveV1';
+  var memStore = {};
 
-  function loadBest() {
+  function storeGet(k) {
     try {
-      if (typeof localStorage === 'undefined') return null;
-      var raw = localStorage.getItem(BEST_KEY);
-      if (!raw) return null;
-      var o = JSON.parse(raw);
-      if (o && isFinite(o.time)) return o;
-      return null;
-    } catch (e) { return null; }
+      if (typeof localStorage !== 'undefined') return localStorage.getItem(k);
+    } catch (e) { /* abaikan, pakai memori */ }
+    try { return (k in memStore) ? memStore[k] : null; }
+    catch (e2) { return null; }
   }
 
-  function saveBest(time, shardsN) {
+  function storeSet(k, v) {
+    var done = false;
     try {
-      if (typeof localStorage === 'undefined') return;
-      var prev = loadBest();
-      if (!prev || time < prev.time) {
-        localStorage.setItem(BEST_KEY, JSON.stringify({ time: time, shards: shardsN }));
-      }
+      if (typeof localStorage !== 'undefined') { localStorage.setItem(k, v); done = true; }
+    } catch (e) { /* abaikan, pakai memori */ }
+    if (!done) { try { memStore[k] = String(v); } catch (e2) { /* abaikan */ } }
+  }
+
+  function storeDel(k) {
+    try {
+      if (typeof localStorage !== 'undefined') { localStorage.removeItem(k); return; }
     } catch (e) { /* abaikan */ }
+    try { delete memStore[k]; } catch (e2) { /* abaikan */ }
+  }
+
+  function getDefaultSave() {
+    return {
+      version: 1,
+      bestTime: null, bestL1: null, bestL2: null, bestShards: 0,
+      totalShards: 0, totalDeaths: 0,
+      level1Completed: false, level2Completed: false, gameCompleted: false,
+      level2Unlocked: false,
+      sfxEnabled: true, sfxVolume: 100,
+      musicEnabled: true, musicVolume: 70,
+      inputPreference: 'auto'
+    };
+  }
+
+  function saveNum(v, dflt, lo, hi) {
+    var n = Number(v);
+    if (!isFinite(n)) return dflt;
+    if (n < lo) return lo;
+    if (n > hi) return hi;
+    return n;
+  }
+
+  // Validasi schema: rusak / versi beda -> default penuh (tanpa crash).
+  function sanitizeSave(o) {
+    var d = getDefaultSave();
+    if (!o || typeof o !== 'object' || o.version !== 1) return d;
+    d.bestTime = (o.bestTime == null) ? null : saveNum(o.bestTime, null, 0, 1e9);
+    d.bestL1 = (o.bestL1 == null) ? null : saveNum(o.bestL1, null, 0, 1e9);
+    d.bestL2 = (o.bestL2 == null) ? null : saveNum(o.bestL2, null, 0, 1e9);
+    d.bestShards = Math.floor(saveNum(o.bestShards, 0, 0, 1e9));
+    d.totalShards = Math.floor(saveNum(o.totalShards, 0, 0, 1e9));
+    d.totalDeaths = Math.floor(saveNum(o.totalDeaths, 0, 0, 1e9));
+    d.level1Completed = !!o.level1Completed;
+    d.level2Completed = !!o.level2Completed;
+    d.gameCompleted = !!o.gameCompleted;
+    d.level2Unlocked = !!o.level2Unlocked;
+    d.sfxEnabled = !!o.sfxEnabled;
+    d.sfxVolume = Math.round(saveNum(o.sfxVolume, 100, 0, 100));
+    d.musicEnabled = !!o.musicEnabled;
+    d.musicVolume = Math.round(saveNum(o.musicVolume, 70, 0, 100));
+    d.inputPreference = (o.inputPreference === 'keyboard' || o.inputPreference === 'touch')
+      ? o.inputPreference : 'auto';
+    return d;
+  }
+
+  var save = getDefaultSave();
+
+  function loadSave() {
+    var raw = storeGet(SAVE_KEY);
+    if (!raw) { save = getDefaultSave(); }
+    else {
+      try {
+        save = sanitizeSave(JSON.parse(raw));
+      } catch (e) {
+        save = getDefaultSave(); // JSON corrupt -> default + tulis ulang valid
+        persistSave();
+      }
+    }
+    applyAudioSettings(); // audio selalu ikut save yang aktif
+    return save;
+  }
+
+  function persistSave() {
+    try { storeSet(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* abaikan */ }
+  }
+
+  function resetSave() {
+    save = getDefaultSave();
+    persistSave();
+    applyAudioSettings();
+    refreshSettingsUI();
+    refreshRecordsUI();
+  }
+
+  function applyAudioSettings() {
+    try {
+      AudioManager.setSfx(save.sfxEnabled, save.sfxVolume);
+      AudioManager.setMusic(save.musicEnabled, save.musicVolume);
+    } catch (e) { /* abaikan */ }
+  }
+
+  // Level 1 selalu terbuka; Level 2 butuh unlock (kompatibel: unlock
+  // otomatis diberikan saat Level 1 selesai, jadi alur Stage 5 utuh).
+  function canPlayLevel(n) {
+    if (n <= 1) return true;
+    return !!save.level2Unlocked;
+  }
+
+  // Kompatibilitas baca best lama (bentuk {time, shards} seperti dulu).
+  function loadBest() {
+    return { time: save.bestTime, shards: save.bestShards };
   }
 
   /* ---- Overlay & panel ---- */
   function hideAllOverlays() {
-    var els = [overlayEl, winOverlayEl, menuEl, lvlclearEl, gameclearEl];
+    var els = [overlayEl, winOverlayEl, menuEl, lvlclearEl, gameclearEl,
+               settingsEl, resetEl];
     for (var i = 0; i < els.length; i++) {
       if (els[i]) els[i].classList.add('hidden');
     }
@@ -1507,6 +1642,7 @@
 
   // Muat level n (1-based): tukar pointer + reset total per-level.
   // Tanpa reload browser; partikel/FX tidak bocor antar-level.
+  // Reset level TIDAK menyentuh save persistent (total/rekor aman).
   function loadLevelInternal(n) {
     currentLevel = n;
     Level = Levels[n - 1];
@@ -1529,6 +1665,15 @@
     victoryT = 0;
     clearInput();
     snapCamera();
+    // Copy misi sesuai level aktual (pendek, ramah HP).
+    try {
+      var me = document.getElementById('mission');
+      if (me) {
+        me.innerHTML = (n === 2)
+          ? 'L2: lewati celah • shard • checkpoint • kalahkan <b>RAJA SLIME</b>'
+          : 'L1: shard • kalahkan slime • checkpoint • capai <b>FINISH</b>';
+      }
+    } catch (e) { /* abaikan */ }
   }
 
   function startLevel(n) {
@@ -1555,8 +1700,88 @@
     clearInput();
     setPaused(false);
     camera.x = 120; // vista menu
+    refreshRecordsUI();
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     debugLog('[game] ke menu');
+  }
+
+  /* ---- 11d. SETTINGS (Stage 6): state + panel + reset ----
+   * Dibuka dari Main Menu. State 'settings' tidak menjalankan simulasi
+   * (frame hanya updateShake). Esc/BACK kembali ke menu. Semua kontrol
+   * touch-friendly + keyboard-navigable, gaya konsisten dengan menu. */
+  var settingsEl = null;
+  var btnSettings = null;
+  var setSfx = null, setSfxDown = null, setSfxUp = null, setSfxVal = null;
+  var setMusic = null, setMusicDown = null, setMusicUp = null, setMusicVal = null;
+  var setInput = null, btnResetProgress = null, btnSettingsBack = null;
+  var resetEl = null, btnResetCancel = null, btnResetConfirm = null;
+  var aboutRecords = null;
+
+  function fmtTime(t) {
+    if (t == null || !isFinite(t)) return '-';
+    return Number(t).toFixed(1) + 's';
+  }
+
+  function openSettings() {
+    if (gameState !== 'menu') return;
+    gameState = 'settings';
+    hideAllOverlays();
+    if (settingsEl) settingsEl.classList.remove('hidden');
+    clearInput();
+    refreshSettingsUI();
+    if (setSfx && setSfx.focus) {
+      try { setSfx.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+    debugLog('[game] settings dibuka');
+  }
+
+  function settingsBack() {
+    toMenu(); // parent settings selalu Main Menu
+  }
+
+  function refreshSettingsUI() {
+    try {
+      if (setSfx) setSfx.textContent = 'SFX: ' + (save.sfxEnabled ? 'ON' : 'OFF');
+      if (setSfxVal) setSfxVal.textContent = save.sfxVolume + '%';
+      if (setMusic) setMusic.textContent = 'MUSIC: ' + (save.musicEnabled ? 'ON' : 'OFF');
+      if (setMusicVal) setMusicVal.textContent = save.musicVolume + '%';
+      if (setInput) setInput.textContent = 'INPUT: ' + String(save.inputPreference).toUpperCase();
+    } catch (e) { /* abaikan */ }
+  }
+
+  function refreshRecordsUI() {
+    try {
+      if (!aboutRecords) return;
+      var done = (save.level1Completed ? 1 : 0) + (save.level2Completed ? 1 : 0);
+      aboutRecords.textContent =
+        'Best L1: ' + fmtTime(save.bestL1) + ' • Best L2: ' + fmtTime(save.bestL2) +
+        ' • Best: ' + fmtTime(save.bestTime) + ' • Shard: ' + save.bestShards +
+        ' • Mati: ' + save.totalDeaths + ' • Selesai: ' + done + '/2';
+    } catch (e) { /* abaikan */ }
+  }
+
+  function bumpVol(which, delta) {
+    if (which === 'sfx') {
+      save.sfxVolume = clamp(save.sfxVolume + delta, 0, 100);
+    } else {
+      save.musicVolume = clamp(save.musicVolume + delta, 0, 100);
+    }
+    persistSave();
+    applyAudioSettings();
+    refreshSettingsUI();
+  }
+
+  function cycleInput() {
+    save.inputPreference =
+      save.inputPreference === 'auto' ? 'keyboard' :
+      save.inputPreference === 'keyboard' ? 'touch' : 'auto';
+    persistSave();
+    refreshSettingsUI();
+  }
+
+  // Kontrak gating simulasi untuk test: true hanya saat loop update jalan.
+  function isSimActive() {
+    return gameState === 'playing' && !paused && !trans.active;
   }
 
   // Transisi fade-out -> load -> fade-in (pendek, tanpa loading palsu).
@@ -1599,6 +1824,12 @@
   function showLevelComplete() {
     if (gameState !== 'playing') return;
     gameState = 'levelcomplete';
+    // Persistent: unlock L2 + best L1 (hanya jika lebih baik).
+    save.level1Completed = true;
+    save.level2Unlocked = true;
+    if (save.bestL1 == null || levelStats.time < save.bestL1) save.bestL1 = levelStats.time;
+    persistSave();
+    refreshRecordsUI();
     if (lvlclearEl) {
       if (lvlclearStats) {
         lvlclearStats.textContent = 'Waktu: ' + levelStats.time.toFixed(1) + ' dtk • Musuh: ' +
@@ -1615,12 +1846,18 @@
   function showGameComplete() {
     if (gameState !== 'playing') return;
     gameState = 'gamecomplete';
-    saveBest(timeElapsed, runStats.shards);
+    // Persistent: flag complete + best (hanya jika lebih baik).
+    save.level2Completed = true;
+    save.gameCompleted = true;
+    if (save.bestTime == null || timeElapsed < save.bestTime) save.bestTime = timeElapsed;
+    if (save.bestL2 == null || levelStats.time < save.bestL2) save.bestL2 = levelStats.time;
+    if (runStats.shards > save.bestShards) save.bestShards = runStats.shards;
+    persistSave();
+    refreshRecordsUI();
     if (gameclearEl) {
-      var best = loadBest();
       var txt = 'Waktu total: ' + timeElapsed.toFixed(1) + ' dtk • Musuh: ' +
         runStats.kills + ' • Shard: ' + runStats.shards + ' • Mati: ' + deaths;
-      if (best) txt += ' • Terbaik: ' + Number(best.time).toFixed(1) + ' dtk';
+      if (save.bestTime != null) txt += ' • Terbaik: ' + Number(save.bestTime).toFixed(1) + ' dtk';
       if (gameclearStats) gameclearStats.textContent = txt;
       gameclearEl.classList.remove('hidden');
     }
@@ -1628,6 +1865,17 @@
       try { btnAgain2.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
     }
     AudioManager.play('win');
+  }
+
+  // Lanjut ke Level 2 dengan gate unlock (praktis selalu terbuka karena
+  // unlock diberikan saat Level 1 selesai; gate untuk konsistensi save).
+  function nextLevel() {
+    if (!canPlayLevel(2)) {
+      showToast('Selesaikan Level 1 dulu!');
+      AudioManager.play('click');
+      return;
+    }
+    startTrans(2);
   }
 
   function foesLeft() {
@@ -2363,6 +2611,14 @@
       return;
     }
 
+    // Stage 6: settings tidak menjalankan simulasi apa pun.
+    if (gameState === 'settings') {
+      updateShake(dt);
+      drawMenuVista();
+      drawTransOverlay();
+      return;
+    }
+
     if (gameState === 'playing') {
       updatePlaying(dt);
     } else if (gameState === 'gameover') {
@@ -2372,8 +2628,8 @@
       if (Input.restartPressed) { Input.restartPressed = false; respawn(); }
     } else if (gameState === 'levelcomplete') {
       updateShake(dt);
-      // R / Enter = lanjut ke Level 2.
-      if (Input.restartPressed) { Input.restartPressed = false; startTrans(2); }
+      // R / Enter = lanjut ke Level 2 (terkunci sampai L1 selesai).
+      if (Input.restartPressed) { Input.restartPressed = false; nextLevel(); }
     } else if (gameState === 'gamecomplete') {
       updateShake(dt);
       // R / Enter = main lagi dari Level 1.
@@ -2416,6 +2672,24 @@
   gameclearStats = document.getElementById('gameclear-stats');
   btnAgain2 = document.getElementById('btn-again2');
   btnGameMenu = document.getElementById('btn-gamemenu');
+  // Stage 6: overlay settings + reset + records.
+  btnSettings = document.getElementById('btn-settings');
+  settingsEl = document.getElementById('settings');
+  setSfx = document.getElementById('set-sfx');
+  setSfxDown = document.getElementById('set-sfx-vol-down');
+  setSfxUp = document.getElementById('set-sfx-vol-up');
+  setSfxVal = document.getElementById('set-sfx-vol-val');
+  setMusic = document.getElementById('set-music');
+  setMusicDown = document.getElementById('set-music-vol-down');
+  setMusicUp = document.getElementById('set-music-vol-up');
+  setMusicVal = document.getElementById('set-music-vol-val');
+  setInput = document.getElementById('set-input');
+  btnResetProgress = document.getElementById('btn-reset-progress');
+  btnSettingsBack = document.getElementById('btn-settings-back');
+  resetEl = document.getElementById('reset-confirm');
+  btnResetCancel = document.getElementById('btn-reset-cancel');
+  btnResetConfirm = document.getElementById('btn-reset-confirm');
+  aboutRecords = document.getElementById('about-records');
 
   bindHoldButton('btn-left',
     function () { Input.left = true; },
@@ -2451,16 +2725,92 @@
   onClick(btnAbout, function () { showMenuPanel('about'); });
   onClick(btnBackC, function () { showMenuPanel('main'); });
   onClick(btnBackA, function () { showMenuPanel('main'); });
-  onClick(btnNext, function () { startTrans(2); });
+  onClick(btnNext, function () { nextLevel(); });
   onClick(btnReplay, function () { startTrans(currentLevel); });
   onClick(btnLvlMenu, function () { toMenu(); });
   onClick(btnAgain2, function () { playFresh(); });
   onClick(btnGameMenu, function () { toMenu(); });
+  // Stage 6: settings + reset (semua null-guard, touch-friendly).
+  onClick(btnSettings, function () { openSettings(); });
+  onClick(setSfx, function () {
+    save.sfxEnabled = !save.sfxEnabled;
+    persistSave(); applyAudioSettings(); refreshSettingsUI();
+  });
+  onClick(setSfxDown, function () { bumpVol('sfx', -10); });
+  onClick(setSfxUp, function () { bumpVol('sfx', 10); });
+  onClick(setMusic, function () {
+    save.musicEnabled = !save.musicEnabled;
+    persistSave(); applyAudioSettings(); refreshSettingsUI();
+  });
+  onClick(setMusicDown, function () { bumpVol('music', -10); });
+  onClick(setMusicUp, function () { bumpVol('music', 10); });
+  onClick(setInput, function () { cycleInput(); });
+  onClick(btnSettingsBack, function () { settingsBack(); });
+  // Reset progress: SELALU via dialog konfirmasi (anti kepencet di HP).
+  onClick(btnResetProgress, function () {
+    if (resetEl) resetEl.classList.remove('hidden');
+    if (btnResetCancel && btnResetCancel.focus) {
+      try { btnResetCancel.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+  });
+  onClick(btnResetCancel, function () {
+    if (resetEl) resetEl.classList.add('hidden');
+    if (btnResetProgress && btnResetProgress.focus) {
+      try { btnResetProgress.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+  });
+  onClick(btnResetConfirm, function () {
+    if (resetEl) resetEl.classList.add('hidden');
+    resetSave();
+  });
 
-  // Navigasi keyboard sederhana di menu: Atas/Bawah pindah tombol,
-  // Escape kembali ke panel utama. Tidak menyentuh input gameplay.
-  var menuNavIds = ['btn-play', 'btn-controls', 'btn-about'];
+  // Navigasi keyboard: menu (panel utama/kontrol/about), settings,
+  // dan dialog reset. Atas/Bawah pindah tombol, Escape kembali.
+  // Tidak menyentuh input gameplay.
+  var menuNavIds = ['btn-play', 'btn-controls', 'btn-settings', 'btn-about'];
+  // Navigasi settings: Atas/Bawah antar kontrol, Escape kembali ke menu.
+  var settingsNavIds = ['set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up',
+    'set-music', 'set-music-vol-down', 'set-music-vol-up',
+    'set-input', 'btn-reset-progress', 'btn-settings-back'];
+  var resetNavIds = ['btn-reset-cancel', 'btn-reset-confirm'];
+
+  function focusNavId(ids, down) {
+    var cur = -1;
+    try {
+      var ae = document.activeElement;
+      for (var i = 0; i < ids.length; i++) {
+        if (ae && ae.id === ids[i]) { cur = i; break; }
+      }
+    } catch (err) { /* abaikan */ }
+    var nx = down ? (cur + 1) % ids.length : (cur - 1 + ids.length) % ids.length;
+    var t = document.getElementById(ids[nx]);
+    if (t && t.focus) { try { t.focus(); } catch (err) { /* abaikan */ } }
+  }
+
   window.addEventListener('keydown', function (e) {
+    // Dialog reset di atas settings: navigasi terbatas di dalamnya.
+    if (gameState === 'settings' && resetEl && !resetEl.classList.contains('hidden')) {
+      if (e.code === 'Escape') {
+        if (resetEl) resetEl.classList.add('hidden');
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
+      if (e.preventDefault) e.preventDefault();
+      focusNavId(resetNavIds, e.code === 'ArrowDown');
+      return;
+    }
+    if (gameState === 'settings') {
+      if (e.code === 'Escape') {
+        settingsBack();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
+      if (e.preventDefault) e.preventDefault();
+      focusNavId(settingsNavIds, e.code === 'ArrowDown');
+      return;
+    }
     if (gameState !== 'menu') return;
     if (e.code === 'Escape') {
       showMenuPanel('main');
@@ -2474,18 +2824,11 @@
     else if (menuControls && !menuControls.classList.contains('hidden')) ids = ['btn-back-controls'];
     else if (menuAbout && !menuAbout.classList.contains('hidden')) ids = ['btn-back-about'];
     else return;
-    var cur = -1;
-    try {
-      var ae = document.activeElement;
-      for (var i = 0; i < ids.length; i++) {
-        if (ae && ae.id === ids[i]) { cur = i; break; }
-      }
-    } catch (err) { /* abaikan */ }
-    var nx = e.code === 'ArrowDown' ? (cur + 1) % ids.length : (cur - 1 + ids.length) % ids.length;
-    var t = document.getElementById(ids[nx]);
-    if (t && t.focus) { try { t.focus(); } catch (err) { /* abaikan */ } }
+    focusNavId(ids, e.code === 'ArrowDown');
   });
 
+  loadSave(); // sebelum dunia/audio: settings + progres pulih dulu
+  applyAudioSettings();
   loadLevelInternal(1);
   setupCanvas();
   toMenu(); // boot ke menu utama (game tidak jalan di background)
@@ -2623,6 +2966,17 @@
                levelTime: levelStats.time, deaths: deaths };
     },
     getBest: loadBest,
+    // Stage 6: save/settings/state untuk UI + testing.
+    getSave: function () {
+      return JSON.parse(JSON.stringify(save));
+    },
+    reloadSave: loadSave,
+    resetSave: resetSave,
+    saveNow: persistSave,
+    canPlayLevel: canPlayLevel,
+    openSettings: openSettings,
+    nextLevel: nextLevel,
+    isSimActive: isSimActive,
     render: {
       scale: function () { return renderScale; },
       maxScale: function () { return RENDER_SCALE_MAX; },

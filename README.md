@@ -3,15 +3,15 @@
 ![Ksatria](assets/knight/idle_0.png)
 
 Game platformer 2D side-view: ksatria pixel-art 32x32. Dari menu utama,
-mainkan **Level 1** (lewati 2 celah, kalahkan 3 slime, kumpulkan Gold Shard,
-capai FINISH), lanjut ke **Level 2** (varian Fast & Heavy Slime, 3 celah,
-8 shard), dan kalahkan **RAJA SLIME** di arena boss.
+mainkan **Level 1** (kumpulkan shard, kalahkan slime, aktifkan checkpoint,
+capai FINISH), lanjut ke **Level 2** (lewati obstacle/gap, kumpulkan shard,
+gunakan checkpoint, kalahkan **RAJA SLIME**).
 
 **Status: Content Expansion Build** — playable: https://adjietegaralamsyah312.github.io/Game/
 
-## Fitur utama
+## Fitur utama (Stage 5)
 
-- Menu utama (PLAY / CONTROLS / ABOUT, navigasi keyboard + sentuh)
+- Menu utama (PLAY / CONTROLS / SETTINGS / ABOUT, navigasi keyboard + sentuh)
 - 2 level + transisi fade, reset level tanpa reload browser
 - Level 1: layout original + rute 6 Gold Shard
 - Level 2: traversal baru, 3 celah, checkpoint, arena boss
@@ -25,6 +25,29 @@ capai FINISH), lanjut ke **Level 2** (varian Fast & Heavy Slime, 3 celah,
 - Kamera smooth, parallax, partikel pool, screen shake, pause aman,
   debug overlay (`DEBUG=true`)
 
+## Settings (Stage 6)
+
+Dari Main Menu → **SETTINGS** (atau `↑`/`↓` + `Enter`, `Esc` kembali):
+
+- **SFX ON/OFF** + volume 0–100% (berlaku langsung, tanpa reload)
+- **Music ON/OFF** + volume (tersimpan untuk BGM masa depan; belum ada
+  mesin BGM — tanpa audio palsu)
+- **Input favorit**: AUTO / KEYBOARD / TOUCH (preferensi tampilan;
+  keyboard + touch selalu aktif)
+- **RESET**: hapus progres + settings via dialog konfirmasi (CANCEL/RESET)
+
+## Persistence (Stage 6)
+
+Satu key terversi **`knightSaveV1`** di localStorage: best total/L1/L2,
+best shard, total shard/mati, completion L1/L2/game, unlock L2, dan
+semua settings. Guarded: JSON rusak → default; localStorage hilang →
+fallback memori; game tetap jalan. Irit: tulis hanya saat settings
+berubah, checkpoint/progress, complete, mati, dan reset — bukan per-frame.
+
+- Level 1 selalu terbuka; Level 2 terbuka setelah Level 1 selesai
+- Best time hanya membaik; reload tak menghapus progres
+- PLAY baru tak menghapus save; hanya RESET yang menghapus
+
 ## Kontrol desktop
 
 | Tombol | Aksi |
@@ -33,14 +56,14 @@ capai FINISH), lanjut ke **Level 2** (varian Fast & Heavy Slime, 3 celah,
 | `Space` / `W` / `↑` | Lompat (tahan = lebih tinggi) |
 | `J` / `X` | Serang pedang |
 | `R` / `Enter` | Respawn / next / main lagi (kontekstual) |
-| `↑` / `↓` + `Enter`, `Esc` | Navigasi menu / kembali |
+| `↑` / `↓` + `Enter`, `Esc` | Navigasi menu/settings / kembali |
 
 ## Kontrol mobile (Android)
 
 Tombol sentuh di bawah kanvas: **◀ ▶** gerak, **⤒** lompat, **❖** serang.
-Multi-touch didukung (mis. tahan ◀ + ketuk ⤒). Semua tombol menu & layar
-selesai touch-friendly (min 48px). Guard 500 ms mencegah double-trigger
-touch + mouse emulasi.
+Multi-touch didukung. Semua tombol menu/settings/clear touch-friendly.
+Guard 500 ms mencegah double-trigger touch + mouse emulasi. Layout
+portrait + landscape pendek (dialog fullscreen, canvas tetap 16:9).
 
 ## Tech stack
 
@@ -53,10 +76,10 @@ baru & boss prosedural (Canvas pixel-style).
 
 ```
 knight_game/
-├── index.html          # kanvas + overlay (menu/clear) + tombol + metadata
-├── game.js             # seluruh game (menu, 2 level, varian, boss, ~2400 baris)
+├── index.html          # kanvas + overlay (menu/settings/clear) + metadata
+├── game.js             # seluruh game (menu, 2 level, varian, boss, save)
 ├── style.css           # tema + responsif + safe-area Android
-├── test.js             # 77 automated test headless (node test.js)
+├── test.js             # 104 automated test headless (node test.js)
 ├── README.md           # file ini
 └── assets/knight/      # 18 sprite PNG (idle/run/jump/fall/attack/hurt/death)
 ```
@@ -81,9 +104,8 @@ node test.js
 git diff --check
 ```
 
-77 test (65 dasar + 12 Stage 5: menu, level switching/reset, varian,
-pickup, transisi boss, boss death, level/game complete, stats, transisi,
-isolasi input) — target semua PASS, 0 FAIL.
+104 automated test (84 dasar/responsif + 20 settings/persistence) —
+target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
 
@@ -96,13 +118,13 @@ isolasi input) — target semua PASS, 0 FAIL.
   baca overlay FPS/frame-time di perangkat). Dokumen ini tidak mengklaim
   angka performa, dukungan perangkat, atau benchmark apa pun.
 - Yang masih butuh uji fisik: FPS di HP lemah, rasa tombol multi-touch +
-  menu di layar kecil, pause saat telepon/notifikasi, rotasi
+  menu/settings di layar kecil, pause saat telepon/notifikasi, rotasi
   portrait/landscape, audio unlock di Chrome Android.
 
 ## Project status & future improvements
 
-- Status: Content Expansion Build, live di GitHub Pages.
+- Status: Content Expansion Build + Settings & Persistence, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
-- Ide lanjutan (belum dikerjakan): level tambahan, pola boss baru,
-  musik latar, penyimpanan progres antar-sesi, pengujian FPS
+- Ide lanjutan (belum dikerjakan): level tambahan, pola boss baru, BGM
+  (memakai slot Music yang sudah tersimpan), musik latar, pengujian FPS
   terdokumentasi di perangkat fisik.

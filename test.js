@@ -16,6 +16,8 @@ const cssPath = path.join(__dirname, 'style.css');
 const css = fs.existsSync(cssPath) ? fs.readFileSync(cssPath, 'utf8') : '';
 const htmlPath = path.join(__dirname, 'index.html');
 const html = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, 'utf8') : '';
+const readmePath = path.join(__dirname, 'README.md');
+const readme = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf8') : '';
 
 // ---------- Mock DOM minimal ----------
 let imageInstances = [];
@@ -65,7 +67,13 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'mainmenu', 'menu-main', 'menu-controls', 'menu-about',
   'btn-play', 'btn-controls', 'btn-about', 'btn-back-controls', 'btn-back-about',
   'lvlclear', 'lvlclear-stats', 'btn-next', 'btn-replay', 'btn-lvlmenu',
-  'gameclear', 'gameclear-stats', 'btn-again2', 'btn-gamemenu'];
+  'gameclear', 'gameclear-stats', 'btn-again2', 'btn-gamemenu',
+  // Stage 6: settings + reset + records + mission
+  'mission', 'btn-settings', 'settings',
+  'set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up', 'set-sfx-vol-val',
+  'set-music', 'set-music-vol-down', 'set-music-vol-up', 'set-music-vol-val',
+  'set-input', 'btn-reset-progress', 'btn-settings-back',
+  'reset-confirm', 'btn-reset-cancel', 'btn-reset-confirm', 'about-records'];
 const elements = {};
 elementIds.forEach((id) => { elements[id] = makeElement(id, mockCtx); });
 
@@ -93,8 +101,7 @@ function fireDoc(type, ev) {
   (docListeners[type] || []).forEach((fn) => fn(ev || {}));
 }
 // Image mock: sukses async (onload next tick), hitung instans
-let pendingImageResolvers = [];
-class MockImage {
+let pendingImageResolvers = [];class MockImage {
   constructor() {
     this._src = ''; this.onload = null; this.onerror = null;
     imageInstances.push(this);
@@ -116,8 +123,21 @@ const sandbox = {
   Image: MockImage,
   document: documentMock,
   window: windowMock,
-  navigator: { userAgent: 'node-test' }
+  navigator: { userAgent: 'node-test' },
+  // Storage deterministik untuk test persistence (Map-based, sinkron).
+  localStorage: null // diisi di bawah agar referensi stabil
 };
+function makeTestStorage() {
+  const m = new Map();
+  return {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => { m.set(k, String(v)); },
+    removeItem: (k) => { m.delete(k); },
+    _map: m
+  };
+}
+const testStorage = makeTestStorage();
+sandbox.localStorage = testStorage;
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 try {
@@ -134,6 +154,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
+const EXPECTED_TOTAL = 104; // total test milestone ini (84 lama + 20 baru)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -621,10 +642,270 @@ test('84 a11y: label sentuh + dialog + focus terlihat', () => {
   ok(css.includes(':focus-visible'), 'focus state keyboard harus terlihat');
 });
 
+// ---------- 20 TEST STAGE 6 (settings + persistence) ----------
+function completeL1Flow() {
+  G.startLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400; // dalam gapura FINISH
+  G.step(1 / 60);
+}
+function bossKillFlow() {
+  G.startLevel(2);
+  for (let k = 0; k < 4; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 170; i++) G.step(1 / 60);
+}
+test('85 default save schema knightSaveV1', () => {
+  G.resetSave();
+  const s = G.getSave();
+  eq(s.version, 1);
+  eq(s.bestTime, null); eq(s.bestL1, null); eq(s.bestL2, null);
+  eq(s.bestShards, 0); eq(s.totalShards, 0); eq(s.totalDeaths, 0);
+  eq(s.level1Completed, false); eq(s.level2Completed, false);
+  eq(s.gameCompleted, false); eq(s.level2Unlocked, false);
+  eq(s.sfxEnabled, true); eq(s.sfxVolume, 100);
+  eq(s.musicEnabled, true); eq(s.musicVolume, 70);
+  eq(s.inputPreference, 'auto');
+  srcHas('knightSaveV1');
+});
+test('86 settings save/load round-trip', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  elements['set-sfx'].dispatch('click', {}); // ON->OFF
+  elements['set-sfx-vol-down'].dispatch('click', {});
+  elements['set-sfx-vol-down'].dispatch('click', {});
+  elements['set-sfx-vol-down'].dispatch('click', {}); // 100->70
+  elements['set-music'].dispatch('click', {}); // ON->OFF
+  elements['set-input'].dispatch('click', {}); // auto->keyboard
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.sfxEnabled, false); eq(s.sfxVolume, 70);
+  eq(s.musicEnabled, false); eq(s.inputPreference, 'keyboard');
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1'));
+  eq(raw.sfxVolume, 70); eq(raw.inputPreference, 'keyboard');
+  G.resetSave();
+});
+test('87 best time hanya membaik', () => {
+  G.resetSave();
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 50 }));
+  G.reloadSave();
+  eq(G.getSave().bestL1, 50);
+  completeL1Flow();
+  eq(G.getState(), 'levelcomplete');
+  ok(G.getSave().bestL1 < 1, 'run cepat harus perbarui best, got ' + G.getSave().bestL1);
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 0.001 }));
+  G.reloadSave();
+  completeL1Flow();
+  eq(G.getSave().bestL1, 0.001, 'run buruk jangan overwrite best');
+  G.resetSave();
+});
+test('88 best shards + total shards persist', () => {
+  G.resetSave();
+  G.startLevel(1);
+  const at = G.getShards().at, pl = G.getPlayer();
+  pl.x = at.x - 20; pl.y = at.y;
+  G.step(1 / 60);
+  eq(G.getSave().totalShards, 1);
+  eq(JSON.parse(testStorage._map.get('knightSaveV1')).totalShards, 1);
+  bossKillFlow();
+  eq(G.getState(), 'gamecomplete');
+  ok(G.getSave().bestShards >= 1, 'bestShards tercatat');
+  G.resetSave();
+});
+test('89 Level 2 unlock persist + gate NEXT', () => {
+  G.resetSave(); G.toMenu();
+  eq(G.canPlayLevel(1), true);
+  eq(G.canPlayLevel(2), false);
+  G.nextLevel(); // terkunci -> tidak transisi
+  eq(G.getTrans().active, false);
+  eq(G.getState(), 'menu');
+  completeL1Flow();
+  eq(G.canPlayLevel(2), true);
+  eq(JSON.parse(testStorage._map.get('knightSaveV1')).level2Unlocked, true);
+  G.resetSave();
+});
+test('90 game complete persist (flag + best)', () => {
+  G.resetSave();
+  bossKillFlow();
+  eq(G.getState(), 'gamecomplete');
+  const s = G.getSave();
+  eq(s.gameCompleted, true); eq(s.level2Completed, true);
+  ok(typeof s.bestTime === 'number', 'bestTime tercatat');
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1'));
+  eq(raw.gameCompleted, true);
+  G.resetSave();
+});
+test('91 total deaths persist saat Game Over', () => {
+  G.resetSave();
+  G.startLevel(1);
+  G.hurtPlayer(999, 9999);
+  for (let i = 0; i < 70; i++) G.step(1 / 60);
+  eq(G.getState(), 'gameover');
+  eq(G.getSave().totalDeaths, 1);
+  G.resetSave();
+});
+test('92 JSON corrupt -> default + game tetap jalan', () => {
+  testStorage._map.set('knightSaveV1', '{{{corrupt');
+  noThrow(() => G.reloadSave());
+  const s = G.getSave();
+  eq(s.sfxVolume, 100); eq(s.bestTime, null); eq(s.level2Unlocked, false);
+  noThrow(() => { G.startLevel(1); G.step(1 / 60); });
+  ok(JSON.parse(testStorage._map.get('knightSaveV1')).version === 1, 'storage ditulis ulang valid');
+  G.resetSave();
+});
+test('93 localStorage hilang/rusak -> fallback memori, tanpa error', () => {
+  const keep = sandbox.localStorage;
+  sandbox.localStorage = undefined;
+  noThrow(() => { G.reloadSave(); G.resetSave(); G.startLevel(1); G.step(1 / 60); });
+  sandbox.localStorage = {
+    getItem() { throw new Error('denied'); },
+    setItem() { throw new Error('denied'); },
+    removeItem() { throw new Error('denied'); }
+  };
+  noThrow(() => { G.reloadSave(); G.resetSave(); G.startLevel(2); G.step(1 / 60); });
+  sandbox.localStorage = keep;
+  G.reloadSave(); G.resetSave();
+});
+test('94 settings save/load eksplisit', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  elements['set-sfx'].dispatch('click', {});
+  elements['set-music-vol-down'].dispatch('click', {});
+  elements['set-music-vol-down'].dispatch('click', {}); // 70->50
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.sfxEnabled, false); eq(s.musicVolume, 50);
+  G.resetSave();
+});
+test('95 SFX OFF benar-benar mute (flag)', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  elements['set-sfx'].dispatch('click', {});
+  const cfg = G.fx.audio.getCfg();
+  eq(cfg.sfxOn, false); eq(cfg.muted, true);
+  noThrow(() => G.fx.audio.play('jump'));
+  G.resetSave();
+});
+test('96 volume clamp 0-100 + mute di 0', () => {
+  G.fx.audio.setSfx(true, 150);
+  eq(G.fx.audio.getCfg().sfxVol, 100);
+  G.fx.audio.setSfx(true, -20);
+  eq(G.fx.audio.getCfg().sfxVol, 0);
+  eq(G.fx.audio.getCfg().muted, true);
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, sfxVolume: 999, musicVolume: -5 }));
+  G.reloadSave();
+  eq(G.getSave().sfxVolume, 100); eq(G.getSave().musicVolume, 0);
+  G.resetSave();
+});
+test('97 music setting persist tanpa BGM palsu', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  elements['set-music'].dispatch('click', {}); // ON->OFF via UI (persist)
+  elements['set-music-vol-down'].dispatch('click', {}); // 70->60
+  elements['set-music-vol-down'].dispatch('click', {}); // 60->50
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.musicEnabled, false); eq(s.musicVolume, 50);
+  G.fx.audio.setMusic(true, 150); // clamp unit-level, tanpa persist
+  eq(G.fx.audio.getCfg().musicVol, 100);
+  eq(typeof G.fx.audio.startMusic, 'undefined', 'tanpa mesin BGM palsu');
+  G.resetSave();
+});
+test('98 reset mengembalikan default + UI refresh', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  elements['set-sfx'].dispatch('click', {});
+  elements['btn-reset-progress'].dispatch('click', {});
+  ok(!elements['reset-confirm'].classList.contains('hidden'), 'dialog konfirmasi tampil');
+  elements['btn-reset-confirm'].dispatch('click', {});
+  ok(elements['reset-confirm'].classList.contains('hidden'), 'dialog tertutup');
+  const s = G.getSave();
+  eq(s.sfxEnabled, true); eq(s.sfxVolume, 100); eq(s.level2Unlocked, false);
+  eq(elements['set-sfx'].textContent, 'SFX: ON');
+  eq(elements['set-sfx-vol-val'].textContent, '100%');
+});
+test('99 reset dialog: CANCEL tak menghapus', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  elements['set-sfx'].dispatch('click', {}); // OFF
+  elements['btn-reset-progress'].dispatch('click', {});
+  elements['btn-reset-cancel'].dispatch('click', {});
+  ok(elements['reset-confirm'].classList.contains('hidden'), 'dialog tertutup via CANCEL');
+  eq(G.getSave().sfxEnabled, false, 'CANCEL jangan ubah save');
+  G.resetSave();
+});
+test('100 settings keyboard nav (panah + Esc)', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  eq(G.getState(), 'settings');
+  fireWin('keydown', { code: 'ArrowDown', preventDefault() {} });
+  ok(elements['set-sfx']._focused, 'fokus harus ke kontrol pertama');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu');
+});
+test('101 settings touch/click wiring semua kontrol', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-settings'].dispatch('click', {});
+  const before = G.getSave().sfxVolume;
+  elements['set-sfx-vol-down'].dispatch('click', {});
+  eq(G.getSave().sfxVolume, before - 10);
+  elements['set-sfx-vol-up'].dispatch('click', {});
+  eq(G.getSave().sfxVolume, before);
+  elements['set-music'].dispatch('click', {});
+  eq(G.getSave().musicEnabled, false);
+  elements['set-music-vol-down'].dispatch('click', {});
+  elements['set-music-vol-up'].dispatch('click', {});
+  elements['set-input'].dispatch('click', {});
+  eq(G.getSave().inputPreference, 'keyboard');
+  elements['btn-settings-back'].dispatch('click', {});
+  eq(G.getState(), 'menu');
+  G.resetSave();
+});
+test('102 settings state hentikan simulasi', () => {
+  G.resetSave(); G.toMenu();
+  eq(G.isSimActive(), false);
+  elements['btn-settings'].dispatch('click', {});
+  eq(G.getState(), 'settings');
+  eq(G.isSimActive(), false);
+  G.startLevel(1);
+  eq(G.isSimActive(), true);
+  G.setPaused(true);
+  eq(G.isSimActive(), false);
+  G.setPaused(false);
+  G.toMenu();
+});
+test('103 README konsisten: count + settings + save', () => {
+  ok(readme.includes('104 automated test'), 'README harus sebut 104 test, cek jumlah');
+  ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
+  ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
+  ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
+  ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
+  eq(EXPECTED_TOTAL, 104);
+});
+test('104 HTML produksi settings lengkap + berlabel', () => {
+  ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
+  ok(/id="reset-confirm"[^>]*role="dialog"/.test(html), 'reset harus role=dialog');
+  const btnText = (id) => {
+    const m = html.match(new RegExp('id="' + id + '"[^>]*>([^<]*)'));
+    return m ? m[1].trim() : '';
+  };
+  ['set-sfx', 'set-music', 'set-input', 'btn-reset-progress', 'btn-settings-back',
+   'btn-reset-cancel', 'btn-reset-confirm'].forEach((id) => {
+    ok(btnText(id).length > 0, 'tombol settings berlabel: ' + id);
+  });
+  ok(btnText('btn-reset-cancel') === 'CANCEL' && btnText('btn-reset-confirm') === 'RESET',
+    'dialog reset harus CANCEL/RESET');
+  ok(/id="mission"/.test(html), 'mission per-level harus ada');
+  ok(/id="about-records"/.test(html), 'records harus ada');
+});
+
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
 console.log('PASS: ' + pass + ' / ' + (pass + fail) + ', FAIL: ' + fail);
 if (failures.length) { console.log('Failures:'); failures.forEach((f) => console.log(' - ' + f)); }
 setTimeout(() => { // beri waktu Image async selesai agar 0 unhandled rejection
+  if (pass + fail !== EXPECTED_TOTAL) {
+    console.log('COUNT MISMATCH: expected ' + EXPECTED_TOTAL + ' tests, got ' + (pass + fail));
+    process.exit(1);
+  }
   if (fail > 0) process.exit(1);
 }, 50);

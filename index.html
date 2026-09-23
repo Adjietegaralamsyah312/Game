@@ -25,7 +25,7 @@
       <b>A / D</b> atau <b>◀ / ▶</b> bergerak &nbsp;•&nbsp; <b>Space</b> lompat
       &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>R</b> respawn
     </p>
-    <p class="mission">Misi: lewati 2 celah, kalahkan 3 slime, sentuh checkpoint, capai <b>FINISH</b>.</p>
+    <p id="mission" class="mission">L1: shard • kalahkan slime • checkpoint • capai <b>FINISH</b>.</p>
 
     <div id="canvas-container">
       <canvas id="game" width="960" height="540" role="img" aria-label="Arena game Knight Platformer: ksatria, platform, slime, dan garis finish"></canvas>
@@ -58,6 +58,7 @@
         <div id="menu-main" class="btn-col">
           <button id="btn-play" class="btn-primary">▶ PLAY</button>
           <button id="btn-controls" class="btn-secondary">🎮 CONTROLS</button>
+          <button id="btn-settings" class="btn-secondary">⚙ SETTINGS</button>
           <button id="btn-about" class="btn-secondary">ℹ ABOUT</button>
         </div>
         <div id="menu-controls" class="hidden btn-col" aria-label="Kontrol game">
@@ -67,6 +68,7 @@
         </div>
         <div id="menu-about" class="hidden btn-col" aria-label="Tentang game">
           <p class="menu-lines">Ksatria pixel-art: 2 level, varian slime,<br />boss RAJA SLIME, dan Gold Shard.</p>
+          <p id="about-records" class="menu-lines records">-</p>
           <button id="btn-back-about" class="btn-secondary">← BACK</button>
         </div>
         <p class="tiny">↑/↓ pilih • Enter mulai • Esc kembali</p>
@@ -82,6 +84,59 @@
           <button id="btn-lvlmenu" class="btn-secondary">☰ MENU</button>
         </div>
         <p class="tiny">R / Enter = next level</p>
+      </div>
+
+      <!-- Settings (Stage 6): audio + input + reset, tanpa BGM palsu -->
+      <div id="settings" class="hidden" role="dialog" aria-label="Settings">
+        <h2 class="win">SETTINGS</h2>
+        <div class="set-col">
+          <div class="set-row">
+            <span class="set-label">Efek suara</span>
+            <button id="set-sfx" class="btn-small">SFX: ON</button>
+          </div>
+          <div class="set-row">
+            <span class="set-label">Volume SFX</span>
+            <span class="set-vol">
+              <button id="set-sfx-vol-down" class="btn-small" aria-label="Kecilkan volume SFX">−</button>
+              <span id="set-sfx-vol-val" class="set-val">100%</span>
+              <button id="set-sfx-vol-up" class="btn-small" aria-label="Besarkan volume SFX">+</button>
+            </span>
+          </div>
+          <div class="set-row">
+            <span class="set-label">Musik <i>(segera)</i></span>
+            <button id="set-music" class="btn-small">MUSIC: ON</button>
+          </div>
+          <div class="set-row">
+            <span class="set-label">Volume musik</span>
+            <span class="set-vol">
+              <button id="set-music-vol-down" class="btn-small" aria-label="Kecilkan volume musik">−</button>
+              <span id="set-music-vol-val" class="set-val">70%</span>
+              <button id="set-music-vol-up" class="btn-small" aria-label="Besarkan volume musik">+</button>
+            </span>
+          </div>
+          <div class="set-row">
+            <span class="set-label">Input favorit</span>
+            <button id="set-input" class="btn-small">INPUT: AUTO</button>
+          </div>
+          <div class="set-row">
+            <span class="set-label">Data tersimpan</span>
+            <button id="btn-reset-progress" class="btn-small btn-danger">RESET</button>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button id="btn-settings-back" class="btn-secondary">← BACK</button>
+        </div>
+        <p class="tiny">↑/↓ pilih • Esc kembali • Keyboard + Touch tetap aktif</p>
+      </div>
+
+      <!-- Konfirmasi reset (anti kepencet di HP) -->
+      <div id="reset-confirm" class="hidden" role="dialog" aria-label="Konfirmasi reset">
+        <h2>RESET DATA?</h2>
+        <p>Reset all saved progress and settings?</p>
+        <div class="btn-row">
+          <button id="btn-reset-cancel" class="btn-secondary">CANCEL</button>
+          <button id="btn-reset-confirm" class="btn-small btn-danger">RESET</button>
+        </div>
       </div>
 
       <!-- Game Complete (Stage 5): PLAY AGAIN / MENU -->
