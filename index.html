@@ -34,7 +34,6 @@
 
     <div id="canvas-container">
       <canvas id="game" width="960" height="540" role="img" aria-label="Arena game Knight Platformer: ksatria, platform, slime, dan garis finish"></canvas>
-      <button id="btn-pause" class="hidden" aria-label="Pause atau lanjutkan game">⏸</button>
 
       <!-- Overlay Game Over: respawn checkpoint (primer) atau ulang total -->
       <div id="gameover" class="hidden" role="dialog" aria-modal="true" aria-labelledby="gameover-title" aria-label="Game Over">
@@ -190,6 +189,9 @@
       <div class="touch-group">
         <button id="btn-left" class="touch-btn" aria-label="Kiri">◀</button>
         <button id="btn-right" class="touch-btn" aria-label="Kanan">▶</button>
+      </div>
+      <div class="touch-group touch-group-center">
+        <button id="btn-pause" class="hidden touch-btn-pause" aria-label="Pause atau lanjutkan game">⏸</button>
       </div>
       <div class="touch-group">
         <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>

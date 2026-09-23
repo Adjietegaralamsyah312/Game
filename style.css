@@ -594,21 +594,22 @@ canvas#game {
   color: #6e7390;
 }
 
-/* --- Tombol pause eksplisit (DOM, di atas kanvas) --- */
+/* --- Tombol pause: di bar kontrol (tengah), tidak menutup kanvas/HUD --- */
+.touch-group-center {
+  flex: 1;
+  justify-content: center;
+}
 #btn-pause {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 6;
-  width: 44px;
-  height: 44px;
-  font-size: 18px;
-  border-radius: 10px;
+  width: clamp(44px, 12vw, 52px);
+  height: clamp(44px, 12vw, 52px);
+  font-size: clamp(16px, 4.5vw, 20px);
+  border-radius: 50%;
   border: 2px solid #4a558f;
-  background: rgba(20, 26, 58, 0.75);
+  background: rgba(58, 66, 120, 0.55);
   color: #fff;
   cursor: pointer;
   touch-action: manipulation;
+  opacity: 0.85;
 }
 #btn-pause:hover,
 #btn-pause:focus-visible {
