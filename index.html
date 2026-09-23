@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1226" />
+  <title>Knight Platformer - Vertical Slice Tahap 2</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="wrap">
+    <h1>Knight Platformer <span>vertical slice</span></h1>
+    <p class="hint">
+      <b>A / D</b> atau <b>◀ / ▶</b> bergerak &nbsp;•&nbsp; <b>Space</b> lompat
+      &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>R</b> respawn
+    </p>
+    <p class="mission">Misi: lewati 2 celah, kalahkan 3 slime, sentuh checkpoint, capai <b>FINISH</b>.</p>
+
+    <div id="canvas-container">
+      <canvas id="game" width="960" height="540"></canvas>
+
+      <!-- Overlay Game Over: respawn checkpoint (primer) atau ulang total -->
+      <div id="gameover" class="hidden" role="dialog" aria-label="Game Over">
+        <h2>GAME OVER</h2>
+        <p>Ksatria gugur. Bangkit di checkpoint terakhir?</p>
+        <div class="btn-row">
+          <button id="btn-respawn" class="btn-primary">⚑ Respawn</button>
+          <button id="btn-restart" class="btn-secondary">↻ Dari Awal</button>
+        </div>
+        <p class="tiny">R / Enter = respawn • tombol = sentuh/klik</p>
+      </div>
+
+      <!-- Overlay Level Complete -->
+      <div id="levelcomplete" class="hidden" role="dialog" aria-label="Level Complete">
+        <h2 class="win">LEVEL COMPLETE!</h2>
+        <p id="win-stats">-</p>
+        <div class="btn-row">
+          <button id="btn-again" class="btn-primary">▶ Main Lagi</button>
+        </div>
+        <p class="tiny">R / Enter = main lagi</p>
+      </div>
+    </div>
+
+    <!-- Kontrol sentuh untuk Android / HP -->
+    <div id="touch-controls">
+      <div class="touch-group">
+        <button id="btn-left" class="touch-btn" aria-label="Kiri">◀</button>
+        <button id="btn-right" class="touch-btn" aria-label="Kanan">▶</button>
+      </div>
+      <div class="touch-group">
+        <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>
+        <button id="btn-jump" class="touch-btn jump" aria-label="Lompat">⤒</button>
+      </div>
+    </div>
+
+    <p class="footer">
+      Vanilla JS + HTML5 Canvas • Pixel art (smoothing OFF) • Buka via
+      <code>index.html</code> atau server lokal
+    </p>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

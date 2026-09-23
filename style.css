@@ -1,0 +1,319 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  background: #0f1226;
+  color: #e8eaf6;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  /* Cegah scroll/zoom tak sengaja di Android; hormati safe-area. */
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#wrap {
+  min-height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  gap: 10px;
+}
+
+h1 {
+  font-size: clamp(18px, 3vw, 28px);
+  letter-spacing: 0.5px;
+}
+
+h1 span {
+  font-weight: 400;
+  font-size: 0.6em;
+  color: #9aa3c7;
+  border: 1px solid #39406e;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.hint {
+  font-size: clamp(12px, 2.5vw, 14px);
+  color: #9aa3c7;
+}
+
+.hint b {
+  color: #fff;
+}
+
+.mission {
+  font-size: clamp(12px, 2.5vw, 14px);
+  color: #c6ccea;
+  background: #1c2247;
+  border: 1px solid #39406e;
+  padding: 4px 14px;
+  border-radius: 999px;
+}
+
+.mission b {
+  color: #ffd23f;
+}
+
+#canvas-container {
+  position: relative;
+  width: min(960px, 100%);
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #2c3563;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  background: #1a1f3d;
+  touch-action: none;
+}
+
+canvas#game {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* pixel art tajam tanpa blur */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* --- Kontrol sentuh --- */
+#touch-controls {
+  width: min(960px, 100%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.touch-group {
+  display: flex;
+  gap: 12px;
+}
+
+.touch-btn {
+  width: clamp(64px, 18vw, 84px);
+  height: clamp(64px, 18vw, 84px);
+  font-size: clamp(24px, 6vw, 32px);
+  border-radius: 50%;
+  border: 2px solid #4a558f;
+  background: rgba(58, 66, 120, 0.55);
+  color: #fff;
+  backdrop-filter: blur(2px);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.touch-btn:active,
+.touch-btn.pressed {
+  background: #5a68b0;
+  transform: scale(0.95);
+}
+
+.touch-btn.jump {
+  background: rgba(46, 125, 78, 0.6);
+  border-color: #57c98a;
+  width: clamp(72px, 20vw, 96px);
+  height: clamp(72px, 20vw, 96px);
+}
+
+.touch-btn.jump:active,
+.touch-btn.jump.pressed {
+  background: #2e9e62;
+}
+
+.touch-btn.attack {
+  background: rgba(150, 45, 55, 0.6);
+  border-color: #e0685c;
+  width: clamp(72px, 20vw, 96px);
+  height: clamp(72px, 20vw, 96px);
+}
+
+.touch-btn.attack:active,
+.touch-btn.attack.pressed {
+  background: #b23a3a;
+}
+
+/* --- Overlay Game Over / Win --- */
+#gameover,
+#levelcomplete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(8, 10, 25, 0.78);
+  text-align: center;
+  z-index: 5;
+  padding: 12px;
+}
+
+#gameover.hidden,
+#levelcomplete.hidden {
+  display: none;
+}
+
+#gameover h2 {
+  font-size: clamp(28px, 6vw, 52px);
+  letter-spacing: 4px;
+  color: #ff6b6b;
+  text-shadow: 0 3px 0 #5c1212, 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+
+#levelcomplete h2.win {
+  font-size: clamp(26px, 6vw, 48px);
+  letter-spacing: 3px;
+  color: #ffd23f;
+  text-shadow: 0 3px 0 #6b4d00, 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+
+#gameover p,
+#levelcomplete p {
+  color: #c6ccea;
+  font-size: clamp(13px, 3vw, 17px);
+}
+
+#gameover .tiny,
+#levelcomplete .tiny {
+  font-size: 12px;
+  color: #7c86b3;
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-primary {
+  font-size: clamp(16px, 3.5vw, 20px);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 12px 28px;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 2px solid #57c98a;
+  background: #1e7a4c;
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+  background: #2e9e62;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.btn-secondary {
+  font-size: clamp(14px, 3vw, 17px);
+  font-weight: 600;
+  padding: 12px 22px;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 2px solid #4a558f;
+  background: #2a3058;
+  color: #d6dbff;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus-visible {
+  background: #3a4278;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+#btn-restart {
+  font-size: clamp(16px, 3.5vw, 20px);
+  padding: 12px 32px;
+  border-radius: 10px;
+  border: 2px solid #57c98a;
+  background: #1e7a4c;
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#btn-restart:hover,
+#btn-restart:focus-visible {
+  background: #2e9e62;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.footer {
+  font-size: 12px;
+  color: #7c86b3;
+}
+
+.footer code {
+  background: #222850;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: #d6dbff;
+}
+
+/* Di desktop dengan mouse presisi, kecilkan tombol tapi tetap tampil
+   (agar bisa diklik/dites). Di HP tampil besar. */
+@media (hover: hover) and (pointer: fine) {
+  .touch-btn {
+    width: 60px;
+    height: 60px;
+    font-size: 22px;
+    opacity: 0.85;
+  }
+  .touch-btn.jump,
+  .touch-btn.attack {
+    width: 68px;
+    height: 68px;
+  }
+}
+
+/* Layar sentuh kasar: pastikan target sentuh lega dan mudah dijangkau. */
+@media (pointer: coarse) {
+  .touch-btn {
+    min-width: 64px;
+    min-height: 64px;
+  }
+  #touch-controls {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Portrait HP: hemat ruang vertikal agar canvas + tombol muat. */
+@media (orientation: portrait) and (max-width: 600px) {
+  #wrap {
+    gap: 6px;
+  }
+  h1 {
+    font-size: 18px;
+  }
+  .hint {
+    display: none; /* kontrol sudah jelas dari tombol di HP */
+  }
+  .mission {
+    font-size: 12px;
+  }
+}
