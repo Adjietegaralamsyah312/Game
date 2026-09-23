@@ -247,7 +247,12 @@
       minibossCue: function () { tone(130, 0.4, 'sawtooth', 0.45, 65); tone(98, 0.5, 'sawtooth', 0.4, 49, 0.1); },
       lichMagic:  function () { tone(220, 0.35, 'sawtooth', 0.4, 55); tone(330, 0.3, 'square', 0.3, 110, 0.05); },
       lichSummon: function () { tone(110, 0.4, 'sawtooth', 0.4, 440); noise(0.3, 0.3, 800, 0.1); },
-      phaseShift: function () { noise(0.25, 0.45, 500); tone(90, 0.4, 'sawtooth', 0.5, 45); }
+      phaseShift: function () { noise(0.25, 0.45, 500); tone(90, 0.4, 'sawtooth', 0.5, 45); },
+      // Treasure (prosedural, hormat SFX ON/volume via play()).
+      chestOpen: function () { noise(0.12, 0.4, 900); tone(196, 0.15, 'square', 0.4, 392); },
+      coin:      function () { tone(988, 0.09, 'square', 0.35, 1319); tone(1319, 0.14, 'square', 0.3, 1760, 0.07); },
+      heal:      function () { tone(523, 0.12, 'sine', 0.4, 784); tone(784, 0.2, 'sine', 0.35, 1047, 0.1); },
+      poison:    function () { tone(330, 0.25, 'sawtooth', 0.4, 110); noise(0.15, 0.35, 500, 0.05); }
     };
 
     /* ---- BGM prosedural (Stage 7): dark fantasy loop, Web Audio native ----
@@ -461,11 +466,27 @@
     attack: ['assets/knight/attack_0.png', 'assets/knight/attack_1.png',
              'assets/knight/attack_2.png'],
     hurt:   ['assets/knight/hurt_0.png'],
-    death:  ['assets/knight/death_0.png', 'assets/knight/death_1.png']
+    death:  ['assets/knight/death_0.png', 'assets/knight/death_1.png'],
+    // Undead set (lokal, pixel-art dark fantasy; smoothing OFF saat draw).
+    skelSword: ['assets/sprites/skeleton-sword.png',
+                'assets/sprites/skeleton-sword-walk.png'],
+    skelDef:   ['assets/sprites/skeleton-defender.png',
+                'assets/sprites/skeleton-defender-guard.png'],
+    skelArch:  ['assets/sprites/skeleton-archer.png',
+                'assets/sprites/skeleton-archer-aim.png'],
+    skelKnight: ['assets/sprites/skeleton-knight.png'],
+    lich:    ['assets/sprites/raja-lich.png'],
+    chest:   ['assets/sprites/treasure-chest.png',
+              'assets/sprites/treasure-chest-open.png'],
+    reward:  ['assets/sprites/coin.png',
+              'assets/sprites/health.png',
+              'assets/sprites/poison.png']
   };
-  var ANIM_ORDER = ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'death'];
+  var ANIM_ORDER = ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'death',
+    'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lich', 'chest', 'reward'];
 
-  var sprites = { idle: [], run: [], jump: [], fall: [], attack: [], hurt: [], death: [] };
+  var sprites = { idle: [], run: [], jump: [], fall: [], attack: [], hurt: [], death: [],
+    skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lich: [], chest: [], reward: [] };
   var assetsReady = false;
   var assetErrors = [];
 
@@ -736,6 +757,7 @@
     miniArena: null,
     lichSpawn: null,
     lichArena: null,
+    treasures: [{ x: 300, y: 444 }],
     musicSet: 1,
     shards: [
       { x: 250, y: 430 },
@@ -789,6 +811,7 @@
     miniArena: { minX: 1050, maxX: 1600 },
     lichSpawn: null,
     lichArena: null,
+    treasures: [{ x: 1780, y: 444 }],
     musicSet: 1,
     shards: [
       { x: 250, y: 430 },
@@ -844,6 +867,7 @@
     miniArena: null,
     lichSpawn: { x: 2150, y: 360 },
     lichArena: { minX: 1930, maxX: 2360 },
+    treasures: [{ x: 1150, y: 444 }],
     musicSet: 2,
     shards: [
       { x: 250, y: 430 },
@@ -863,6 +887,7 @@
   Level1.miniArena = Level1.miniArena || null;
   Level1.lichSpawn = Level1.lichSpawn || null;
   Level1.lichArena = Level1.lichArena || null;
+  Level1.treasures = Level1.treasures || null;
   Level1.musicSet = Level1.musicSet || 0;
   Level2.bossKind = Level2.bossKind || 'slimeKing';
   Level2.bossMods = Level2.bossMods || null;
@@ -870,6 +895,7 @@
   Level2.miniArena = Level2.miniArena || null;
   Level2.lichSpawn = Level2.lichSpawn || null;
   Level2.lichArena = Level2.lichArena || null;
+  Level2.treasures = Level2.treasures || null;
   Level2.musicSet = Level2.musicSet || 0;
   var Levels = [Level1, Level2, Level3, Level4, Level5];
   var currentLevel = 1;
@@ -1975,7 +2001,7 @@
   var boss = null;
   var shocks = [];
   var shards = [];
-  var runStats = { kills: 0, shards: 0 };     // total lintas level
+  var runStats = { kills: 0, shards: 0, coins: 0 }; // total lintas level
   var levelStats = { kills: 0, shards: 0, time: 0 }; // per level
   var victoryArmed = false, victoryT = 0;
   var VICTORY_DELAY = 1.2;
@@ -2386,6 +2412,16 @@
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(Math.round(m.x + 6), Math.round(m.y + m.h - 3), m.w - 12, 5);
 
+    // Sprite Skeleton Knight bila siap, fallback armor prosedural.
+    var kimg = foeImg(sprites.skelKnight, 0);
+    if (kimg) {
+      drawFoeSprite(kimg, dx, dy, dw, dh, m.dir, blink);
+      // Enrage: semburat merah elite (visual saja).
+      if (m.enraged) {
+        ctx.fillStyle = 'rgba(224,82,82,0.25)';
+        ctx.fillRect(dx, dy, dw, dh);
+      }
+    } else {
     // Armor berat + jubah (enrage = semburat merah).
     ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? '#8a3a4a' : '#5a6478');
     ctx.fillRect(dx + 8, dy + 16, dw - 16, dh - 16);   // torso armor
@@ -2405,6 +2441,7 @@
     ctx.fillRect(swx, tele ? dy - 10 : dy + 10, 7, 34);
     ctx.fillStyle = '#c9a227';
     ctx.fillRect(swx - 3, tele ? dy + 22 : dy + 40, 13, 5);
+    } // end fallback prosedural
     if (tele) {
       ctx.fillStyle = '#ffd23f';
       var qx = Math.round(m.x + m.w / 2 - 3);
@@ -2634,6 +2671,11 @@
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(Math.round(b.x + 6), Math.round(b.y + b.h - 3), b.w - 12, 5);
 
+    // Sprite Raja Lich bila siap, fallback jubah prosedural.
+    var limg = foeImg(sprites.lich, 0);
+    if (limg) {
+      drawFoeSprite(limg, dx, dy, dw, dh, b.dir, blink);
+    } else {
     // Jubah + torso.
     ctx.fillStyle = blink ? '#ffffff' : '#2c2140';
     ctx.fillRect(dx + 10, dy + 22, dw - 20, dh - 22);
@@ -2657,6 +2699,7 @@
     ctx.fillRect(stx, tele ? dy - 14 : dy + 6, 5, 44);
     ctx.fillStyle = tele ? '#e8c9ff' : '#b46ae0';
     ctx.fillRect(stx - 3, tele ? dy - 20 : dy, 11, 11);
+    } // end fallback prosedural
     if (tele) {
       ctx.fillStyle = '#ffd23f';
       var qx = Math.round(b.x + b.w / 2 - 3);
@@ -2699,6 +2742,97 @@
     }
   }
 
+  /* ---- Treasure Chest (non-colliding, overlap untuk membuka) ----
+   * State: closed -> opening (0.45 dtk) -> opened (sekali, anti duplikat).
+   * Reward data-driven via TREASURE_REWARDS, terpisah dari shard. */
+  var TREASURE_REWARDS = {
+    coin:   { type: 'coin', amount: 5, visual: 0, sound: 'coin' },
+    health: { type: 'health', heal: 30, visual: 1, sound: 'heal' },
+    poison: { type: 'poison', dmg: 15, visual: 2, sound: 'poison' }
+  };
+  var TREASURE_W = 44, TREASURE_H = 36, TREASURE_OPEN_T = 0.45;
+  var chests = [];
+
+  function resetChests() {
+    var list = Level.treasures || [];
+    chests = list.map(function (p) {
+      return { x: p.x, y: p.y, w: TREASURE_W, h: TREASURE_H,
+        state: 'closed', openT: 0, reward: null, iconT: 0,
+        bob: Math.random() * 6 };
+    });
+  }
+
+  function chestOpenedCount() {
+    var n = 0;
+    for (var i = 0; i < chests.length; i++) {
+      if (chests[i].state === 'opened') n++;
+    }
+    return n;
+  }
+
+  // Random aman: selalu salah satu dari coin/health/poison, tanpa NaN.
+  function pickTreasureReward() {
+    var r = Math.random();
+    if (!(r >= 0) || r >= 1) r = 0.5; // guard ekstrem
+    if (r < 0.5) return TREASURE_REWARDS.coin;
+    if (r < 0.8) return TREASURE_REWARDS.health;
+    return TREASURE_REWARDS.poison;
+  }
+
+  function applyTreasureReward(c) {
+    var rw = c.reward;
+    if (!rw) return;
+    var cx = c.x + c.w / 2, cy = c.y;
+    if (rw.type === 'coin') {
+      runStats.coins = (runStats.coins || 0) + rw.amount;
+      save.totalCoins = Math.floor(saveNum(save.totalCoins, 0, 0, 1e9)) + rw.amount;
+      persistSave();
+      burst(cx, cy, 8, '#ffd23f', 140, 0.5, 3, 250);
+      AudioManager.play('coin');
+    } else if (rw.type === 'health') {
+      player.hp = Math.min(PLAYER_MAX_HP, player.hp + rw.heal);
+      burst(cx, cy, 8, '#5ec46f', 130, 0.5, 3, 250);
+      AudioManager.play('heal');
+    } else if (rw.type === 'poison') {
+      // Buruk tetapi aman: tidak pernah membunuh (min 1), tanpa state rusak.
+      player.hp = Math.max(1, player.hp - rw.dmg);
+      burst(cx, cy, 8, '#965ac9', 130, 0.5, 3, 250);
+      AudioManager.play('poison');
+    }
+  }
+
+  function updateChests(dt) {
+    for (var i = 0; i < chests.length; i++) {
+      var c = chests[i];
+      c.bob += dt;
+      if (c.state === 'opened') {
+        c.iconT += dt;
+        continue;
+      }
+      if (c.state === 'opening') {
+        c.openT += dt;
+        if (c.openT >= TREASURE_OPEN_T) {
+          c.state = 'opened';
+          c.iconT = 0;
+          c.reward = pickTreasureReward();
+          applyTreasureReward(c);
+          burst(c.x + c.w / 2, c.y, 10, '#ffffff', 150, 0.5, 3, 250);
+        }
+        continue;
+      }
+      // closed: overlap + player hidup + bukan victory window -> opening.
+      if (player.state === 'death' || victoryArmed) continue;
+      setR(_r1, c.x - 4, c.y - 4, c.w + 8, c.h + 8);
+      setR(_r2, player.x, player.y, player.w, player.h);
+      if (rectsOverlap(_r1, _r2)) {
+        c.state = 'opening';
+        c.openT = 0;
+        burst(c.x + c.w / 2, c.y + 8, 5, '#c9a227', 100, 0.3, 2, 200);
+        AudioManager.play('chestOpen');
+      }
+    }
+  }
+
   /* ---- 11c. PERSISTENCE (Stage 6): satu key terversi, guarded ----
    * knightSaveV1 menyimpan progres + settings saja (tanpa data sensitif,
    * tanpa state runtime). IO event-driven: settings, checkpoint/progress,
@@ -2735,7 +2869,7 @@
       version: 2,
       bestTime: null, bestL1: null, bestL2: null,
       bestL3: null, bestL4: null, bestL5: null, bestShards: 0,
-      totalShards: 0, totalDeaths: 0,
+      totalShards: 0, totalDeaths: 0, totalCoins: 0,
       level1Completed: false, level2Completed: false,
       level3Completed: false, level4Completed: false, level5Completed: false,
       gameCompleted: false,
@@ -2769,6 +2903,7 @@
     d.bestShards = Math.floor(saveNum(o.bestShards, 0, 0, 1e9));
     d.totalShards = Math.floor(saveNum(o.totalShards, 0, 0, 1e9));
     d.totalDeaths = Math.floor(saveNum(o.totalDeaths, 0, 0, 1e9));
+    d.totalCoins = Math.floor(saveNum(o.totalCoins, 0, 0, 1e9));
     d.level1Completed = !!o.level1Completed;
     d.level2Completed = !!o.level2Completed;
     d.level3Completed = !!o.level3Completed;
@@ -2880,7 +3015,7 @@
   function resetTotals() {
     deaths = 0;
     timeElapsed = 0;
-    runStats = { kills: 0, shards: 0 };
+    runStats = { kills: 0, shards: 0, coins: 0 };
   }
 
   // Muat level n (1-based): tukar pointer + reset total per-level.
@@ -2912,6 +3047,7 @@
     shocks = [];
     shots = [];
     resetShards();
+    resetChests(); // level baru: semua chest tertutup
     levelStats = { kills: 0, shards: 0, time: 0 };
     victoryArmed = false;
     victoryT = 0;
@@ -3392,6 +3528,11 @@
   // diambil tetap diambil (retry ramah). Efek sementara dibersihkan.
   // Tahap 4: selalu unpause + reset timer agar "restart setelah pause" aman.
   function respawn() {
+    // Chest yang sudah dibuka TETAP dibuka (retry ramah, anti duplikat reward).
+    var keptOpened = [];
+    for (var ki = 0; ki < chests.length; ki++) {
+      if (chests[ki].state === 'opened') keptOpened.push(chests[ki].x);
+    }
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
@@ -3400,6 +3541,13 @@
     miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
     shocks = [];
     shots = [];
+    resetChests();
+    for (var ri = 0; ri < chests.length; ri++) {
+      if (keptOpened.indexOf(chests[ri].x) >= 0) {
+        chests[ri].state = 'opened';
+        chests[ri].iconT = 99; // popup reward tidak diulang
+      }
+    }
     victoryArmed = false;
     victoryT = 0;
     finalPhase = 'slime'; // L5 respawn = ulangi gauntlet dari slime
@@ -3729,6 +3877,24 @@
     }
   }
 
+  /* Undead sprite set — PNG lokal dengan fallback prosedural.
+   * Sprite digambar bottom-anchored (kaki napak tanah) + flip arah hadap.
+   * Jika gambar belum siap/gagal, fallback rect lama dipakai sehingga
+   * game tidak pernah crash dan hitbox/AI tidak berubah. */
+  function foeImg(list, i) {
+    try { return (list && list[i]) || null; } catch (e) { return null; }
+  }
+  function drawFoeSprite(img, dx, dy, dw, dh, facing, blink) {
+    var cx = dx + dw / 2;
+    drawFacing(function () {
+      ctx.drawImage(img, dx, dy, dw, dh);
+      if (blink) {
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.fillRect(dx, dy, dw, dh);
+      }
+    }, dx, cx, facing);
+  }
+
   /* Stage 9: skeleton prosedural — siluet khas tiap archetype.
    * Sword: pedang + pose melee. Defender: perisai depan + guard flash.
    * Archer: busur + quiver, glow kuning saat telegraph 'shoot'. */
@@ -3743,11 +3909,28 @@
     var dx = Math.round(s.x + s.w / 2 - dw / 2);
     var dy = Math.round(s.y + s.h - dh) + bob;
     var blink = s.iframes > 0 && Math.floor(t * 16) % 2 === 0;
+    var windup = s.state === 'attack' && s.atkT < s.st.windup;
 
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
 
-    var windup = s.state === 'attack' && s.atkT < s.st.windup;
+    // Sprite PNG bila siap (idle/walk/guard), fallback rect bila belum.
+    var simg = null;
+    if (s.kind === 'skeletonDefender') {
+      simg = (s.guardFlash > 0) ? foeImg(sprites.skelDef, 1) : foeImg(sprites.skelDef, 0);
+    } else {
+      var moving = (s.state === 'patrol' || s.state === 'chase');
+      simg = foeImg(sprites.skelSword, moving ? (Math.floor(t * 6) % 2) : 0);
+    }
+    if (simg) {
+      drawFoeSprite(simg, dx, dy, dw, dh, s.dir, blink);
+      // Guard flash: kilau putih di tepi perisai agar block terbaca jelas.
+      if (s.kind === 'skeletonDefender' && s.guardFlash > 0 && Math.floor(t * 14) % 2 === 0) {
+        var shx = s.dir === 1 ? dx + dw - 8 : dx;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(shx, dy + 10, 8, dh - 18);
+      }
+    } else {
     ctx.fillStyle = blink ? '#ffffff' : s.st.body;
     ctx.fillRect(dx + 5, dy + 12, dw - 10, dh - 12);   // torso
     ctx.fillRect(dx + 9, dy + 4, dw - 18, 10);         // tengkorak
@@ -3775,7 +3958,8 @@
       ctx.fillStyle = '#8a6d3b';
       ctx.fillRect(swx - 2, swy + 20, 9, 4);
     }
-    // Telegraph windup: tanda seru (konsisten dengan slime).
+    } // end fallback prosedural (sprite path memakai overlay sendiri)
+    // Telegraph windup: tanda seru (konsisten dengan slime, semua path).
     if (windup) {
       ctx.fillStyle = '#ffd23f';
       var qx = Math.round(s.x + s.w / 2 - 2);
@@ -3799,6 +3983,17 @@
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
 
+    // Sprite PNG (aim saat telegraph shoot), fallback rect bila belum siap.
+    var aimg = tele ? foeImg(sprites.skelArch, 1) : foeImg(sprites.skelArch, 0);
+    if (aimg) {
+      drawFoeSprite(aimg, dx, dy, dw, dh, s.dir, blink);
+      // Busur glow saat telegraph agar tembakan terbaca.
+      if (tele && Math.floor(t * 10) % 2 === 0) {
+        var bwx = s.dir === 1 ? dx + dw - 5 : dx + 1;
+        ctx.fillStyle = 'rgba(255,210,99,0.9)';
+        ctx.fillRect(bwx, dy + 6, 4, 26);
+      }
+    } else {
     ctx.fillStyle = blink ? '#ffffff' : s.st.body;
     ctx.fillRect(dx + 6, dy + 12, dw - 12, dh - 12);   // torso ramping
     ctx.fillRect(dx + 10, dy + 4, dw - 20, 10);        // tengkorak
@@ -3816,6 +4011,7 @@
     var bwx = s.dir === 1 ? dx + dw - 5 : dx - 1;
     ctx.fillStyle = (tele && Math.floor(t * 10) % 2 === 0) ? '#ffd23f' : '#8a6d3b';
     ctx.fillRect(bwx, dy + 6, 4, 26);
+    } // end fallback prosedural
     if (tele) {
       ctx.fillStyle = '#ffd23f';
       var qx = Math.round(s.x + s.w / 2 - 2);
@@ -3918,6 +4114,56 @@
     }
   }
 
+  /* Treasure Chest visual: closed (sparkle idle) / opening (bob+glow) /
+   * opened (lid terbuka + reward icon pop). Sprite PNG bila siap. */
+  function drawChests() {
+    for (var i = 0; i < chests.length; i++) {
+      var c = chests[i];
+      var bobY = (c.state === 'opening')
+        ? Math.round(Math.sin(c.openT * 25) * 2)
+        : Math.round(Math.sin(c.bob * 3) * 2);
+      var open = c.state === 'opened';
+      var cimg = open ? foeImg(sprites.chest, 1) : foeImg(sprites.chest, 0);
+      if (cimg) {
+        ctx.drawImage(cimg, Math.round(c.x), Math.round(c.y) + bobY, c.w, c.h);
+      } else {
+        // Fallback: peti kaku (tak pernah placeholder kosong).
+        ctx.fillStyle = '#6b4a2a';
+        ctx.fillRect(c.x, c.y + bobY + 10, c.w, c.h - 10);
+        ctx.fillStyle = '#c9a227';
+        ctx.fillRect(c.x + c.w / 2 - 4, c.y + bobY + 16, 8, 8);
+      }
+      if (!open) {
+        // Sparkle idle subtil tiap ~2 dtk.
+        if (Math.floor(c.bob * 2) % 4 === 0) {
+          ctx.fillStyle = '#fff2c9';
+          ctx.fillRect(Math.round(c.x + c.w / 2 - 1), Math.round(c.y) + bobY - 8, 3, 3);
+        }
+        if (c.state === 'opening') {
+          ctx.fillStyle = 'rgba(255,210,99,' + (0.25 + 0.35 * (c.openT / TREASURE_OPEN_T)).toFixed(2) + ')';
+          ctx.fillRect(Math.round(c.x) - 3, Math.round(c.y) + bobY - 3, c.w + 6, c.h + 6);
+        }
+      } else if (c.reward && c.iconT < 1.2) {
+        // Reward icon pop: naik + fade (tanpa alokasi).
+        var iy = Math.round(c.y - 14 - c.iconT * 34);
+        var a = c.iconT < 0.8 ? 1 : Math.max(0, 1 - (c.iconT - 0.8) / 0.4);
+        var rimg = foeImg(sprites.reward, c.reward.visual);
+        ctx.save();
+        ctx.globalAlpha = a;
+        if (rimg) ctx.drawImage(rimg, Math.round(c.x + c.w / 2 - 10), iy, 20, 20);
+        else {
+          ctx.fillStyle = '#ffd23f';
+          ctx.fillRect(Math.round(c.x + c.w / 2 - 6), iy, 12, 12);
+        }
+        ctx.restore();
+        if (Math.floor(c.iconT * 12) % 2 === 0) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(Math.round(c.x + c.w / 2 - 1), iy - 6, 2, 2);
+        }
+      }
+    }
+  }
+
   // Dekorasi subtil arena boss (L2/L4/L5): pilar + panji + obor.
   // Warna mengikuti mood level; miniboss arena (L4) dapat penanda tulang.
   function drawArenaDecor() {
@@ -4015,15 +4261,24 @@
     ctx.font = 'bold 14px monospace';
     ctx.fillText('FOE x' + alive, VIEW_W - 118, 25);
 
-    // --- Shard + level (kanan, baris kedua; kecil agar tak tutup game) ---
+    // --- Shard + coin + level (kanan; kecil agar tak tutup game) ---
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(VIEW_W - 150, 44, 138, 24);
+    ctx.fillRect(VIEW_W - 150, 44, 138, 44);
     ctx.fillStyle = '#ffd23f';
     ctx.fillRect(VIEW_W - 140, 51, 10, 10);
     ctx.fillRect(VIEW_W - 137, 48, 4, 16);
     ctx.fillStyle = '#fff2c9';
     ctx.font = 'bold 12px monospace';
     ctx.fillText(shardGot() + '/' + shards.length + '  LV' + currentLevel, VIEW_W - 124, 57);
+    // Coin terpisah dari shard (sistem treasure sendiri).
+    var cimg = foeImg(sprites.reward, 0);
+    if (cimg) ctx.drawImage(cimg, VIEW_W - 140, 70, 14, 14);
+    else {
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillRect(VIEW_W - 140, 70, 14, 14);
+    }
+    ctx.fillStyle = '#fff2c9';
+    ctx.fillText('x' + (runStats.coins || 0), VIEW_W - 124, 78);
 
     // --- Bar HP foe besar (boss / miniboss aktif; boss diprioritaskan) ---
     var foeBar = (boss && !boss.dead) ? boss : ((miniboss && !miniboss.dead) ? miniboss : null);
@@ -4193,6 +4448,7 @@
     checkCheckpoints();
     checkGoal();
     updateShards(dt);
+    updateChests(dt);
     updateShake(dt);
     updateParticles(dt);
 
@@ -4231,6 +4487,7 @@
     drawCheckpoints();
     drawGoal();
     drawShards();
+    drawChests();
     drawEnemies();
     drawBoss();
     drawMiniboss();
@@ -4764,6 +5021,19 @@
     getLichPhase: function (b) { return lichPhase(b || boss); },
     spawnShot: spawnShot,
     fireArrow: fireArrow,
+    // Treasure (behavior tests).
+    getChests: function () { return chests; },
+    getCoins: function () { return runStats.coins || 0; },
+    pickReward: pickTreasureReward,
+    getRewards: function () { return TREASURE_REWARDS; },
+    debugReward: function (type) {
+      var rw = TREASURE_REWARDS[type];
+      if (!rw) return false;
+      applyTreasureReward({ reward: rw, x: player.x, y: player.y, w: 0, h: 0 });
+      return true;
+    },
+    getSprites: function () { return sprites; },
+    drawOnce: function () { drawWorld(); drawHUD(); return true; },
     // Hardening hooks (behavior tests, tidak memengaruhi gameplay).
     getVictoryArmed: function () { return victoryArmed; },
     getShocks: function () { return shocks; },

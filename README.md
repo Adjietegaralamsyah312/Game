@@ -31,8 +31,14 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 - Level 5 — Final Convergence: slime + skeleton, gauntlet
   **RAJA SLIME → interlude → RAJA LICH**; mati di gauntlet mengulang dari awal
   (by design, reset hanya untuk run berjalan)
+- Skeleton Knight miniboss (sprite full-armor + pedang besar + cape)
+- Raja Lich final boss (sprite crown + robe + staff + orb, aura phase)
+- Treasure Chest (L3/L4/L5): overlap untuk membuka (closed→opening→opened,
+  sekali saja, aman dari duplikat & persist respawn); reward random
+  Coin (+5, HUD & total persist) / Health (+30, clamp max) / Poison (−HP, min 1)
 - 6 enemy archetype: Slime, Fast Slime, Heavy Slime,
   Skeleton Swordsman, Skeleton Defender, Skeleton Archer
+  (sprite PNG dark-fantasy di `assets/sprites/`, 2-frame walk/aim/guard)
 - Boss RAJA SLIME: intro sekali, HP bar, strike/charge/shockwave, telegraph, enrage
 - Collectible Gold Shard (`got/total` di HUD) + suara pickup
 - Stats per-level & total (musuh, shard, waktu, mati) + best lokal
@@ -112,16 +118,26 @@ Satu `requestAnimationFrame`; pool partikel/proyektil bounded; tanpa `setInterva
 ```
 knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
-├── game.js             # seluruh game (5 level, boss, save, BGM)
+├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 177 automated test headless (node test.js)
+├── test.js             # 192 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
 └── assets/
-    ├── knight/         # 18 sprite PNG
+    ├── knight/         # 18 sprite PNG ksatria
+    ├── sprites/        # 13 sprite undead + chest + reward (lokal)
     └── og/             # social preview 1200x630 (lokal, tanpa CDN)
 ```
+
+## Arsitektur asset
+
+Sprite PNG lokal (`assets/sprites/`) dimuat via loader yang sama dengan
+sprite ksatria (`Promise.all`, fallback magenta bila gagal, `assetsReady`
+gate). Render memakai `drawImage` bottom-anchored + flip arah hadap
+(`imageSmoothingEnabled=false` tetap); bila sprite belum siap dipakai
+fallback prosedural sehingga game tak pernah crash. Hitbox/AI/HP/damage/
+timing tidak berubah oleh pergantian visual.
 
 ## Cara menjalankan lokal
 
@@ -142,8 +158,7 @@ node test.js
 git diff --check
 ```
 
-177 automated test (164 campaign/hardening + 13 final release: campaign select,
-pause, pointer, mission, fokus, reduced-motion, final BGM, reload) —
+192 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset) —
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
