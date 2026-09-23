@@ -11,6 +11,8 @@ html, body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  /* Cegah horizontal overflow di layar kecil; tidak mengubah viewport game. */
+  overflow-x: hidden;
   /* Cegah scroll/zoom tak sengaja di Android; hormati safe-area. */
   touch-action: pan-x pan-y;
   user-select: none;

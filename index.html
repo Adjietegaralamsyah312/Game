@@ -3,13 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Knight Platformer — Release Candidate. Game platformer 2D side-view (HTML5 Canvas + JavaScript vanilla): ksatria pixel-art, 3 slime, combat melee, checkpoint, dan garis finish. Main di desktop dan Android." />
   <meta name="theme-color" content="#0f1226" />
-  <title>Knight Platformer - Vertical Slice Tahap 2</title>
+  <link rel="canonical" href="https://adjietegaralamsyah312.github.io/Game/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Knight Platformer — Release Candidate" />
+  <meta property="og:description" content="Platformer 2D side-view: lewati 2 celah, kalahkan 3 slime, sentuh checkpoint, capai FINISH. Vanilla JS + Canvas, tanpa dependency." />
+  <meta property="og:url" content="https://adjietegaralamsyah312.github.io/Game/" />
+  <meta property="og:image" content="https://adjietegaralamsyah312.github.io/Game/assets/knight/idle_0.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Knight Platformer — Release Candidate" />
+  <meta name="twitter:description" content="Platformer 2D side-view (vanilla JS + Canvas): ksatria pixel-art, combat melee, checkpoint, FINISH." />
+  <title>Knight Platformer — Release Candidate</title>
+  <link rel="icon" type="image/png" href="assets/knight/idle_0.png" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="wrap">
-    <h1>Knight Platformer <span>vertical slice</span></h1>
+    <h1>Knight Platformer <span>release candidate</span></h1>
     <p class="hint">
       <b>A / D</b> atau <b>◀ / ▶</b> bergerak &nbsp;•&nbsp; <b>Space</b> lompat
       &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>R</b> respawn
@@ -17,7 +28,7 @@
     <p class="mission">Misi: lewati 2 celah, kalahkan 3 slime, sentuh checkpoint, capai <b>FINISH</b>.</p>
 
     <div id="canvas-container">
-      <canvas id="game" width="960" height="540"></canvas>
+      <canvas id="game" width="960" height="540" role="img" aria-label="Arena game Knight Platformer: ksatria, platform, slime, dan garis finish"></canvas>
 
       <!-- Overlay Game Over: respawn checkpoint (primer) atau ulang total -->
       <div id="gameover" class="hidden" role="dialog" aria-label="Game Over">
