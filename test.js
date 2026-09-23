@@ -136,6 +136,39 @@ function makeTestStorage() {
     _map: m
   };
 }
+// FakeAudioContext deterministik untuk test BGM (tanpa audio nyata).
+// Clock dikendalikan manual: ambil instans via FakeAudioContext.__last.
+function FakeAudioContext() {
+  this.currentTime = 0;
+  this.state = 'suspended';
+  this.sampleRate = 44100;
+  this.destination = {};
+  FakeAudioContext.__last = this;
+}
+FakeAudioContext.prototype.resume = function () {
+  this.state = 'running';
+  return Promise.resolve();
+};
+FakeAudioContext.prototype.suspend = function () {
+  this.state = 'suspended';
+  return Promise.resolve();
+};
+FakeAudioContext.prototype.createGain = function () {
+  return { gain: { value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}, setTargetAtTime() {} }, connect() {} };
+};
+FakeAudioContext.prototype.createOscillator = function () {
+  return { type: 'square', frequency: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, start() {}, stop() {} };
+};
+FakeAudioContext.prototype.createBiquadFilter = function () {
+  return { type: 'lowpass', frequency: { value: 0 }, connect() {} };
+};
+FakeAudioContext.prototype.createBuffer = function (ch, len) {
+  return { getChannelData: () => new Float32Array(len) };
+};
+FakeAudioContext.prototype.createBufferSource = function () {
+  return { buffer: null, loop: false, connect() {}, start() {}, stop() {} };
+};
+windowMock.AudioContext = FakeAudioContext;
 const testStorage = makeTestStorage();
 sandbox.localStorage = testStorage;
 sandbox.globalThis = sandbox;
@@ -154,7 +187,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 104; // total test milestone ini (84 lama + 20 baru)
+const EXPECTED_TOTAL = 112; // total test milestone ini (104 lama + 8 BGM)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -796,7 +829,7 @@ test('96 volume clamp 0-100 + mute di 0', () => {
   eq(G.getSave().sfxVolume, 100); eq(G.getSave().musicVolume, 0);
   G.resetSave();
 });
-test('97 music setting persist tanpa BGM palsu', () => {
+test('97 music setting persist + mesin BGM nyata (bukan palsu)', () => {
   G.resetSave(); G.toMenu();
   elements['btn-settings'].dispatch('click', {});
   elements['set-music'].dispatch('click', {}); // ON->OFF via UI (persist)
@@ -807,7 +840,12 @@ test('97 music setting persist tanpa BGM palsu', () => {
   eq(s.musicEnabled, false); eq(s.musicVolume, 50);
   G.fx.audio.setMusic(true, 150); // clamp unit-level, tanpa persist
   eq(G.fx.audio.getCfg().musicVol, 100);
-  eq(typeof G.fx.audio.startMusic, 'undefined', 'tanpa mesin BGM palsu');
+  // Stage 7: API BGM nyata tersedia dan terkontrol.
+  eq(typeof G.fx.audio.startMusic, 'function');
+  eq(typeof G.fx.audio.stopMusic, 'function');
+  eq(typeof G.fx.audio.updateMusicState, 'function');
+  eq(typeof G.fx.audio.musicTick, 'function');
+  eq(typeof G.fx.audio.musicInfo, 'function');
   G.resetSave();
 });
 test('98 reset mengembalikan default + UI refresh', () => {
@@ -874,12 +912,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('104 automated test'), 'README harus sebut 104 test, cek jumlah');
+  ok(readme.includes('112 automated test'), 'README harus sebut 112 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('Content Expansion'), 'README harus sebut Content Expansion');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 104);
+  eq(EXPECTED_TOTAL, 112);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -896,6 +934,103 @@ test('104 HTML produksi settings lengkap + berlabel', () => {
     'dialog reset harus CANCEL/RESET');
   ok(/id="mission"/.test(html), 'mission per-level harus ada');
   ok(/id="about-records"/.test(html), 'records harus ada');
+});
+
+// ---------- 8 TEST STAGE 7 (BGM prosedural) ----------
+function ensureAudioCtx() {
+  if (!FakeAudioContext.__last) fireWin('pointerdown', {});
+  return FakeAudioContext.__last;
+}
+test('105 API music tersedia + struktur loop', () => {
+  ['startMusic', 'stopMusic', 'updateMusicState', 'musicTick', 'musicInfo', 'setMusic'].forEach((fn) => {
+    eq(typeof G.fx.audio[fn], 'function', 'API hilang: ' + fn);
+  });
+  const cfg = G.fx.audio.getCfg();
+  ok('musicOn' in cfg && 'musicVol' in cfg, 'cfg musik hilang');
+  srcHas('MUS_LEAD_A'); srcHas('MUS_LEAD_B');
+  srcHas('currentTime'); // scheduler via Web Audio clock
+  ok(!/setInterval\s*\(\s*function[^)]*music/i.test(src), 'tanpa setInterval untuk musik');
+});
+test('106 setMusic() mengubah konfigurasi', () => {
+  G.fx.audio.setMusic(false, 40);
+  let c = G.fx.audio.getCfg();
+  eq(c.musicOn, false); eq(c.musicVol, 40);
+  G.fx.audio.setMusic(true, 80);
+  c = G.fx.audio.getCfg();
+  eq(c.musicOn, true); eq(c.musicVol, 80);
+});
+test('107 volume music 0-100 ter-clamp', () => {
+  G.fx.audio.setMusic(true, 150);
+  eq(G.fx.audio.getCfg().musicVol, 100);
+  G.fx.audio.setMusic(true, -10);
+  eq(G.fx.audio.getCfg().musicVol, 0);
+  G.fx.audio.setMusic(true, NaN);
+  eq(G.fx.audio.getCfg().musicVol, 70);
+});
+test('108 music OFF = diam', () => {
+  G.resetSave(); G.toMenu();
+  G.fx.audio.setMusic(true, 70);
+  ensureAudioCtx();
+  G.fx.audio.startMusic();
+  eq(G.fx.audio.musicInfo().playing, true);
+  G.fx.audio.setMusic(false, 70);
+  const mi = G.fx.audio.musicInfo();
+  eq(mi.playing, false);
+  eq(mi.audible, false);
+  G.resetSave();
+});
+test('109 music ON dapat diaktifkan kembali', () => {
+  G.resetSave(); G.toMenu();
+  G.fx.audio.setMusic(false, 70);
+  ensureAudioCtx();
+  eq(G.fx.audio.musicInfo().audible, false);
+  G.fx.audio.setMusic(true, 70);
+  const mi = G.fx.audio.musicInfo();
+  eq(mi.playing, true);
+  eq(mi.audible, true);
+  G.resetSave();
+});
+test('110 start/stop idempotent, tanpa duplikat', () => {
+  G.resetSave(); G.toMenu();
+  G.fx.audio.setMusic(true, 70);
+  ensureAudioCtx();
+  G.fx.audio.stopMusic();
+  eq(G.fx.audio.musicInfo().playing, false);
+  const s0 = G.fx.audio.musicInfo().starts;
+  G.fx.audio.startMusic(); G.fx.audio.startMusic(); G.fx.audio.startMusic();
+  const mi = G.fx.audio.musicInfo();
+  eq(mi.playing, true);
+  eq(mi.starts, s0 + 1, 'start ganda tidak boleh re-init');
+  const actx = ensureAudioCtx();
+  actx.currentTime += 1.0;
+  const n0 = G.fx.audio.musicInfo().scheduled;
+  G.fx.audio.musicTick();
+  ok(G.fx.audio.musicInfo().scheduled > n0, 'scheduler menjadwal nada');
+  // Replay/level switch/respawn: tetap satu musik, tanpa throw.
+  G.startLevel(1); G.startLevel(2); G.respawn();
+  eq(G.fx.audio.musicInfo().playing, true);
+  G.toMenu(); G.resetSave();
+});
+test('111 save/load music kompatibel + audio ikut', () => {
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, musicEnabled: false, musicVolume: 33 }));
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.musicEnabled, false); eq(s.musicVolume, 33);
+  eq(G.fx.audio.getCfg().musicVol, 33, 'audio mengikuti save saat reload');
+  G.resetSave();
+});
+test('112 SFX tidak regresi (independen dari musik)', () => {
+  G.resetSave();
+  G.fx.audio.setSfx(true, 80); G.fx.audio.setMusic(true, 30);
+  let c = G.fx.audio.getCfg();
+  eq(c.sfxVol, 80); eq(c.musicVol, 30);
+  G.fx.audio.setMusic(true, 10);
+  eq(G.fx.audio.getCfg().sfxVol, 80, 'vol musik tak pengaruhi SFX');
+  G.fx.audio.setSfx(true, 90);
+  eq(G.fx.audio.getCfg().musicVol, 10, 'vol SFX tak pengaruhi musik');
+  ensureAudioCtx();
+  noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('attack'); G.fx.audio.play('bossDie'); });
+  G.resetSave();
 });
 
 // ---------- Ringkasan ----------

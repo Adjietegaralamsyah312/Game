@@ -115,13 +115,28 @@
    * =================================================================== */
   var AudioManager = (function () {
     var ctx = null, master = null, noiseBuf = null;
+    // Stage 7: jalur terpisah — sfxG (SFX) dan musicG (BGM) sejajar ke
+    // master, sehingga volume keduanya tidak saling mengganggu.
+    var sfxG = null, musicG = null;
     // Stage 6: pengaturan audio (default = perilaku lama persis).
     var sfxOn = true, sfxVol = 1, musicOn = true, musicVol = 0.7;
-    var BASE_GAIN = 0.16;
+    var BASE_GAIN = 0.16, MUSIC_LEVEL = 0.5;
 
     function applyGain() {
       try {
-        if (master) master.gain.value = BASE_GAIN * (sfxOn ? sfxVol : 0);
+        if (master) master.gain.value = BASE_GAIN;
+        if (sfxG) sfxG.gain.value = (sfxOn ? sfxVol : 0);
+      } catch (e) { /* abaikan */ }
+      musicTarget();
+    }
+
+    // Target gain BGM (ramp halus ~150-500ms; 0 = diam total).
+    function musicTarget() {
+      try {
+        if (!musicG || !ctx) return;
+        var t = (musicOn && musicVol > 0) ? musicVol * MUSIC_LEVEL : 0;
+        if (!music.playing) t = 0;
+        musicG.gain.setTargetAtTime(t, ctx.currentTime, 0.12);
       } catch (e) { /* abaikan */ }
     }
 
@@ -133,8 +148,13 @@
         if (!AC) return false;
         ctx = new AC();
         master = ctx.createGain();
-        applyGain(); // hormati pengaturan (default = 0.16, perilaku lama)
+        master.gain.value = BASE_GAIN;
         master.connect(ctx.destination);
+        sfxG = ctx.createGain();
+        sfxG.connect(master);
+        musicG = ctx.createGain();
+        musicG.connect(master);
+        applyGain(); // hormati pengaturan (default = perilaku lama)
         // Buffer noise 0.5 dtk — dibuat sekali, dipakai ulang semua SFX.
         noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
         var d = noiseBuf.getChannelData(0);
@@ -149,6 +169,7 @@
           var pr = ctx.resume();
           if (pr && pr.catch) pr.catch(function () { /* abaikan */ });
         }
+        updateMusicState(); // BGM mengikuti setting setelah gesture
       } catch (e) { /* abaikan */ }
     }
 
@@ -171,7 +192,7 @@
       if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + dur);
       g.gain.setValueAtTime(vol || 0.5, t0);
       g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-      o.connect(g); g.connect(master);
+      o.connect(g); g.connect(sfxG || master);
       o.start(t0); o.stop(t0 + dur + 0.02);
     }
 
@@ -187,7 +208,7 @@
       var g = ctx.createGain();
       g.gain.setValueAtTime(vol || 0.5, t0);
       g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-      src.connect(f); f.connect(g); g.connect(master);
+      src.connect(f); f.connect(g); g.connect(sfxG || master);
       src.start(t0); src.stop(t0 + dur + 0.02);
     }
 
@@ -213,6 +234,148 @@
       shock:      function () { noise(0.18, 0.45, 600); tone(120, 0.18, 'triangle', 0.4, 50); }
     };
 
+    /* ---- BGM prosedural (Stage 7): dark fantasy loop, Web Audio native ----
+     * Komposisi D minor ~100 BPM: intro (pad+bass) -> motif -> variasi ->
+     * motif -> loop. Layer: bass pulsa, pad akor, arpeggio, lead motif.
+     * Scheduler lookahead dari game loop memakai AudioContext.currentTime
+     * (tanpa setInterval). Semua node pendek ber-stop() pasti: tanpa bocor,
+     * tanpa duplikat (start idempotent). */
+    var MUS_BPM = 100;
+    var MUS_STEP = 60 / MUS_BPM / 2; // ketuk 1/8 = 0.3 dtk
+    var MUS_LOOP = 64;               // 8 bar x 8 ketuk (~19 dtk per loop)
+    var MUS_AHEAD = 0.4;             // lookahead scheduler
+    var MUS_CHORDS = [
+      [57, 60, 62], // Dm
+      [58, 62, 65], // Bb
+      [55, 58, 62], // Gm
+      [57, 61, 64]  // A
+    ];
+    var MUS_BASS = [38, 34, 31, 33]; // D2 Bb1 G1 A1
+    // Motif utama (jarang, setengah nada) — 16 ketuk per akor, 0 = istirahat.
+    var MUS_LEAD_A = [
+      74, 0, 0, 0, 72, 0, 0, 0, 70, 0, 0, 0, 69, 0, 67, 0,
+      70, 0, 0, 0, 69, 0, 0, 0, 67, 0, 0, 0, 65, 0, 67, 0,
+      67, 0, 0, 0, 70, 0, 0, 0, 72, 0, 0, 0, 70, 0, 69, 0,
+      69, 0, 0, 0, 73, 0, 0, 0, 72, 0, 69, 0, 67, 0, 65, 0
+    ];
+    // Variasi (rapat, arpeggio 1/8) — loop ganjil.
+    var MUS_LEAD_B = [
+      62, 65, 69, 72, 74, 72, 69, 65, 67, 69, 70, 72, 74, 0, 72, 0,
+      70, 72, 74, 72, 70, 69, 67, 65, 67, 69, 70, 72, 70, 69, 67, 0,
+      67, 70, 72, 74, 72, 70, 67, 65, 64, 65, 67, 69, 67, 65, 64, 0,
+      69, 73, 72, 69, 67, 65, 64, 62, 64, 65, 67, 64, 62, 0, 0, 0
+    ];
+
+    var music = { playing: false, step: 0, loop: 0, next: 0, starts: 0 };
+    var musicScheduled = 0;
+
+    function midiHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+    function musNote(m, t, dur, type, vol, cutoff) {
+      try {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(midiHz(m), t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g);
+        if (cutoff) {
+          var f = ctx.createBiquadFilter();
+          f.type = 'lowpass';
+          f.frequency.value = cutoff;
+          g.connect(f);
+          f.connect(musicG);
+        } else {
+          g.connect(musicG);
+        }
+        o.start(t);
+        o.stop(t + dur + 0.05);
+        musicScheduled++;
+      } catch (e) { /* abaikan */ }
+    }
+
+    function scheduleStep(s, t) {
+      var bar = Math.floor(s / 16) % 4; // satu akor per 2 bar
+      var ch = MUS_CHORDS[bar];
+      var i;
+      // Pad: awal tiap akor (3 nada, lembut, lowpass).
+      if (s % 16 === 0) {
+        for (i = 0; i < ch.length; i++) {
+          musNote(ch[i], t, 16 * MUS_STEP, 'triangle', 0.045, 900);
+        }
+      }
+      // Bass: intro (16 ketuk pertama) whole-note; lalu pulsa ketuk 0/4 + kuint di 6.
+      if (s < 16) {
+        if (s % 8 === 0) musNote(MUS_BASS[bar], t, 0.5, 'sine', 0.08);
+      } else if (s % 2 === 0) {
+        musNote(s % 8 === 6 ? MUS_BASS[bar] + 7 : MUS_BASS[bar], t, 0.26, 'triangle', 0.10);
+      }
+      if (s < 16) return; // intro: tanpa arp/lead
+      // Arpeggio nada akor +12, bergilir tiap ketuk.
+      musNote(ch[s % 3] + 12, t, 0.22, 'square', 0.030);
+      // Lead: motif (loop genap) / variasi (loop ganjil).
+      var lead = (music.loop % 2 === 0) ? MUS_LEAD_A : MUS_LEAD_B;
+      if (lead[s] > 0) musNote(lead[s], t, 0.26, 'square', 0.055);
+    }
+
+    // Dipanggil tiap frame game loop (bukan interval): jadwalkan nada
+    // sampai currentTime + lookahead. Aman saat suspended (clock beku).
+    function musicTick() {
+      if (!music.playing || !ctx) return;
+      try {
+        if (ctx.state !== 'running') return;
+        while (music.next < ctx.currentTime + MUS_AHEAD) {
+          scheduleStep(music.step, music.next);
+          music.next += MUS_STEP;
+          music.step++;
+          if (music.step >= MUS_LOOP) { music.step = 0; music.loop++; }
+        }
+      } catch (e) { /* abaikan */ }
+    }
+
+    function startMusic() {
+      if (music.playing) return; // anti duplikat: start kedua = no-op
+      if (!ctx) return;          // belum unlock: mulai setelah gesture
+      try {
+        music.playing = true;
+        music.step = 0;
+        music.loop = 0;
+        music.next = ctx.currentTime + 0.1;
+        music.starts++;
+        musicTarget(); // fade-in via musicG
+      } catch (e) { music.playing = false; }
+    }
+
+    function stopMusic() {
+      music.playing = false;
+      musicTarget(); // fade-out via musicG (node terjadwal reda sendiri)
+    }
+
+    // Musik mengikuti state game + setting + pause. Tanpa loop kedua.
+    function updateMusicState() {
+      if (!ctx) return;
+      try {
+        if (ctx.state === 'suspended') {
+          var pr = ctx.resume();
+          if (pr && pr.catch) pr.catch(function () { /* abaikan */ });
+        }
+      } catch (e) { /* abaikan */ }
+      if (!musicOn || musicVol <= 0) { stopMusic(); return; }
+      if ((typeof gameState !== 'undefined' && gameState === 'playing' && !paused) ||
+          (typeof gameState !== 'undefined' && gameState === 'menu')) {
+        startMusic();
+      } else {
+        stopMusic(); // gameover/complete/settings: diam
+      }
+    }
+
+    function musicInfo() {
+      return { playing: music.playing, starts: music.starts,
+               scheduled: musicScheduled,
+               audible: !!(music.playing && musicOn && musicVol > 0) };
+    }
+
     return {
       play: function (name) {
         // OFF / volume 0 = benar-benar diam (tanpa membuat node audio).
@@ -223,7 +386,6 @@
       suspend: suspend,
       isReady: function () { return !!ctx; },
       // Stage 6: volume 0-100 (clamp), berlaku langsung tanpa reload.
-      // Music hanya disimpan (belum ada mesin BGM — tanpa audio palsu).
       setSfx: function (on, vol) {
         sfxOn = !!on;
         sfxVol = clamp(Math.round(Number(vol)) / 100, 0, 1);
@@ -234,12 +396,20 @@
         musicOn = !!on;
         musicVol = clamp(Math.round(Number(vol)) / 100, 0, 1);
         if (!(musicVol >= 0)) musicVol = 0.7;
+        musicTarget(); // live: gain BGM ikut serta tanpa reload
+        updateMusicState();
       },
       getCfg: function () {
         return { sfxOn: sfxOn, sfxVol: Math.round(sfxVol * 100),
                  musicOn: musicOn, musicVol: Math.round(musicVol * 100),
                  muted: !(sfxOn && sfxVol > 0) };
-      }
+      },
+      // Stage 7: kontrol BGM eksplisit (idempotent, tanpa node bocor).
+      startMusic: startMusic,
+      stopMusic: stopMusic,
+      updateMusicState: updateMusicState,
+      musicTick: musicTick,
+      musicInfo: musicInfo
     };
   })();
 
@@ -1213,6 +1383,7 @@
     save.totalDeaths++;
     persistSave();
     AudioManager.play('gameover');
+    AudioManager.updateMusicState(); // BGM gameplay fade-out
     if (overlayEl) overlayEl.classList.remove('hidden');
     if (respawnBtn && respawnBtn.focus) {
       try { respawnBtn.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
@@ -1234,6 +1405,7 @@
       try { againBtn.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
     }
     AudioManager.play('win');
+    AudioManager.updateMusicState();
   }
 
   function aliveEnemies() {
@@ -1684,6 +1856,7 @@
     hideAllOverlays();
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    AudioManager.updateMusicState(); // BGM gameplay tanpa overlap
     debugLog('[game] start level', n);
   }
 
@@ -1702,6 +1875,7 @@
     camera.x = 120; // vista menu
     refreshRecordsUI();
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    AudioManager.updateMusicState(); // musik menu (sesuai setting)
     debugLog('[game] ke menu');
   }
 
@@ -1804,16 +1978,17 @@
         trans.phase = 'in';
         trans.t = trans.dur;
       }
-    } else {
-      trans.t -= dt;
-      if (trans.t <= 0) {
-        trans.active = false;
-        trans.phase = '';
-        gameState = 'playing';
-        setPaused(false);
-        try { last = nowPerf(); } catch (e) { /* abaikan */ }
+      } else {
+        trans.t -= dt;
+        if (trans.t <= 0) {
+          trans.active = false;
+          trans.phase = '';
+          gameState = 'playing';
+          setPaused(false);
+          try { last = nowPerf(); } catch (e) { /* abaikan */ }
+          AudioManager.updateMusicState();
+        }
       }
-    }
   }
 
   function transAlpha() {
@@ -1841,6 +2016,7 @@
       try { btnNext.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
     }
     AudioManager.play('win');
+    AudioManager.updateMusicState(); // BGM gameplay berhenti
   }
 
   function showGameComplete() {
@@ -1865,6 +2041,7 @@
       try { btnAgain2.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
     }
     AudioManager.play('win');
+    AudioManager.updateMusicState(); // BGM gameplay berhenti
   }
 
   // Lanjut ke Level 2 dengan gate unlock (praktis selalu terbuka karena
@@ -1906,6 +2083,7 @@
     hideAllOverlays();
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    AudioManager.updateMusicState(); // BGM resume tanpa overlap
     debugLog('[game] respawn di', respawnPoint.x, respawnPoint.y);
   }
 
@@ -1918,6 +2096,7 @@
     hideAllOverlays();
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    AudioManager.updateMusicState();
     debugLog('[game] restart total');
   }
 
@@ -2604,6 +2783,8 @@
 
     // Transisi level berjalan di semua state non-pause.
     updateTrans(dt);
+    // Scheduler BGM (lookahead via Web Audio clock; no-op bila diam).
+    AudioManager.musicTick();
 
     if (gameState === 'menu') {
       drawMenuVista();

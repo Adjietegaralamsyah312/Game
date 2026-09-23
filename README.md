@@ -30,8 +30,8 @@ gunakan checkpoint, kalahkan **RAJA SLIME**).
 Dari Main Menu → **SETTINGS** (atau `↑`/`↓` + `Enter`, `Esc` kembali):
 
 - **SFX ON/OFF** + volume 0–100% (berlaku langsung, tanpa reload)
-- **Music ON/OFF** + volume (tersimpan untuk BGM masa depan; belum ada
-  mesin BGM — tanpa audio palsu)
+- **Music ON/OFF** + volume 0–100% (BGM prosedural Web Audio,
+  berlaku langsung)
 - **Input favorit**: AUTO / KEYBOARD / TOUCH (preferensi tampilan;
   keyboard + touch selalu aktif)
 - **RESET**: hapus progres + settings via dialog konfirmasi (CANCEL/RESET)
@@ -74,12 +74,24 @@ baru & boss prosedural (Canvas pixel-style).
 
 ## Struktur project
 
+## Audio
+
+- **BGM prosedural Web Audio**: loop dark-fantasy ~100 BPM (bass, pad,
+  arpeggio, motif + variasi), dijadwalkan dari Web Audio clock
+  (tanpa `setInterval`), satu AudioContext, tanpa node bocor/duplikat
+- **SFX prosedural**: lompat, serang, hit, checkpoint, menang, boss, pickup
+- **Volume independen**: SFX 0–100% dan Music 0–100% via jalur gain
+  terpisah; OFF/volume-0 = diam total; perubahan live tanpa reload
+- **Autoplay/unlock**: audio (termasuk BGM) mulai setelah tap/klik/keydown
+  pertama; pause men-suspend aman; BGM mengikuti state (menu/main,
+  berhenti saat Game Over/Complete, resume tanpa overlap)
+
 ```
 knight_game/
 ├── index.html          # kanvas + overlay (menu/settings/clear) + metadata
-├── game.js             # seluruh game (menu, 2 level, varian, boss, save)
+├── game.js             # seluruh game (menu, 2 level, varian, boss, save, BGM)
 ├── style.css           # tema + responsif + safe-area Android
-├── test.js             # 104 automated test headless (node test.js)
+├── test.js             # 112 automated test headless (node test.js)
 ├── README.md           # file ini
 └── assets/knight/      # 18 sprite PNG (idle/run/jump/fall/attack/hurt/death)
 ```
@@ -104,7 +116,7 @@ node test.js
 git diff --check
 ```
 
-104 automated test (84 dasar/responsif + 20 settings/persistence) —
+112 automated test (104 dasar/responsif/settings + 8 BGM) —
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
@@ -125,6 +137,5 @@ target semua PASS, 0 FAIL.
 
 - Status: Content Expansion Build + Settings & Persistence, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
-- Ide lanjutan (belum dikerjakan): level tambahan, pola boss baru, BGM
-  (memakai slot Music yang sudah tersimpan), musik latar, pengujian FPS
-  terdokumentasi di perangkat fisik.
+- Ide lanjutan (belum dikerjakan): level tambahan, pola boss baru,
+  variasi trek BGM, pengujian FPS terdokumentasi di perangkat fisik.
