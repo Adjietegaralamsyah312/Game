@@ -515,6 +515,112 @@ test('77 input isolation: menu tidak bocorkan input ke gameplay', () => {
   G.restart(); // kembalikan kondisi standar
 });
 
+// ---------- 7 TEST RESPONSIF (cermin HTML/CSS produksi) ----------
+// Aturan: mock harus mencerminkan struktur HTML production — uji ini
+// memaksa keduanya sinkron (id yang di-wire game.js wajib ada di keduanya).
+function __idsFromHtml(h) {
+  const out = [];
+  const re = /id="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(h))) out.push(m[1]);
+  return out;
+}
+function __wiredIds(js) {
+  const out = [];
+  const re = /getElementById\('([^']+)'\)/g;
+  let m;
+  while ((m = re.exec(js))) if (!out.includes(m[1])) out.push(m[1]);
+  return out;
+}
+function __mediaBlocks(cssText) {
+  // Kembalikan [{header, body}] dengan pencocokan kurung sederhana.
+  const blocks = [];
+  let i = 0;
+  while (true) {
+    const at = cssText.indexOf('@media', i);
+    if (at < 0) break;
+    const open = cssText.indexOf('{', at);
+    const header = cssText.slice(at, open);
+    let depth = 0, j = open;
+    for (; j < cssText.length; j++) {
+      if (cssText[j] === '{') depth++;
+      else if (cssText[j] === '}') { depth--; if (depth === 0) break; }
+    }
+    blocks.push({ header, body: cssText.slice(open, j + 1) });
+    i = j + 1;
+  }
+  return blocks;
+}
+test('78 mockmirror produksi: id wire game.js ada di HTML + mock', () => {
+  const wired = __wiredIds(src);
+  ok(wired.length >= 20, 'wired ids terlalu sedikit: ' + wired.length);
+  const htmlIds = __idsFromHtml(html);
+  wired.forEach((id) => {
+    ok(htmlIds.includes(id), 'id wire hilang di index.html produksi: ' + id);
+    ok(elementIds.includes(id), 'id wire hilang di mock test: ' + id);
+  });
+  ['mainmenu', 'lvlclear', 'gameclear', 'btn-play', 'btn-next', 'btn-again2'].forEach((id) => {
+    ok(wired.includes(id), 'elemen Stage 5 harus di-wire: ' + id);
+  });
+});
+test('79 dialog fullscreen anti-clip di layar sentuh kecil', () => {
+  const blocks = __mediaBlocks(css);
+  const dlg = blocks.filter((b) => b.body.includes('#mainmenu') && b.body.includes('position: fixed'));
+  ok(dlg.length >= 1, 'aturan dialog fullscreen hilang');
+  ok(dlg[0].header.includes('pointer: coarse'), 'harus pointer:coarse agar desktop aman');
+  ok(dlg[0].body.includes('overflow-y: auto'), 'dialog pendek harus bisa scroll');
+  ['#gameover', '#levelcomplete', '#lvlclear', '#gameclear'].forEach((sel) => {
+    ok(dlg[0].body.includes(sel), 'dialog harus fullscreen: ' + sel);
+  });
+});
+test('80 HP landscape pendek: ringkas, 16:9 utuh, kontrol muat', () => {
+  const blocks = __mediaBlocks(css);
+  const compact = blocks.filter((b) => b.header.includes('orientation: landscape') &&
+    b.header.includes('max-height') && b.header.includes('pointer: coarse'));
+  ok(compact.length >= 1, 'mode ringkas landscape hilang');
+  const c = compact[0].body;
+  ok(c.includes('.mission') && c.includes('display: none'), 'teks header harus disembunyikan');
+  ok(c.includes('#canvas-container') && c.includes('100dvh') && c.includes('16 / 9'),
+    'lebar canvas harus dari sisa tinggi (16:9 utuh, tanpa stretch)');
+  ok(c.includes('#touch-controls'), 'kontrol harus ikut aturan lebar yang sama');
+});
+test('81 touch: >=64px, tak bertumpuk, anti scroll/double', () => {
+  ok(css.includes('touch-action: none'), 'touch-action none hilang');
+  ok(/\.touch-btn\s*{[^}]*clamp\(64px/.test(css), 'tombol harus min 64px');
+  ok(css.includes('justify-content: space-between') && css.includes('.touch-group'),
+    'grup tombol harus berjarak (space-between + gap)');
+  ok(src.includes('lastTouch'), 'guard anti double-trigger touch+mouse harus ada');
+});
+test('82 aturan HP tak bocor ke desktop', () => {
+  const blocks = __mediaBlocks(css);
+  blocks.forEach((b) => {
+    if (b.header.includes('landscape')) {
+      ok(b.header.includes('coarse'), 'media landscape harus pointer:coarse: ' + b.header.trim());
+    }
+  });
+  const dlgScope = blocks.filter((b) => b.body.includes('#lvlclear'));
+  ok(dlgScope.length >= 1 && dlgScope.every((b) => b.header.includes('coarse')),
+    'aturan dialog tak boleh tanpa pointer:coarse');
+  ok(css.includes('aspect-ratio: 16 / 9'), 'canvas 16:9 desktop harus utuh');
+});
+test('83 portrait utuh: canvas+kontrol tak disembunyikan', () => {
+  const blocks = __mediaBlocks(css);
+  const por = blocks.filter((b) => b.header.includes('orientation: portrait'));
+  ok(por.length >= 1, 'aturan portrait hilang');
+  por.forEach((b) => {
+    ok(!/#canvas-container\s*{[^}]*display:\s*none/.test(b.body), 'canvas jangan disembunyikan (portrait)');
+    ok(!/#touch-controls\s*{[^}]*display:\s*none/.test(b.body), 'kontrol jangan disembunyikan (portrait)');
+  });
+});
+test('84 a11y: label sentuh + dialog + focus terlihat', () => {
+  ['btn-left', 'btn-right', 'btn-attack', 'btn-jump'].forEach((id) => {
+    ok(new RegExp('id="' + id + '"[^>]*aria-label').test(html), 'aria-label hilang: ' + id);
+  });
+  const dialogs = (html.match(/role="dialog"/g) || []).length;
+  ok(dialogs >= 5, 'dialog harus ber-role=dialog, ketemu ' + dialogs);
+  ok(css.includes(':focus-visible'), 'focus state keyboard harus terlihat');
+});
+
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
 console.log('PASS: ' + pass + ' / ' + (pass + fail) + ', FAIL: ' + fail);
