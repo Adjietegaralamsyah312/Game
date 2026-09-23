@@ -60,7 +60,12 @@ const mockCtx = new Proxy({}, {
 });
 const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
-  'btn-jump', 'btn-attack'];
+  'btn-jump', 'btn-attack',
+  // Stage 5: menu + clear screens
+  'mainmenu', 'menu-main', 'menu-controls', 'menu-about',
+  'btn-play', 'btn-controls', 'btn-about', 'btn-back-controls', 'btn-back-about',
+  'lvlclear', 'lvlclear-stats', 'btn-next', 'btn-replay', 'btn-lvlmenu',
+  'gameclear', 'gameclear-stats', 'btn-again2', 'btn-gamemenu'];
 const elements = {};
 elementIds.forEach((id) => { elements[id] = makeElement(id, mockCtx); });
 
@@ -365,6 +370,149 @@ test('65 resume setelah Level Complete (force + restart)', () => {
   noThrow(() => G.restart());
   eq(G.getState(), 'playing'); eq(G.isPaused(), false);
   G.restart();
+});
+
+// ---------- 12 TEST BARU STAGE 5 ----------
+test('66 menu state + PLAY -> transisi -> Level 1', () => {
+  G.toMenu();
+  eq(G.getState(), 'menu');
+  ok(!elements['mainmenu'].classList.contains('hidden'), 'menu harus tampil');
+  ok(elements['gameover'].classList.contains('hidden'), 'gameover harus sembunyi');
+  elements['btn-play'].dispatch('click', {});
+  ok(G.getTrans().active, 'transisi harus aktif setelah PLAY');
+  G.stepTrans(0.3); G.stepTrans(0.3);
+  eq(G.getState(), 'playing'); eq(G.getLevel(), 1);
+  srcHas('mainmenu'); srcHas('btn-play');
+});
+test('67 level switching: Level 2 (varian + boss + shard)', () => {
+  G.startLevel(2);
+  eq(G.getLevel(), 2); eq(G.getState(), 'playing');
+  eq(G.getEnemies().length, 3);
+  const kinds = G.getEnemies().map((e) => e.kind);
+  ok(kinds.includes('fast') && kinds.includes('heavy'), 'varian fast+heavy harus ada: ' + kinds);
+  const b = G.getBoss();
+  ok(b && b.hp === 120 && b.state === 'idle', 'boss RAJA SLIME hp120 idle');
+  eq(G.getCheckpoints().length, 2);
+  eq(G.getGoal(), null);
+  eq(G.getShards().total, 8);
+  G.startLevel(1); // kembalikan agar tidak pengaruhi sisanya
+});
+test('68 level reset: HP/posisi/musuh/boss/shard/stats pulih', () => {
+  G.startLevel(2);
+  G.hurtPlayer(30, 9999);
+  ok(G.getPlayer().hp < 100, 'HP harus berkurang dulu');
+  const at = G.getShards().at;
+  const pl = G.getPlayer();
+  pl.vx = 0; pl.vy = 0; // netralkan knockback agar posisi uji stabil
+  pl.x = at.x - 20; pl.y = 402; // berdiri di tanah, overlap kotak shard
+  G.step(1 / 60);
+  eq(G.getShards().got, 1);
+  G.startLevel(2);
+  eq(G.getPlayer().hp, 100);
+  eq(G.getShards().got, 0);
+  eq(G.getEnemies().length, 3);
+  eq(G.getBoss().hp, 120);
+  const st = G.getStats();
+  eq(st.levelKills, 0); eq(st.levelShards, 0);
+  eq(G.getState(), 'playing');
+});
+test('69 enemy variant stats + slime klasik tak berubah', () => {
+  srcHas('ENEMY_STATS');
+  G.startLevel(2);
+  const es = G.getEnemies();
+  const fast = es.find((e) => e.kind === 'fast');
+  const heavy = es.find((e) => e.kind === 'heavy');
+  eq(fast.hp, 20); eq(fast.st.dmg, 8); ok(fast.st.chase > 95, 'fast harus lebih cepat');
+  eq(heavy.hp, 60); eq(heavy.st.dmg, 18); eq(heavy.st.knockResist, 0.35);
+  G.startLevel(1);
+  const c = G.getEnemies()[0];
+  eq(c.kind, 'slime'); eq(c.hp, 30); eq(c.w, 44); eq(c.h, 32);
+});
+test('70 collectible pickup: shard + counter + suara aman', () => {
+  G.startLevel(1);
+  eq(G.getShards().total, 6); eq(G.getShards().got, 0);
+  const rs0 = G.getStats().runShards; // total run terbawa dari test sebelum
+  const at = G.getShards().at;
+  const pl = G.getPlayer();
+  pl.x = at.x - 20; pl.y = at.y; // overlap kotak shard walau ada gravitasi
+  G.step(1 / 60);
+  eq(G.getShards().got, 1);
+  eq(G.getStats().levelShards, 1); eq(G.getStats().runShards, rs0 + 1);
+  noThrow(() => G.fx.audio.play('pickup'));
+});
+test('71 boss state transitions: idle -> telegraph -> attack', () => {
+  G.startLevel(2);
+  const b = G.getBoss(), pl = G.getPlayer();
+  pl.iframes = 9999; // uji FSM, bukan damage player
+  pl.x = b.x - 150; pl.y = 402;
+  const seen = {};
+  for (let i = 0; i < 150; i++) { G.step(1 / 60); seen[G.getBoss().state] = true; }
+  ok(seen.telegraph, 'boss harus pernah telegraph, terlihat: ' + Object.keys(seen));
+  ok(seen.strike || seen.charge || seen.shock || seen.recovery, 'boss harus menyerang, terlihat: ' + Object.keys(seen));
+  pl.iframes = 0;
+});
+test('72 boss death -> GAME COMPLETE + stats', () => {
+  G.startLevel(2);
+  for (let k = 0; k < 4; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  eq(G.getBoss().state, 'death');
+  for (let i = 0; i < 170; i++) G.step(1 / 60);
+  eq(G.getState(), 'gamecomplete');
+  ok(G.getStats().runKills >= 1, 'kill boss terhitung');
+  ok(!elements['gameclear'].classList.contains('hidden'), 'layar game complete tampil');
+});
+test('73 level complete: goal L1 -> stats + NEXT/REPLAY/MENU', () => {
+  G.startLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400; // dalam gapura FINISH
+  G.step(1 / 60);
+  eq(G.getState(), 'levelcomplete');
+  ok(!elements['lvlclear'].classList.contains('hidden'), 'layar level complete tampil');
+  G.startLevel(1);
+});
+test('74 NEXT LEVEL: lvlclear -> transisi -> Level 2 main', () => {
+  G.startLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400;
+  G.step(1 / 60);
+  eq(G.getState(), 'levelcomplete');
+  elements['btn-next'].dispatch('click', {});
+  ok(G.getTrans().active, 'transisi ke L2 aktif');
+  G.stepTrans(0.3); G.stepTrans(0.3);
+  eq(G.getState(), 'playing'); eq(G.getLevel(), 2);
+});
+test('75 stats: total lintas level, per-level reset', () => {
+  G.restart(); // total fresh, Level 1
+  const e0 = G.getEnemies()[0];
+  for (let k = 0; k < 3; k++) { G.getEnemies()[0].iframes = 0; G.hurtEnemy(e0.id, 12, 0); }
+  for (let i = 0; i < 40; i++) G.step(1 / 60);
+  eq(G.getStats().runKills, 1);
+  G.startLevel(2);
+  eq(G.getStats().levelKills, 0, 'levelStats reset di level baru');
+  eq(G.getStats().runKills, 1, 'total kill terbawa lintas level');
+});
+test('76 transition state: out -> load -> in -> playing', () => {
+  G.startLevel(1);
+  G.startTrans(2);
+  let tr = G.getTrans();
+  eq(tr.active, true); eq(tr.phase, 'out');
+  G.stepTrans(0.1);
+  eq(G.getTrans().active, true);
+  G.stepTrans(0.3); // out selesai -> load L2
+  eq(G.getLevel(), 2);
+  G.stepTrans(0.3); // in selesai
+  tr = G.getTrans();
+  eq(tr.active, false);
+  eq(G.getState(), 'playing');
+});
+test('77 input isolation: menu tidak bocorkan input ke gameplay', () => {
+  G.toMenu();
+  G.input.attackPressed = true; G.input.jumpPressed = true;
+  G.input.jumpHeld = true; G.input.left = true;
+  G.startLevel(1);
+  eq(G.input.attackPressed, false); eq(G.input.jumpPressed, false);
+  eq(G.input.jumpHeld, false); eq(G.input.left, false);
+  eq(G.getPlayer().state, 'idle');
+  G.restart(); // kembalikan kondisi standar
 });
 
 // ---------- Ringkasan ----------

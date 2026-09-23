@@ -151,9 +151,12 @@ canvas#game {
   background: #b23a3a;
 }
 
-/* --- Overlay Game Over / Win --- */
+/* --- Overlay Game Over / Win / Menu / Clear (Stage 5) --- */
 #gameover,
-#levelcomplete {
+#levelcomplete,
+#mainmenu,
+#lvlclear,
+#gameclear {
   position: absolute;
   inset: 0;
   display: flex;
@@ -168,7 +171,16 @@ canvas#game {
 }
 
 #gameover.hidden,
-#levelcomplete.hidden {
+#levelcomplete.hidden,
+#mainmenu.hidden,
+#lvlclear.hidden,
+#gameclear.hidden {
+  display: none;
+}
+
+#menu-main.hidden,
+#menu-controls.hidden,
+#menu-about.hidden {
   display: none;
 }
 
@@ -179,21 +191,69 @@ canvas#game {
   text-shadow: 0 3px 0 #5c1212, 0 6px 18px rgba(0, 0, 0, 0.6);
 }
 
-#levelcomplete h2.win {
+#levelcomplete h2.win,
+#lvlclear h2.win,
+#gameclear h2.win {
   font-size: clamp(26px, 6vw, 48px);
   letter-spacing: 3px;
   color: #ffd23f;
   text-shadow: 0 3px 0 #6b4d00, 0 6px 18px rgba(0, 0, 0, 0.6);
 }
 
+/* Judul menu utama: pixel-art emas, tetap terbaca di HP. */
+#mainmenu .game-title {
+  font-size: clamp(30px, 7vw, 56px);
+  line-height: 1.05;
+  letter-spacing: 4px;
+  color: #ffd23f;
+  text-shadow: 0 3px 0 #6b4d00, 0 6px 18px rgba(0, 0, 0, 0.6);
+  font-family: monospace;
+}
+
+#mainmenu .build-tag {
+  font-size: clamp(11px, 2.5vw, 14px);
+  color: #8a8fa8;
+  border: 1px solid #39406e;
+  padding: 2px 12px;
+  border-radius: 999px;
+}
+
+.btn-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-col .btn-primary,
+.btn-col .btn-secondary {
+  min-width: 220px;
+}
+
+#mainmenu .menu-lines {
+  color: #c6ccea;
+  font-size: clamp(13px, 3vw, 16px);
+  line-height: 1.7;
+}
+
+#mainmenu .menu-lines b {
+  color: #fff;
+}
+
 #gameover p,
-#levelcomplete p {
+#levelcomplete p,
+#mainmenu p,
+#lvlclear p,
+#gameclear p {
   color: #c6ccea;
   font-size: clamp(13px, 3vw, 17px);
 }
 
 #gameover .tiny,
-#levelcomplete .tiny {
+#levelcomplete .tiny,
+#mainmenu .tiny,
+#lvlclear .tiny,
+#gameclear .tiny {
   font-size: 12px;
   color: #7c86b3;
 }

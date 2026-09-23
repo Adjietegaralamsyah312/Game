@@ -50,6 +50,50 @@
         </div>
         <p class="tiny">R / Enter = main lagi</p>
       </div>
+
+      <!-- Menu utama (Stage 5): PLAY / CONTROLS / ABOUT -->
+      <div id="mainmenu" class="hidden" role="dialog" aria-label="Menu Utama">
+        <h2 class="game-title">KNIGHT<br />PLATFORMER</h2>
+        <p class="build-tag">Content Expansion Build</p>
+        <div id="menu-main" class="btn-col">
+          <button id="btn-play" class="btn-primary">▶ PLAY</button>
+          <button id="btn-controls" class="btn-secondary">🎮 CONTROLS</button>
+          <button id="btn-about" class="btn-secondary">ℹ ABOUT</button>
+        </div>
+        <div id="menu-controls" class="hidden btn-col" aria-label="Kontrol game">
+          <p class="menu-lines">⌨ <b>A/D</b> gerak • <b>Space</b> lompat<br /><b>J/X</b> serang • <b>R</b> respawn</p>
+          <p class="menu-lines">📱 <b>◀ ▶</b> gerak • <b>⤒</b> lompat • <b>❖</b> serang</p>
+          <button id="btn-back-controls" class="btn-secondary">← BACK</button>
+        </div>
+        <div id="menu-about" class="hidden btn-col" aria-label="Tentang game">
+          <p class="menu-lines">Ksatria pixel-art: 2 level, varian slime,<br />boss RAJA SLIME, dan Gold Shard.</p>
+          <button id="btn-back-about" class="btn-secondary">← BACK</button>
+        </div>
+        <p class="tiny">↑/↓ pilih • Enter mulai • Esc kembali</p>
+      </div>
+
+      <!-- Level Complete (Stage 5): NEXT / REPLAY / MENU -->
+      <div id="lvlclear" class="hidden" role="dialog" aria-label="Level Complete">
+        <h2 class="win">LEVEL COMPLETE!</h2>
+        <p id="lvlclear-stats">-</p>
+        <div class="btn-row">
+          <button id="btn-next" class="btn-primary">➤ NEXT LEVEL</button>
+          <button id="btn-replay" class="btn-secondary">↻ REPLAY</button>
+          <button id="btn-lvlmenu" class="btn-secondary">☰ MENU</button>
+        </div>
+        <p class="tiny">R / Enter = next level</p>
+      </div>
+
+      <!-- Game Complete (Stage 5): PLAY AGAIN / MENU -->
+      <div id="gameclear" class="hidden" role="dialog" aria-label="Game Complete">
+        <h2 class="win">GAME COMPLETE!</h2>
+        <p id="gameclear-stats">-</p>
+        <div class="btn-row">
+          <button id="btn-again2" class="btn-primary">▶ PLAY AGAIN</button>
+          <button id="btn-gamemenu" class="btn-secondary">☰ MENU</button>
+        </div>
+        <p class="tiny">R / Enter = main lagi</p>
+      </div>
     </div>
 
     <!-- Kontrol sentuh untuk Android / HP -->

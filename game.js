@@ -193,7 +193,15 @@
         var n = [523, 659, 784, 1047];
         for (var i = 0; i < n.length; i++) tone(n[i], 0.16, 'square', 0.4, 0, i * 0.11);
       },
-      gameover:   function () { tone(220, 0.5, 'sawtooth', 0.4, 55); tone(110, 0.7, 'triangle', 0.4, 40, 0.1); }
+      gameover:   function () { tone(220, 0.5, 'sawtooth', 0.4, 55); tone(110, 0.7, 'triangle', 0.4, 40, 0.1); },
+      // Stage 5: event baru (menu, shard, varian, boss). Tetap prosedural.
+      click:      function () { tone(660, 0.07, 'square', 0.3, 880); },
+      pickup:     function () { tone(880, 0.09, 'square', 0.35, 1320); tone(1320, 0.12, 'square', 0.3, 1760, 0.07); },
+      hitHeavy:   function () { noise(0.10, 0.5, 900); tone(140, 0.12, 'square', 0.45, 70); },
+      bossAttack: function () { tone(160, 0.25, 'sawtooth', 0.45, 60); noise(0.15, 0.3, 700); },
+      bossHurt:   function () { tone(240, 0.18, 'sawtooth', 0.45, 90); noise(0.10, 0.4, 1200); },
+      bossDie:    function () { tone(300, 0.6, 'sawtooth', 0.45, 40); noise(0.5, 0.4, 800, 0.1); },
+      shock:      function () { noise(0.18, 0.45, 600); tone(120, 0.18, 'triangle', 0.4, 50); }
     };
 
     return {
@@ -321,8 +329,12 @@
   }
 
   /* ========================= 6. LEVEL DATA =========================
-   * Vertical slice Tahap 2 (dunia 2400x540). Satu-satunya tempat definisi
-   * level — mudah diedit. Zona:
+   * Stage 5: dua level dalam struktur data yang sama (mudah diedit).
+   * Level 1 = level existing PERSIS (physics/layout musuh/checkpoint/goal
+   * tidak berubah) + rute Gold Shard (non-colliding, nol risiko regresi).
+   * Level 2 = konten baru: traversal, 2 celah, encounter Fast+Heavy,
+   * checkpoint, arena boss RAJA SLIME.
+   * Zona Level 1:
    *   x 0-520     : starting area (tanah datar, spawn 80)
    *   x 520-610   : CELAH 1 (90px — harus dilompati)
    *   x 610-1050  : platform bertingkat rendah
@@ -332,7 +344,8 @@
    * Lompatan penuh: tinggi ~128px, jarak ~134px — semua rute bisa dilalui.
    * ================================================================ */
   var GROUND_TOP = 480;
-  var Level = {
+  var Level1 = {
+    name: 'Level 1',
     playerSpawn: { x: 80, y: 300 },
     platforms: [
       // --- Tanah (segmen + celah) ---
@@ -362,8 +375,76 @@
       { x: 1160, baseY: 480, w: 34, h: 96, activated: false }, // awal arena
       { x: 1790, baseY: 480, w: 34, h: 96, activated: false }  // sebelum final
     ],
-    goal: { x: 2280, baseY: 480, w: 70, h: 120 }
+    goal: { x: 2280, baseY: 480, w: 70, h: 120 },
+    bossSpawn: null,
+    bossArena: null,
+    // Gold Shard: titik melayang di rute aman (tidak mengubah collision).
+    shards: [
+      { x: 250, y: 430 },   // tanah start
+      { x: 350, y: 258 },   // atas platform 300,300
+      { x: 720, y: 420 },   // tanah tengah
+      { x: 1250, y: 430 },  // arena
+      { x: 1470, y: 258 },  // atas platform arena
+      { x: 2200, y: 430 }   // dekat goal
+    ]
   };
+  /* Level 2 (Stage 5): traversal baru + encounter varian + arena boss.
+   *   x 0-420     : start datar (spawn 80)
+   *   x 420-510   : CELAH 1 (90px)
+   *   x 510-1010  : dataran + fast slime
+   *   x 1010-1100 : CELAH 2 (90px)
+   *   x 1100-1520 : arena encounter (heavy slime)
+   *   x 1520-1820 : pendakian + fast slime kedua
+   *   x 1820-1910 : CELAH 3 (90px, sebelum boss)
+   *   x 1910-2400 : ARENA BOSS (datar lebar 490px, RAJA SLIME)
+   * goal: null — Level 2 selesai saat boss dikalahkan. */
+  var Level2 = {
+    name: 'Level 2',
+    playerSpawn: { x: 80, y: 300 },
+    platforms: [
+      { x: 0,    y: 480, w: 420,  h: 60 },  // start
+      { x: 510,  y: 480, w: 500,  h: 60 },  // dataran fast encounter
+      { x: 1100, y: 480, w: 420,  h: 60 },  // arena heavy encounter
+      { x: 1520, y: 480, w: 300,  h: 60 },  // pendakian
+      { x: 1910, y: 480, w: 490,  h: 60 },  // arena boss
+      // Rute atas opsional (langkah <=115px, di luar koridor celah).
+      { x: 150,  y: 372, w: 140, h: 20 },
+      { x: 560,  y: 365, w: 140, h: 20 },
+      { x: 730,  y: 290, w: 130, h: 20 },
+      { x: 1140, y: 372, w: 140, h: 20 },
+      { x: 1330, y: 297, w: 130, h: 20 },
+      { x: 1560, y: 365, w: 130, h: 20 },
+      { x: 1690, y: 290, w: 120, h: 20 },
+      { x: 2050, y: 350, w: 140, h: 20 }    // pijakan taktik di arena boss
+    ],
+    enemySpawns: [
+      { type: 'fast',  x: 700,  y: 448, minX: 560,  maxX: 960  },
+      { type: 'heavy', x: 1250, y: 440, minX: 1130, maxX: 1480 },
+      { type: 'fast',  x: 1620, y: 448, minX: 1540, maxX: 1790 }
+    ],
+    checkpoints: [
+      { x: 1140, baseY: 480, w: 34, h: 96, activated: false }, // tengah
+      { x: 1935, baseY: 480, w: 34, h: 96, activated: false }  // gerbang boss
+    ],
+    goal: null, // boss sebagai final encounter
+    bossSpawn: { x: 2150, y: 380 },
+    bossArena: { minX: 1930, maxX: 2360 },
+    shards: [
+      { x: 250, y: 430 },   // start
+      { x: 465, y: 380 },   // bibir celah 1 (risiko kecil)
+      { x: 795, y: 250 },   // atas platform tinggi
+      { x: 1055, y: 380 },  // bibir celah 2
+      { x: 1395, y: 257 },  // atas platform arena
+      { x: 1750, y: 250 },  // pendakian atas
+      { x: 1865, y: 380 },  // bibir celah 3
+      { x: 2250, y: 430 }   // sudut arena boss
+    ]
+  };
+  var Levels = [Level1, Level2];
+  var currentLevel = 1;
+  // Pointer level aktif — seluruh sistem (fisika, kamera, render) membaca
+  // dari sini sehingga ganti level = tukar pointer + reset state.
+  var Level = Levels[0];
 
   /* ====================== 7. FISIKA & COLLISION ====================== */
   function moveAndCollide(body, dt, platforms) {
@@ -627,18 +708,51 @@
     }
   }
 
-  /* ====================== 9. ENEMY (SLIME) ====================== */
+  /* ====================== 9. ENEMY (SLIME) ======================
+   * Stage 5: tabel stats reusable untuk varian. Entri 'slime' memakai
+   * konstanta yang sama persis seperti sebelumnya sehingga perilaku
+   * slime klasik tidak berubah sedikit pun. Varian hanya menambah entri.
+   * =================================================================== */
   var slimeUid = 0;
 
+  var ENEMY_STATS = {
+    slime: { hp: SLIME_MAX_HP, w: SLIME_W, h: SLIME_H,
+      patrol: SLIME_PATROL_SPEED, chase: SLIME_CHASE_SPEED,
+      detectX: SLIME_DETECT_X, detectY: SLIME_DETECT_Y,
+      range: SLIME_ATTACK_RANGE, dmg: SLIME_DAMAGE,
+      windup: SLIME_WINDUP, strike: SLIME_STRIKE,
+      recovery: SLIME_RECOVERY, cooldown: SLIME_COOLDOWN,
+      knockResist: 1, hitSound: 'hit',
+      body: '#4fc94f', dark: '#2a8a3a', light: '#a5f0a0', label: 'SLIME' },
+    // Fast Slime: HP rendah, gerak & serang cepat, damage moderat.
+    fast: { hp: 20, w: 40, h: 28,
+      patrol: 70, chase: 140, detectX: 250, detectY: 130,
+      range: 48, dmg: 8, windup: 0.25, strike: 0.12,
+      recovery: 0.40, cooldown: 0.70,
+      knockResist: 1, hitSound: 'hit',
+      body: '#4fc9c9', dark: '#2a7a8a', light: '#a5f0f0', label: 'FAST' },
+    // Heavy Slime: HP tinggi, lambat, tahan knockback, damage tinggi,
+    // telegraph lebih jelas (windup panjang + warna merah).
+    heavy: { hp: 60, w: 56, h: 40,
+      patrol: 30, chase: 60, detectX: 210, detectY: 110,
+      range: 58, dmg: 18, windup: 0.50, strike: 0.18,
+      recovery: 0.60, cooldown: 1.10,
+      knockResist: 0.35, hitSound: 'hitHeavy',
+      body: '#9a5fc9', dark: '#5a2a8a', light: '#d0a5f0', label: 'HEAVY' }
+  };
+
   function createSlime(spawn) {
+    var st = ENEMY_STATS[spawn.type] || ENEMY_STATS.slime;
     return {
       id: ++slimeUid,
-      x: spawn.x, y: spawn.y, w: SLIME_W, h: SLIME_H,
+      kind: (spawn.type in ENEMY_STATS) ? spawn.type : 'slime',
+      st: st,
+      x: spawn.x, y: spawn.y, w: st.w, h: st.h,
       vx: 0, vy: 0, onGround: false, hitWall: false,
       spawnX: spawn.x, spawnY: spawn.y,
       minX: spawn.minX, maxX: spawn.maxX,
       dir: -1,
-      hp: SLIME_MAX_HP,
+      hp: st.hp,
       state: 'patrol', // patrol|chase|attack|hurt|death
       animTime: Math.random() * 10,
       atkT: 0, cooldown: 0, hurtT: 0, deathT: 0,
@@ -655,15 +769,15 @@
     // Damage feedback: flash (via iframes blink) + cipratan partikel.
     burst(s.x + s.w / 2, s.y + s.h / 2, 6, '#ffffff', 160, 0.3, 3, 250);
     burst(s.x + s.w / 2, s.y + s.h / 2, 4, '#ffd23f', 120, 0.35, 3, 250);
-    AudioManager.play('hit');
+    AudioManager.play(s.st.hitSound || 'hit');
     if (s.hp <= 0) {
       s.hp = 0;
       s.state = 'death';
       s.deathT = 0;
       s.vx = 0;
-      // Poof kematian + shake kecil.
-      burst(s.x + s.w / 2, s.y + s.h / 2, 10, '#4fc94f', 170, 0.6, 4, 350);
-      burst(s.x + s.w / 2, s.y + s.h / 2, 5, '#a5f0a0', 120, 0.5, 3, 300);
+      // Poof kematian + shake kecil (warna mengikuti varian).
+      burst(s.x + s.w / 2, s.y + s.h / 2, 10, s.st.body, 170, 0.6, 4, 350);
+      burst(s.x + s.w / 2, s.y + s.h / 2, 5, s.st.light, 120, 0.5, 3, 300);
       triggerScreenShake(SHAKE_DIE, 0.2);
       AudioManager.play('slimeDie');
       return true;
@@ -671,7 +785,8 @@
     s.state = 'hurt';
     s.hurtT = 0;
     var dir = (s.x + s.w / 2) < fromX ? -1 : 1;
-    s.vx = dir * (knock || ATTACK_KNOCKBACK);
+    // Heavy: knockback resistance (fraksi dari knock normal).
+    s.vx = dir * (knock || ATTACK_KNOCKBACK) * (s.st.knockResist || 1);
     s.vy = -260;
     s.onGround = false;
     return true;
@@ -681,7 +796,7 @@
     if (player.state === 'death' || gameState !== 'playing') return false;
     var px = player.x + player.w / 2, sx = s.x + s.w / 2;
     var py = player.y + player.h / 2, sy = s.y + s.h / 2;
-    return Math.abs(px - sx) < SLIME_DETECT_X && Math.abs(py - sy) < SLIME_DETECT_Y;
+    return Math.abs(px - sx) < s.st.detectX && Math.abs(py - sy) < s.st.detectY;
   }
 
   function slimeHasGroundAhead(s) {
@@ -724,11 +839,11 @@
 
     if (s.state === 'attack') {
       s.atkT += dt;
-      var strikeEnd = SLIME_WINDUP + SLIME_STRIKE;
-      var total = strikeEnd + SLIME_RECOVERY;
+      var strikeEnd = s.st.windup + s.st.strike;
+      var total = strikeEnd + s.st.recovery;
       // Lunge ke arah player hanya saat strike.
-      if (s.atkT >= SLIME_WINDUP && s.atkT < strikeEnd) {
-        s.vx = s.dir * SLIME_CHASE_SPEED * 1.6;
+      if (s.atkT >= s.st.windup && s.atkT < strikeEnd) {
+        s.vx = s.dir * s.st.chase * 1.6;
         // Lunge tidak boleh membawa slime off-platform.
         if (!slimeHasGroundAhead(s)) s.vx = 0;
       } else {
@@ -739,7 +854,7 @@
       // Damage diberikan oleh Combat (cek overlap strike-box sekali saja).
       if (s.atkT >= total) {
         s.state = slimeSeesPlayer(s) ? 'chase' : 'patrol';
-        s.cooldown = SLIME_COOLDOWN;
+        s.cooldown = s.st.cooldown;
       }
       return;
     }
@@ -753,16 +868,16 @@
 
     if (s.state === 'chase') {
       var distX = Math.abs(px - sx);
-      if (distX <= SLIME_ATTACK_RANGE && s.cooldown <= 0 && Math.abs((player.y + player.h) - (s.y + s.h)) < 60) {
+      if (distX <= s.st.range && s.cooldown <= 0 && Math.abs((player.y + player.h) - (s.y + s.h)) < 60) {
         s.state = 'attack';
         s.atkT = 0;
         s.struckPlayer = false;
         s.dir = px >= sx ? 1 : -1;
         s.vx = 0;
         AudioManager.play('attack');
-      } else if (distX > SLIME_ATTACK_RANGE * 0.7) {
+      } else if (distX > s.st.range * 0.7) {
         s.dir = px >= sx ? 1 : -1;
-        s.vx = s.dir * SLIME_CHASE_SPEED;
+        s.vx = s.dir * s.st.chase;
         // Jangan bunuh diri: tahan di tepi platform.
         // Chase BOLEH keluar zona patrol (dibatasi leash, lihat bawah).
         if (!slimeHasGroundAhead(s)) s.vx = 0;
@@ -774,7 +889,7 @@
       // (misalnya setelah chase jauh karena leash).
       if (s.x < s.minX) s.dir = 1;
       else if (s.x > s.maxX) s.dir = -1;
-      s.vx = s.dir * SLIME_PATROL_SPEED;
+      s.vx = s.dir * s.st.patrol;
     }
 
     applyGravity(s, dt);
@@ -801,6 +916,7 @@
   /* ========================== 10. COMBAT ========================== */
   var Combat = {
     // Pukulan player -> semua slime yang overlap attackBox (sekali per swing).
+    // Stage 5: juga mengenai boss (kunci 'boss' agar sekali per ayunan).
     resolvePlayerAttack: function () {
       if (!player.attackBox) return;
       for (var i = 0; i < enemies.length; i++) {
@@ -816,21 +932,40 @@
           }
         }
       }
+      if (boss && !boss.dead && boss.state !== 'death' && !player.didStrikeHit.boss) {
+        if (rectsOverlap(player.attackBox, boss)) {
+          player.didStrikeHit.boss = true;
+          if (hurtBoss(ATTACK_DAMAGE, player.x + player.w / 2)) {
+            triggerScreenShake(SHAKE_HIT, 0.15);
+          }
+        }
+      }
     },
     // Serangan slime -> player (sekali per attack slime).
+    // Stage 5: serangan strike boss (sekali per pola).
     resolveEnemyAttacks: function () {
       if (player.state === 'death') return;
       setR(_r2, player.x, player.y, player.w, player.h);
       for (var i = 0; i < enemies.length; i++) {
         var s = enemies[i];
         if (s.dead || s.state !== 'attack' || s.struckPlayer) continue;
-        if (s.atkT >= SLIME_WINDUP && s.atkT < SLIME_WINDUP + SLIME_STRIKE) {
+        if (s.atkT >= s.st.windup && s.atkT < s.st.windup + s.st.strike) {
           // Strike-box kecil di depan slime.
           if (s.dir === 1) setR(_r1, s.x + s.w - 6, s.y - 6, 32, s.h + 12);
           else setR(_r1, s.x - 26, s.y - 6, 32, s.h + 12);
           if (rectsOverlap(_r1, _r2)) {
             s.struckPlayer = true;
-            playerTakeDamage(SLIME_DAMAGE, s.x + s.w / 2);
+            playerTakeDamage(s.st.dmg, s.x + s.w / 2);
+          }
+        }
+      }
+      if (boss && !boss.dead && boss.state === 'strike' && !boss.struckPlayer) {
+        if (boss.atkT >= 0 && boss.atkT < 0.2) {
+          if (boss.dir === 1) setR(_r1, boss.x + boss.w - 8, boss.y - 8, 48, boss.h + 16);
+          else setR(_r1, boss.x - 40, boss.y - 8, 48, boss.h + 16);
+          if (rectsOverlap(_r1, _r2)) {
+            boss.struckPlayer = true;
+            playerTakeDamage(BOSS_STRIKE_DMG, boss.x + boss.w / 2);
           }
         }
       }
@@ -951,7 +1086,9 @@
   })();
 
   /* ====================== 11. GAME STATE ====================== */
-  var gameState = 'playing'; // playing | gameover | win
+  // Stage 5: 'menu' (awal) + 'levelcomplete' + 'gamecomplete' melengkapi
+  // state lama ('playing','gameover','win' dipertahankan apa adanya).
+  var gameState = 'menu'; // menu|playing|gameover|win|levelcomplete|gamecomplete
   var gameOverT = 0;
   var overlayEl = null;
   var restartBtn = null;   // "Ulangi dari Awal" (reset total)
@@ -992,6 +1129,13 @@
   function playerCenterX() { return player.x + player.w / 2; }
 
   function getProgress() {
+    // Level tanpa goal fisik (Level 2): progres menuju arena boss.
+    if (!Level.goal) {
+      if (Level.bossSpawn) {
+        return clamp((playerCenterX() - Level.playerSpawn.x) / (Level.bossSpawn.x - Level.playerSpawn.x), 0, 1);
+      }
+      return 0;
+    }
     var goalCX = Level.goal.x + Level.goal.w / 2;
     return clamp((playerCenterX() - Level.playerSpawn.x) / (goalCX - Level.playerSpawn.x), 0, 1);
   }
@@ -1002,6 +1146,7 @@
 
   function goalRect() {
     var g = Level.goal;
+    if (!g) return null;
     return { x: g.x, y: g.baseY - g.h, w: g.w, h: g.h };
   }
 
@@ -1020,9 +1165,14 @@
   }
 
   function checkGoal() {
-    if (player.state === 'death') return;
+    if (!Level.goal || player.state === 'death') return;
     setR(_r1, player.x, player.y, player.w, player.h);
-    if (rectsOverlap(_r1, goalRect())) showWin();
+    // Level 1 finish -> layar Level Complete baru; legacy 'win'
+    // dipertahankan untuk kompatibilitas (forceWin/testing).
+    if (rectsOverlap(_r1, goalRect())) {
+      if (currentLevel === 1) showLevelComplete();
+      else showWin();
+    }
   }
 
   function showGameOver() {
@@ -1060,50 +1210,464 @@
     return n;
   }
 
-  // Respawn di checkpoint terakhir (atau spawn): HP pulih, musuh reset,
-  // checkpoint TETAP aktif, timer & deaths lanjut. Efek sementara dibersihkan.
+  /* ============ 11b. STAGE 5: BOSS, SHARD, STATS, TRANSISI ============
+   * Semua memakai sistem existing (fisika, partikel, shake, audio).
+   * Tidak ada rAF/interval baru, tidak ada alokasi di loop panas
+   * (shockwave dibatasi + hapus swap-pop in-place).
+   * ================================================================ */
+  var BOSS_MAX_HP = 120, BOSS_W = 64, BOSS_H = 56;
+  var BOSS_DETECT_X = 420, BOSS_DETECT_Y = 170;
+  var BOSS_PATTERNS = ['strike', 'charge', 'shock'];
+  var BOSS_STRIKE_DMG = 15, BOSS_CHARGE_DMG = 18, BOSS_SHOCK_DMG = 12;
+
+  var boss = null;
+  var shocks = [];
+  var shards = [];
+  var runStats = { kills: 0, shards: 0 };     // total lintas level
+  var levelStats = { kills: 0, shards: 0, time: 0 }; // per level
+  var victoryArmed = false, victoryT = 0;
+  var VICTORY_DELAY = 1.2;
+  var trans = { active: false, phase: '', t: 0, dur: 0.25, target: 1 };
+
+  // Overlay Stage 5 (diisi saat boot, semua null-guard).
+  var menuEl = null, menuMain = null, menuControls = null, menuAbout = null;
+  var btnPlay = null, btnControls = null, btnAbout = null;
+  var btnBackC = null, btnBackA = null;
+  var lvlclearEl = null, lvlclearStats = null;
+  var btnNext = null, btnReplay = null, btnLvlMenu = null;
+  var gameclearEl = null, gameclearStats = null;
+  var btnAgain2 = null, btnGameMenu = null;
+
+  function createBoss(spawn, arena) {
+    return {
+      id: ++slimeUid, kind: 'boss',
+      x: spawn.x, y: spawn.y, w: BOSS_W, h: BOSS_H,
+      vx: 0, vy: 0, onGround: false, hitWall: false,
+      spawnX: spawn.x, spawnY: spawn.y,
+      arenaMin: arena.minX, arenaMax: arena.maxX,
+      dir: -1, hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP,
+      state: 'idle', // idle|telegraph|strike|charge|shock|recovery|hurt|death
+      animTime: 0, idleT: 0, teleT: 0, teleDur: 0.5,
+      atkT: 0, recT: 0, recDur: 0.6,
+      pattern: 'strike', patIdx: 0, cooldown: 1.0,
+      hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
+      enraged: false, dead: false
+    };
+  }
+
+  function bossSeesPlayer(b) {
+    if (player.state === 'death' || gameState !== 'playing') return false;
+    var px = player.x + player.w / 2, bx = b.x + b.w / 2;
+    var py = player.y + player.h / 2, by = b.y + b.h / 2;
+    return Math.abs(px - bx) < BOSS_DETECT_X && Math.abs(py - by) < BOSS_DETECT_Y;
+  }
+
+  function hurtBoss(amount, fromX) {
+    var b = boss;
+    if (!b || b.dead || b.state === 'death' || b.iframes > 0) return false;
+    b.hp -= amount;
+    b.iframes = 0.3;
+    burst(b.x + b.w / 2, b.y + b.h / 2, 8, '#ffffff', 180, 0.3, 3, 250);
+    burst(b.x + b.w / 2, b.y + b.h / 2, 5, '#ffd23f', 140, 0.35, 3, 250);
+    AudioManager.play('bossHurt');
+    if (!b.enraged && b.hp <= 40) {
+      b.enraged = true;
+      burst(b.x + b.w / 2, b.y, 12, '#e05252', 200, 0.6, 4, 300);
+      triggerScreenShake(SHAKE_HURT, 0.3);
+      AudioManager.play('bossAttack');
+      showToast('RAJA SLIME MURKA!');
+    }
+    if (b.hp <= 0) {
+      b.hp = 0;
+      b.state = 'death';
+      b.deathT = 0;
+      b.vx = 0;
+      burst(b.x + b.w / 2, b.y + b.h / 2, 16, '#ffd23f', 220, 0.8, 4, 350);
+      burst(b.x + b.w / 2, b.y + b.h / 2, 10, '#ffffff', 160, 0.7, 3, 300);
+      triggerScreenShake(SHAKE_DIE + 2, 0.4);
+      AudioManager.play('bossDie');
+      return true;
+    }
+    b.state = 'hurt';
+    b.hurtT = 0;
+    var dir = (b.x + b.w / 2) < fromX ? -1 : 1;
+    b.vx = dir * ATTACK_KNOCKBACK * (b.enraged ? 0.25 : 0.4);
+    b.vy = -240;
+    b.onGround = false;
+    return true;
+  }
+
+  function updateBoss(b, dt) {
+    b.animTime += dt;
+    if (b.iframes > 0) b.iframes -= dt;
+    if (b.cooldown > 0) b.cooldown -= dt;
+    var px = player.x + player.w / 2, bx = b.x + b.w / 2;
+    var spdMul = b.enraged ? 1.25 : 1, cdMul = b.enraged ? 0.65 : 1;
+
+    if (b.state === 'death') {
+      b.deathT += dt;
+      b.vx = 0;
+      applyGravity(b, dt);
+      moveAndCollide(b, dt, Level.platforms);
+      if (b.deathT >= 1.0 && !b.dead) {
+        b.dead = true;
+        runStats.kills++;
+        levelStats.kills++;
+        victoryArmed = true;
+        victoryT = 0;
+      }
+      return;
+    }
+
+    if (b.state === 'hurt') {
+      b.hurtT += dt;
+      applyGravity(b, dt);
+      moveAndCollide(b, dt, Level.platforms);
+      if (b.hurtT >= 0.25) { b.state = 'idle'; b.idleT = 0; }
+    } else if (b.state === 'idle') {
+      b.vx = 0;
+      b.idleT += dt;
+      b.dir = px >= bx ? 1 : -1;
+      if (b.idleT >= 0.5 && b.cooldown <= 0 && bossSeesPlayer(b)) {
+        b.pattern = BOSS_PATTERNS[b.patIdx % BOSS_PATTERNS.length];
+        b.patIdx++;
+        b.teleDur = b.pattern === 'charge' ? 0.6 : 0.5;
+        b.teleT = 0;
+        b.state = 'telegraph';
+        AudioManager.play('bossAttack'); // telegraph terbaca via suara
+      }
+    } else if (b.state === 'telegraph') {
+      b.vx = 0;
+      b.teleT += dt;
+      b.dir = px >= bx ? 1 : -1;
+      if (b.teleT >= b.teleDur) {
+        b.state = b.pattern; // strike | charge | shock
+        b.atkT = 0;
+        b.struckPlayer = false;
+        if (b.pattern === 'shock') {
+          spawnShocks(b);
+          AudioManager.play('shock');
+        }
+      }
+    } else if (b.state === 'strike') {
+      b.atkT += dt;
+      if (b.atkT < 0.2) b.vx = b.dir * 165 * spdMul;
+      else b.vx = 0;
+      if (b.atkT >= 0.8) { b.state = 'recovery'; b.recT = 0; b.recDur = 0.6; b.cooldown = 1.0 * cdMul; }
+    } else if (b.state === 'charge') {
+      b.atkT += dt;
+      if (b.atkT < 0.45 && !b.hitWall) {
+        b.vx = b.dir * 380 * spdMul;
+        // Contact damage sekali per charge.
+        if (!b.struckPlayer && player.state !== 'death') {
+          setR(_r1, b.x, b.y, b.w, b.h);
+          setR(_r2, player.x, player.y, player.w, player.h);
+          if (rectsOverlap(_r1, _r2)) {
+            b.struckPlayer = true;
+            playerTakeDamage(BOSS_CHARGE_DMG, bx);
+          }
+        }
+      } else {
+        b.vx = 0;
+        b.state = 'recovery'; b.recT = 0; b.recDur = 0.8; b.cooldown = 1.6 * cdMul;
+      }
+    } else if (b.state === 'shock') {
+      b.atkT += dt;
+      b.vx = 0;
+      if (b.atkT >= 0.3) { b.state = 'recovery'; b.recT = 0; b.recDur = 0.7; b.cooldown = 1.8 * cdMul; }
+    } else if (b.state === 'recovery') {
+      b.vx = 0;
+      b.recT += dt;
+      if (b.recT >= b.recDur) { b.state = 'idle'; b.idleT = 0; }
+    }
+
+    applyGravity(b, dt);
+    moveAndCollide(b, dt, Level.platforms);
+    // Boss tidak boleh keluar arena maupun level.
+    if (b.x < b.arenaMin) { b.x = b.arenaMin; b.vx = 0; }
+    if (b.x > b.arenaMax) { b.x = b.arenaMax; b.vx = 0; }
+    if (b.y > WORLD_H + 100) { b.x = b.spawnX; b.y = b.spawnY; b.vx = 0; b.vy = 0; }
+  }
+
+  function spawnShocks(b) {
+    if (shocks.length >= 6) return; // batas: tanpa spam
+    var gy = b.y + b.h - 40;
+    for (var d = -1; d <= 1; d += 2) {
+      shocks.push({ x: b.x + b.w / 2 - 13, y: gy, w: 26, h: 40,
+        vx: d * 230, life: 1.6, dmg: BOSS_SHOCK_DMG, hitDone: false,
+        minX: b.arenaMin - 60, maxX: b.arenaMax + 60 });
+    }
+  }
+
+  function updateShocks(dt) {
+    for (var i = shocks.length - 1; i >= 0; i--) {
+      var sh = shocks[i];
+      sh.x += sh.vx * dt;
+      sh.life -= dt;
+      if (!sh.hitDone && player.state !== 'death') {
+        setR(_r1, sh.x, sh.y, sh.w, sh.h);
+        setR(_r2, player.x, player.y, player.w, player.h);
+        if (rectsOverlap(_r1, _r2)) {
+          sh.hitDone = true;
+          playerTakeDamage(sh.dmg, sh.x + sh.w / 2);
+        }
+      }
+      if (sh.life <= 0 || sh.x < sh.minX || sh.x > sh.maxX) {
+        shocks[i] = shocks[shocks.length - 1];
+        shocks.pop();
+      }
+    }
+  }
+
+  /* ---- Collectible Gold Shard (non-colliding, hanya overlap) ---- */
+  function resetShards() {
+    shards = Level.shards.map(function (p) {
+      return { x: p.x, y: p.y, taken: false, bob: Math.random() * 6 };
+    });
+  }
+
+  function shardGot() {
+    var n = 0;
+    for (var i = 0; i < shards.length; i++) if (shards[i].taken) n++;
+    return n;
+  }
+
+  function updateShards(dt) {
+    for (var i = 0; i < shards.length; i++) {
+      var s = shards[i];
+      if (s.taken) continue;
+      s.bob += dt;
+      if (player.state === 'death') continue;
+      setR(_r1, s.x - 13, s.y - 13, 26, 26);
+      setR(_r2, player.x, player.y, player.w, player.h);
+      if (rectsOverlap(_r1, _r2)) {
+        s.taken = true;
+        runStats.shards++;
+        levelStats.shards++;
+        burst(s.x, s.y, 8, '#ffd23f', 140, 0.5, 3, 250);
+        AudioManager.play('pickup');
+      }
+    }
+  }
+
+  /* ---- Best sederhana (localStorage, guarded, tanpa save kompleks) ---- */
+  var BEST_KEY = 'knightBestV1';
+
+  function loadBest() {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      var raw = localStorage.getItem(BEST_KEY);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      if (o && isFinite(o.time)) return o;
+      return null;
+    } catch (e) { return null; }
+  }
+
+  function saveBest(time, shardsN) {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      var prev = loadBest();
+      if (!prev || time < prev.time) {
+        localStorage.setItem(BEST_KEY, JSON.stringify({ time: time, shards: shardsN }));
+      }
+    } catch (e) { /* abaikan */ }
+  }
+
+  /* ---- Overlay & panel ---- */
+  function hideAllOverlays() {
+    var els = [overlayEl, winOverlayEl, menuEl, lvlclearEl, gameclearEl];
+    for (var i = 0; i < els.length; i++) {
+      if (els[i]) els[i].classList.add('hidden');
+    }
+    showMenuPanel('main');
+  }
+
+  function showMenuPanel(name) {
+    var map = { main: menuMain, controls: menuControls, about: menuAbout };
+    for (var k in map) {
+      if (map[k]) {
+        if (k === name) map[k].classList.remove('hidden');
+        else map[k].classList.add('hidden');
+      }
+    }
+  }
+
+  function clearInput() {
+    Input.left = false; Input.right = false;
+    Input.jumpHeld = false; Input.jumpPressed = false;
+    Input.attackPressed = false; Input.restartPressed = false;
+  }
+
+  function resetTotals() {
+    deaths = 0;
+    timeElapsed = 0;
+    runStats = { kills: 0, shards: 0 };
+  }
+
+  // Muat level n (1-based): tukar pointer + reset total per-level.
+  // Tanpa reload browser; partikel/FX tidak bocor antar-level.
+  function loadLevelInternal(n) {
+    currentLevel = n;
+    Level = Levels[n - 1];
+    for (var i = 0; i < Level.checkpoints.length; i++) {
+      Level.checkpoints[i].activated = false;
+    }
+    respawnPoint = { x: Level.playerSpawn.x, y: Level.playerSpawn.y };
+    toast.t = 0;
+    clearParticles();
+    resetShake();
+    player = createPlayer();
+    player.x = respawnPoint.x;
+    player.y = respawnPoint.y;
+    enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
+    boss = Level.bossSpawn ? createBoss(Level.bossSpawn, Level.bossArena) : null;
+    shocks = [];
+    resetShards();
+    levelStats = { kills: 0, shards: 0, time: 0 };
+    victoryArmed = false;
+    victoryT = 0;
+    clearInput();
+    snapCamera();
+  }
+
+  function startLevel(n) {
+    loadLevelInternal(n);
+    trans.active = false; // start langsung membatalkan transisi yang jalan
+    trans.phase = '';
+    gameState = 'playing';
+    hideAllOverlays();
+    setPaused(false);
+    try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    debugLog('[game] start level', n);
+  }
+
+  // PLAY dari menu / PLAY AGAIN: total di-reset lalu transisi ke Level 1.
+  function playFresh() {
+    resetTotals();
+    startTrans(1);
+  }
+
+  function toMenu() {
+    gameState = 'menu';
+    hideAllOverlays();
+    if (menuEl) menuEl.classList.remove('hidden');
+    clearInput();
+    setPaused(false);
+    camera.x = 120; // vista menu
+    try { last = nowPerf(); } catch (e) { /* abaikan */ }
+    debugLog('[game] ke menu');
+  }
+
+  // Transisi fade-out -> load -> fade-in (pendek, tanpa loading palsu).
+  function startTrans(n) {
+    if (trans.active) return;
+    hideAllOverlays();
+    try { AudioManager.unlock(); } catch (e) { /* abaikan */ }
+    trans.active = true;
+    trans.phase = 'out';
+    trans.t = 0;
+    trans.target = n;
+  }
+
+  function updateTrans(dt) {
+    if (!trans.active) return;
+    if (trans.phase === 'out') {
+      trans.t += dt;
+      if (trans.t >= trans.dur) {
+        loadLevelInternal(trans.target);
+        trans.phase = 'in';
+        trans.t = trans.dur;
+      }
+    } else {
+      trans.t -= dt;
+      if (trans.t <= 0) {
+        trans.active = false;
+        trans.phase = '';
+        gameState = 'playing';
+        setPaused(false);
+        try { last = nowPerf(); } catch (e) { /* abaikan */ }
+      }
+    }
+  }
+
+  function transAlpha() {
+    if (!trans.active) return 0;
+    return clamp(trans.t / trans.dur, 0, 1);
+  }
+
+  function showLevelComplete() {
+    if (gameState !== 'playing') return;
+    gameState = 'levelcomplete';
+    if (lvlclearEl) {
+      if (lvlclearStats) {
+        lvlclearStats.textContent = 'Waktu: ' + levelStats.time.toFixed(1) + ' dtk • Musuh: ' +
+          levelStats.kills + ' • Shard: ' + shardGot() + '/' + shards.length;
+      }
+      lvlclearEl.classList.remove('hidden');
+    }
+    if (btnNext && btnNext.focus) {
+      try { btnNext.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+    AudioManager.play('win');
+  }
+
+  function showGameComplete() {
+    if (gameState !== 'playing') return;
+    gameState = 'gamecomplete';
+    saveBest(timeElapsed, runStats.shards);
+    if (gameclearEl) {
+      var best = loadBest();
+      var txt = 'Waktu total: ' + timeElapsed.toFixed(1) + ' dtk • Musuh: ' +
+        runStats.kills + ' • Shard: ' + runStats.shards + ' • Mati: ' + deaths;
+      if (best) txt += ' • Terbaik: ' + Number(best.time).toFixed(1) + ' dtk';
+      if (gameclearStats) gameclearStats.textContent = txt;
+      gameclearEl.classList.remove('hidden');
+    }
+    if (btnAgain2 && btnAgain2.focus) {
+      try { btnAgain2.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+    AudioManager.play('win');
+  }
+
+  function foesLeft() {
+    var n = aliveEnemies();
+    if (boss && !boss.dead) n++;
+    return n;
+  }
+
+  // Respawn di checkpoint terakhir (atau spawn): HP pulih, musuh + boss
+  // reset, checkpoint TETAP aktif, timer & deaths lanjut. Shard yang sudah
+  // diambil tetap diambil (retry ramah). Efek sementara dibersihkan.
   // Tahap 4: selalu unpause + reset timer agar "restart setelah pause" aman.
   function respawn() {
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
     enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
+    boss = Level.bossSpawn ? createBoss(Level.bossSpawn, Level.bossArena) : null;
+    shocks = [];
+    victoryArmed = false;
+    victoryT = 0;
     clearParticles();
     resetShake();
-    Input.jumpPressed = false;
-    Input.attackPressed = false;
-    Input.restartPressed = false;
+    clearInput();
     gameState = 'playing';
     gameOverT = 0;
     snapCamera();
-    if (overlayEl) overlayEl.classList.add('hidden');
+    hideAllOverlays();
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     debugLog('[game] respawn di', respawnPoint.x, respawnPoint.y);
   }
 
-  // Restart total: seperti game baru (checkpoint ikut reset).
+  // Restart total: kembali ke Level 1 seperti game baru.
   // Tahap 4: unpause agar tombol/tes "restart setelah pause" kembali main.
   function restart() {
-    for (var i = 0; i < Level.checkpoints.length; i++) {
-      Level.checkpoints[i].activated = false;
-    }
-    respawnPoint = { x: Level.playerSpawn.x, y: Level.playerSpawn.y };
-    deaths = 0;
-    timeElapsed = 0;
-    toast.t = 0;
-    clearParticles();
-    resetShake();
-    player = createPlayer();
-    enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
-    Input.jumpPressed = false;
-    Input.attackPressed = false;
-    Input.restartPressed = false;
+    resetTotals();
+    loadLevelInternal(1);
     gameState = 'playing';
-    gameOverT = 0;
-    snapCamera();
-    if (overlayEl) overlayEl.classList.add('hidden');
-    if (winOverlayEl) winOverlayEl.classList.add('hidden');
+    hideAllOverlays();
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     debugLog('[game] restart total');
@@ -1262,6 +1826,7 @@
 
   function drawGoal() {
     var r = goalRect();
+    if (!r) return; // Level 2: boss sebagai final encounter, tanpa gapura
     // Gapura finish: dua tiang emas + banner kotak-kotak.
     ctx.fillStyle = '#c9a227';
     ctx.fillRect(r.x, r.y, 8, r.h);
@@ -1332,16 +1897,19 @@
     ctx.fillRect(Math.round(ex), Math.round(ab.y + ab.h / 2 - 3), 6, 6);
   }
 
-  /* Slime prosedural pixel-art: blob hijau + mata. Squash & stretch.
-   * Hitbox (44x32) terpisah dari gambar — sesuai aturan plant.md. */
+  /* Slime prosedural pixel-art: blob + mata. Squash & stretch.
+   * Hitbox terpisah dari gambar. Geometri digambar proporsional terhadap
+   * ukuran hitbox (faktor k) sehingga varian Fast/Heavy terdiferensiasi
+   * visual; untuk slime klasik k=1 sehingga piksel identik seperti semula. */
   function drawSlime(s) {
     var t = s.animTime;
     var squash = 1 + 0.07 * Math.sin(t * 7);
-    var dw = Math.round(48 / squash), dh = Math.round(40 * squash);
+    var dw = Math.round((s.w + 4) / squash), dh = Math.round((s.h + 8) * squash);
     if (s.state === 'death') {
       var k = clamp(1 - s.deathT / SLIME_DEATH_DURATION, 0, 1);
       dh = Math.round(dh * (0.3 + 0.7 * k));
     }
+    var kf = dw / 48; // 1.0 untuk slime klasik
     var dx = Math.round(s.x + s.w / 2 - dw / 2);
     var dy = Math.round(s.y + s.h - dh);
     var blink = s.iframes > 0 && Math.floor(t * 16) % 2 === 0;
@@ -1350,33 +1918,37 @@
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
 
-    var body = s.state === 'attack' && s.atkT < SLIME_WINDUP ? '#e05252' : '#4fc94f';
-    var dark = '#2a8a3a', light = '#a5f0a0';
+    var windup = s.state === 'attack' && s.atkT < s.st.windup;
+    // Heavy: telegraph lebih jelas (merah saat windup).
+    var body = windup ? '#e05252' : s.st.body;
+    var dark = s.st.dark, light = s.st.light;
 
     ctx.fillStyle = blink ? '#ffffff' : body;
-    ctx.fillRect(dx + 4, dy + 8, dw - 8, dh - 8);          // badan
-    ctx.fillRect(dx + 8, dy + 3, dw - 16, 8);             // punuk atas
+    ctx.fillRect(Math.round(dx + 4 * kf), dy + Math.round(8 * kf), Math.round(dw - 8 * kf), dh - Math.round(8 * kf)); // badan
+    ctx.fillRect(Math.round(dx + 8 * kf), dy + Math.round(3 * kf), Math.round(dw - 16 * kf), Math.round(8 * kf));    // punuk atas
     ctx.fillStyle = dark;
-    ctx.fillRect(dx + 4, dy + dh - 6, dw - 8, 6);         // perut bawah
+    ctx.fillRect(Math.round(dx + 4 * kf), dy + dh - Math.round(6 * kf), Math.round(dw - 8 * kf), Math.round(6 * kf)); // perut bawah
     ctx.fillStyle = light;
-    ctx.fillRect(dx + 8, dy + 6, 10, 5);                  // highlight
+    ctx.fillRect(Math.round(dx + 8 * kf), dy + Math.round(6 * kf), Math.round(10 * kf), Math.round(5 * kf));         // highlight
 
     // Mata (ikut arah hadap).
-    var ex = s.dir === 1 ? dx + dw - 20 : dx + 8;
+    var ex = s.dir === 1 ? Math.round(dx + dw - 20 * kf) : Math.round(dx + 8 * kf);
+    var ey = dy + Math.round(12 * kf), ew = Math.max(4, Math.round(9 * kf)), eh = Math.max(5, Math.round(11 * kf));
     ctx.fillStyle = '#fff';
-    ctx.fillRect(ex, dy + 12, 9, 11);
-    ctx.fillRect(ex + 11, dy + 12, 9, 11);
+    ctx.fillRect(ex, ey, ew, eh);
+    ctx.fillRect(ex + ew + Math.max(1, Math.round(2 * kf)), ey, ew, eh);
     ctx.fillStyle = '#14142b';
-    var pup = s.dir === 1 ? 3 : 0;
-    ctx.fillRect(ex + 2 + pup, dy + 16, 4, 6);
-    ctx.fillRect(ex + 13 + pup, dy + 16, 4, 6);
+    var pup = s.dir === 1 ? Math.max(1, Math.round(3 * kf)) : 0;
+    var pw2 = Math.max(2, Math.round(4 * kf)), ph2 = Math.max(3, Math.round(6 * kf));
+    ctx.fillRect(ex + Math.max(1, Math.round(2 * kf)) + pup, ey + Math.max(1, Math.round(4 * kf)), pw2, ph2);
+    ctx.fillRect(ex + ew + Math.max(1, Math.round(2 * kf)) + Math.max(1, Math.round(2 * kf)) + pup, ey + Math.max(1, Math.round(4 * kf)), pw2, ph2);
 
     // Telegraph windup: tanda seru pixel.
-    if (s.state === 'attack' && s.atkT < SLIME_WINDUP) {
+    if (windup) {
       ctx.fillStyle = '#ffd23f';
       var qx = Math.round(s.x + s.w / 2 - 2);
-      ctx.fillRect(qx, dy - 18, 5, 10);
-      ctx.fillRect(qx, dy - 5, 5, 5);
+      ctx.fillRect(qx, dy - Math.round(18 * kf), Math.max(3, Math.round(5 * kf)), Math.round(10 * kf));
+      ctx.fillRect(qx, dy - Math.max(3, Math.round(5 * kf)), Math.max(3, Math.round(5 * kf)), Math.max(3, Math.round(5 * kf)));
     }
   }
 
@@ -1384,6 +1956,110 @@
     for (var i = 0; i < enemies.length; i++) {
       if (!enemies[i].dead) drawSlime(enemies[i]);
     }
+  }
+
+  /* Stage 5: RAJA SLIME — blob besar + mahkota emas + alis marah.
+   * Enraged: semburat merah. Telegraph: kedip putih + tanda seru besar. */
+  function drawBoss() {
+    if (!boss || boss.dead) return;
+    var b = boss, t = b.animTime;
+    var squash = 1 + 0.06 * Math.sin(t * 6);
+    var dw = Math.round(72 / squash), dh = Math.round(64 * squash);
+    if (b.state === 'death') {
+      var k = clamp(1 - b.deathT / 1.0, 0, 1);
+      dh = Math.round(dh * (0.3 + 0.7 * k));
+    }
+    var dx = Math.round(b.x + b.w / 2 - dw / 2);
+    var dy = Math.round(b.y + b.h - dh);
+    var tele = b.state === 'telegraph';
+    var blink = (b.iframes > 0 && Math.floor(t * 16) % 2 === 0) || (tele && Math.floor(t * 10) % 2 === 0);
+
+    // Bayangan
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(Math.round(b.x + 6), Math.round(b.y + b.h - 3), b.w - 12, 5);
+
+    var body = b.enraged ? '#c94f5f' : '#7a3fc9';
+    ctx.fillStyle = blink ? '#ffffff' : body;
+    ctx.fillRect(dx + 5, dy + 12, dw - 10, dh - 12);   // badan
+    ctx.fillRect(dx + 11, dy + 5, dw - 22, 10);        // punuk
+    ctx.fillStyle = b.enraged ? '#8a2a3a' : '#4a248a';
+    ctx.fillRect(dx + 5, dy + dh - 8, dw - 10, 8);     // perut
+    ctx.fillStyle = b.enraged ? '#f0a5a5' : '#c9a5f0';
+    ctx.fillRect(dx + 11, dy + 9, 13, 6);              // highlight
+    // Mahkota emas.
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(dx + 14, dy - 8, dw - 28, 12);
+    for (var ci = 0; ci < 3; ci++) {
+      ctx.fillRect(dx + 18 + ci * Math.round((dw - 36) / 2), dy - 14, 8, 8);
+    }
+    // Mata marah (ikut arah hadap).
+    var ex = b.dir === 1 ? dx + dw - 28 : dx + 12;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(ex, dy + 18, 12, 13);
+    ctx.fillRect(ex + 15, dy + 18, 12, 13);
+    ctx.fillStyle = '#e05252'; // sorot merah
+    ctx.fillRect(ex + (b.dir === 1 ? 5 : 2), dy + 22, 5, 7);
+    ctx.fillRect(ex + 15 + (b.dir === 1 ? 5 : 2), dy + 22, 5, 7);
+    // Alis miring.
+    ctx.fillStyle = '#2a1a4a';
+    if (b.dir === 1) {
+      ctx.fillRect(ex - 2, dy + 13, 16, 4);
+      ctx.fillRect(ex + 13, dy + 13, 16, 4);
+    } else {
+      ctx.fillRect(ex, dy + 13, 16, 4);
+      ctx.fillRect(ex + 15, dy + 13, 16, 4);
+    }
+    // Telegraph: tanda seru besar.
+    if (tele) {
+      ctx.fillStyle = '#ffd23f';
+      var qx = Math.round(b.x + b.w / 2 - 3);
+      ctx.fillRect(qx, dy - 30, 7, 15);
+      ctx.fillRect(qx, dy - 11, 7, 7);
+    }
+  }
+
+  // Shockwave boss: dua gelombang tanah ke kiri & kanan.
+  function drawShocks() {
+    for (var i = 0; i < shocks.length; i++) {
+      var sh = shocks[i];
+      var fl = Math.floor(sh.life * 12) % 2 === 0;
+      ctx.fillStyle = fl ? '#ffd23f' : '#e0682a';
+      ctx.fillRect(Math.round(sh.x), Math.round(sh.y), sh.w, sh.h);
+      ctx.fillStyle = '#fff2c9';
+      ctx.fillRect(Math.round(sh.x) + 4, Math.round(sh.y), sh.w - 8, 6);
+    }
+  }
+
+  // Gold Shard: belah ketupat berkilau + animasi bob 2-frame.
+  function drawShards() {
+    for (var i = 0; i < shards.length; i++) {
+      var s = shards[i];
+      if (s.taken) continue;
+      var bobY = Math.round(s.y + Math.sin(s.bob * 4) * 3);
+      var tw = Math.floor(s.bob * 6) % 2 === 0;
+      ctx.fillStyle = tw ? '#ffd23f' : '#ffed9e';
+      ctx.fillRect(s.x - 3, bobY - 8, 6, 16);
+      ctx.fillRect(s.x - 8, bobY - 3, 16, 6);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(s.x - 2, bobY - 5, 4, 4);
+    }
+  }
+
+  // Dekorasi subtil arena boss (hanya Level 2): pilar + panji merah.
+  function drawArenaDecor() {
+    if (currentLevel !== 2 || !Level.bossArena) return;
+    var g = GROUND_TOP;
+    ctx.fillStyle = '#2c2140';
+    ctx.fillRect(Level.bossArena.minX - 14, g - 120, 14, 120);
+    ctx.fillRect(Level.bossArena.maxX, g - 120, 14, 120);
+    ctx.fillStyle = '#c9a227';
+    ctx.fillRect(Level.bossArena.minX - 14, g - 120, 14, 8);
+    ctx.fillRect(Level.bossArena.maxX, g - 120, 14, 8);
+    ctx.fillStyle = '#a03a3a';
+    var fx = Math.round((Level.bossArena.minX + Level.bossArena.maxX) / 2 - 20);
+    ctx.fillRect(fx, g - 150, 40, 26);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(fx + 8, g - 144, 24, 6);
   }
 
   // HUD modern (screen-space, tidak ikut kamera): HP + progress + slime.
@@ -1411,7 +2087,7 @@
     ctx.font = 'bold 14px monospace';
     ctx.fillText(player.hp + '/' + PLAYER_MAX_HP, bx + 34, by + bh / 2 + 1);
 
-    // --- Progress level (tengah atas): player, checkpoint, goal ---
+    // --- Progress level (tengah atas): player, checkpoint, goal/boss ---
     var px = 330, pw = 300, py = 16, ph = 12;
     var prog = getProgress();
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -1420,16 +2096,18 @@
     ctx.fillRect(px, py, pw, ph);
     ctx.fillStyle = '#5a68b0';
     ctx.fillRect(px, py, Math.round(pw * prog), ph);
-    var goalCX = Level.goal.x + Level.goal.w / 2;
-    var span = goalCX - Level.playerSpawn.x;
+    // Ujung kanan: goal fisik (Level 1) atau arena boss (Level 2).
+    var endX = Level.goal ? (Level.goal.x + Level.goal.w / 2)
+                          : (Level.bossSpawn ? Level.bossSpawn.x : Level.playerSpawn.x + 1);
+    var span = Math.max(1, endX - Level.playerSpawn.x);
     var i, mx;
     for (i = 0; i < Level.checkpoints.length; i++) {
       mx = px + Math.round(pw * (Level.checkpoints[i].x - Level.playerSpawn.x) / span);
       ctx.fillStyle = Level.checkpoints[i].activated ? '#5ec46f' : '#8a8fa8';
       ctx.fillRect(mx - 2, py - 3, 5, ph + 6);
     }
-    // Bendera goal + panah player.
-    ctx.fillStyle = '#ffd23f';
+    // Penanda ujung + panah player.
+    ctx.fillStyle = Level.goal ? '#ffd23f' : '#e05252';
     ctx.fillRect(px + pw - 3, py - 6, 6, ph + 4);
     mx = px + Math.round(pw * prog);
     ctx.fillStyle = '#ffffff';
@@ -1439,8 +2117,8 @@
     ctx.font = '11px monospace';
     ctx.fillText('MAP ' + Math.round(prog * 100) + '%', px, py + ph + 9);
 
-    // --- Slime tersisa (kanan atas): ikon + angka (teks + warna) ---
-    var alive = aliveEnemies();
+    // --- Musuh tersisa (kanan atas): ikon + angka (teks + warna) ---
+    var alive = foesLeft();
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(VIEW_W - 150, 8, 138, 32);
     ctx.fillStyle = '#4fc94f';
@@ -1448,7 +2126,36 @@
     ctx.fillRect(VIEW_W - 136, 12, 8, 5);
     ctx.fillStyle = alive > 0 ? '#a5f0a0' : '#8a8fa8';
     ctx.font = 'bold 14px monospace';
-    ctx.fillText('SLIME x' + alive, VIEW_W - 118, 25);
+    ctx.fillText('FOE x' + alive, VIEW_W - 118, 25);
+
+    // --- Shard + level (kanan, baris kedua; kecil agar tak tutup game) ---
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(VIEW_W - 150, 44, 138, 24);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(VIEW_W - 140, 51, 10, 10);
+    ctx.fillRect(VIEW_W - 137, 48, 4, 16);
+    ctx.fillStyle = '#fff2c9';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(shardGot() + '/' + shards.length + '  LV' + currentLevel, VIEW_W - 124, 57);
+
+    // --- Bar HP boss (tengah atas, hanya saat boss aktif) ---
+    if (currentLevel === 2 && boss && !boss.dead) {
+      var bbw = 300, bbx = VIEW_W / 2 - bbw / 2, bby = 52;
+      var bpct = clamp(boss.hp / boss.maxHp, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(bbx - 4, bby - 18, bbw + 8, 40);
+      ctx.fillStyle = '#c6ccea';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(boss.enraged ? 'RAJA SLIME — MURKA!' : 'RAJA SLIME', VIEW_W / 2, bby - 8);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#3a1020';
+      ctx.fillRect(bbx, bby, bbw, 12);
+      ctx.fillStyle = bpct > 0.3 ? '#c94f6f' : '#e05252';
+      ctx.fillRect(bbx, bby, Math.round(bbw * bpct), 12);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.fillRect(bbx, bby, Math.round(bbw * bpct), 3);
+    }
 
     // --- Toast tengah (checkpoint / info) ---
     if (toast.t > 0) {
@@ -1485,7 +2192,9 @@
       ' DPR:' + dprTxt + ' x' + renderScale.toFixed(2), 20, 186);
     ctx.fillText('ATK box:' + (player.attackBox ? 'ON' : 'off') +
       ' EN0 hp:' + (enemies[0] ? enemies[0].hp : '-') +
-      ' st:' + (enemies[0] ? enemies[0].state : '-'), 20, 202);
+      ' st:' + (enemies[0] ? enemies[0].state : '-') +
+      ' LV:' + currentLevel +
+      (boss ? ' BOSS:' + boss.hp + '/' + boss.state : ''), 20, 202);
   }
 
   // Hitbox overlay — world-space, dipanggil di dalam transform kamera.
@@ -1509,7 +2218,11 @@
       ctx.strokeRect(c.x + 0.5, c.y + 0.5, c.w, c.h);
     }
     var gr = goalRect();
-    ctx.strokeRect(gr.x + 0.5, gr.y + 0.5, gr.w, gr.h);
+    if (gr) ctx.strokeRect(gr.x + 0.5, gr.y + 0.5, gr.w, gr.h);
+    if (boss && !boss.dead) {
+      ctx.strokeStyle = '#ff33cc';
+      ctx.strokeRect(boss.x + 0.5, boss.y + 0.5, boss.w, boss.h);
+    }
   }
 
   function drawLoading() {
@@ -1538,6 +2251,90 @@
     ctx.textAlign = 'left';
   }
 
+  /* Stage 5: satu langkah simulasi gameplay. Dipakai frame() dan
+   * diekspos sebagai step() untuk testing deterministik headless. */
+  function updatePlaying(dt) {
+    if (Input.restartPressed) Input.restartPressed = false;
+    timeElapsed += dt;
+    levelStats.time += dt;
+    if (toast.t > 0) toast.t -= dt;
+    updatePlayer(dt);
+    Combat.resolvePlayerAttack();
+    for (var i = 0; i < enemies.length; i++) updateSlime(enemies[i], dt);
+    // Hapus slime yang selesai death (in-place, tanpa alokasi filter).
+    for (var r = enemies.length - 1; r >= 0; r--) {
+      if (enemies[r].dead) {
+        runStats.kills++;
+        levelStats.kills++;
+        enemies[r] = enemies[enemies.length - 1];
+        enemies.pop();
+      }
+    }
+    if (boss && !boss.dead) updateBoss(boss, dt);
+    updateShocks(dt);
+    Combat.resolveEnemyAttacks();
+    checkCheckpoints();
+    checkGoal();
+    updateShards(dt);
+    updateShake(dt);
+    updateParticles(dt);
+
+    // Kemenangan boss -> Game Complete (jeda agar FX kematian terbaca).
+    if (victoryArmed) {
+      victoryT += dt;
+      if (victoryT >= VICTORY_DELAY) {
+        victoryArmed = false;
+        showGameComplete();
+      }
+    }
+
+    // Player death -> Game Over (beri jeda animasi death 1 detik).
+    if (player.state === 'death' && player.deathT > 1.0) showGameOver();
+    updateCamera(dt);
+  }
+
+  function drawWorld() {
+    drawSkyFarMid();
+    drawNearLayer();
+    var shx = Math.round(camera.x + shake.ox);
+    var shy = Math.round(shake.oy);
+    ctx.save();
+    ctx.translate(-shx, shy);
+    drawArenaDecor();
+    drawPlatforms();
+    drawCheckpoints();
+    drawGoal();
+    drawShards();
+    drawEnemies();
+    drawBoss();
+    drawPlayer();
+    drawSlash();
+    drawShocks();
+    drawParticles();
+    if (DEBUG) drawDebugBoxes();
+    ctx.restore();
+  }
+
+  // Vista statis di belakang menu utama (tanpa simulasi gameplay).
+  function drawMenuVista() {
+    camera.x = 120;
+    drawSkyFarMid();
+    drawNearLayer();
+    ctx.save();
+    ctx.translate(-Math.round(camera.x), 0);
+    drawPlatforms();
+    drawCheckpoints();
+    drawGoal();
+    ctx.restore();
+  }
+
+  function drawTransOverlay() {
+    var a = transAlpha();
+    if (a <= 0) return;
+    ctx.fillStyle = 'rgba(0,0,0,' + a.toFixed(2) + ')';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
+
   function frame(t) {
     requestAnimationFrame(frame); // rantai tetap hidup saat pause (throttle browser)
     if (!assetsReady) { drawLoading(); return; }
@@ -1557,58 +2354,39 @@
 
     ctx.imageSmoothingEnabled = false;
 
-    if (gameState === 'playing') {
-      if (Input.restartPressed) Input.restartPressed = false;
-      timeElapsed += dt;
-      if (toast.t > 0) toast.t -= dt;
-      updatePlayer(dt);
-      Combat.resolvePlayerAttack();
-      for (var i = 0; i < enemies.length; i++) updateSlime(enemies[i], dt);
-      // Hapus slime yang selesai death (in-place, tanpa alokasi filter).
-      for (var r = enemies.length - 1; r >= 0; r--) {
-        if (enemies[r].dead) {
-          enemies[r] = enemies[enemies.length - 1];
-          enemies.pop();
-        }
-      }
-      Combat.resolveEnemyAttacks();
-      checkCheckpoints();
-      checkGoal();
-      updateShake(dt);
-      updateParticles(dt);
+    // Transisi level berjalan di semua state non-pause.
+    updateTrans(dt);
 
-      // Player death -> Game Over (beri jeda animasi death 1 detik).
-      if (player.state === 'death' && player.deathT > 1.0) showGameOver();
-      updateCamera(dt);
+    if (gameState === 'menu') {
+      drawMenuVista();
+      drawTransOverlay();
+      return;
+    }
+
+    if (gameState === 'playing') {
+      updatePlaying(dt);
     } else if (gameState === 'gameover') {
       gameOverT += dt;
       updateShake(dt); // biarkan shake reda secara visual (gameplay sudah diam)
       // R / Enter = respawn di checkpoint (primer). Restart total via tombol.
       if (Input.restartPressed) { Input.restartPressed = false; respawn(); }
-    } else { // win — dunia diam (partikel & timer ikut beku), overlay menang tampil
+    } else if (gameState === 'levelcomplete') {
+      updateShake(dt);
+      // R / Enter = lanjut ke Level 2.
+      if (Input.restartPressed) { Input.restartPressed = false; startTrans(2); }
+    } else if (gameState === 'gamecomplete') {
+      updateShake(dt);
+      // R / Enter = main lagi dari Level 1.
+      if (Input.restartPressed) { Input.restartPressed = false; playFresh(); }
+    } else { // win (legacy) — dunia diam, overlay menang tampil
       updateShake(dt);
       if (Input.restartPressed) { Input.restartPressed = false; restart(); }
     }
 
-    // Langit + parallax jauh/tengah (screen-space), lalu layer dekat (0.85,
-    // screen-space dengan offset sendiri), lalu dunia 1.0 dengan offset
-    // shake (render saja — camera.x tak berubah).
-    drawSkyFarMid();
-    drawNearLayer();
-    var shx = Math.round(camera.x + shake.ox);
-    var shy = Math.round(shake.oy);
-    ctx.save();
-    ctx.translate(-shx, shy);
-    drawPlatforms();
-    drawCheckpoints();
-    drawGoal();
-    drawEnemies();
-    drawPlayer();
-    drawSlash();
-    drawParticles();
-    if (DEBUG) drawDebugBoxes();
-    ctx.restore();
+    // Langit + parallax + dunia (shake hanya offset render).
+    drawWorld();
 
+    drawTransOverlay();
     drawHUD();
     if (DEBUG) drawDebug(fpsShown);
   }
@@ -1619,6 +2397,25 @@
   respawnBtn = document.getElementById('btn-respawn');
   winOverlayEl = document.getElementById('levelcomplete');
   againBtn = document.getElementById('btn-again');
+  // Stage 5: overlay menu + level-complete + game-complete.
+  menuEl = document.getElementById('mainmenu');
+  menuMain = document.getElementById('menu-main');
+  menuControls = document.getElementById('menu-controls');
+  menuAbout = document.getElementById('menu-about');
+  btnPlay = document.getElementById('btn-play');
+  btnControls = document.getElementById('btn-controls');
+  btnAbout = document.getElementById('btn-about');
+  btnBackC = document.getElementById('btn-back-controls');
+  btnBackA = document.getElementById('btn-back-about');
+  lvlclearEl = document.getElementById('lvlclear');
+  lvlclearStats = document.getElementById('lvlclear-stats');
+  btnNext = document.getElementById('btn-next');
+  btnReplay = document.getElementById('btn-replay');
+  btnLvlMenu = document.getElementById('btn-lvlmenu');
+  gameclearEl = document.getElementById('gameclear');
+  gameclearStats = document.getElementById('gameclear-stats');
+  btnAgain2 = document.getElementById('btn-again2');
+  btnGameMenu = document.getElementById('btn-gamemenu');
 
   bindHoldButton('btn-left',
     function () { Input.left = true; },
@@ -1642,10 +2439,56 @@
   if (againBtn) {
     againBtn.addEventListener('click', function () { restart(); });
   }
+  // Stage 5: tombol menu & layar selesai (semua null-guard, touch-friendly).
+  function onClick(el, fn) {
+    if (el) el.addEventListener('click', function () {
+      AudioManager.play('click');
+      fn();
+    });
+  }
+  onClick(btnPlay, function () { playFresh(); });
+  onClick(btnControls, function () { showMenuPanel('controls'); });
+  onClick(btnAbout, function () { showMenuPanel('about'); });
+  onClick(btnBackC, function () { showMenuPanel('main'); });
+  onClick(btnBackA, function () { showMenuPanel('main'); });
+  onClick(btnNext, function () { startTrans(2); });
+  onClick(btnReplay, function () { startTrans(currentLevel); });
+  onClick(btnLvlMenu, function () { toMenu(); });
+  onClick(btnAgain2, function () { playFresh(); });
+  onClick(btnGameMenu, function () { toMenu(); });
 
-  enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
-  snapCamera();
+  // Navigasi keyboard sederhana di menu: Atas/Bawah pindah tombol,
+  // Escape kembali ke panel utama. Tidak menyentuh input gameplay.
+  var menuNavIds = ['btn-play', 'btn-controls', 'btn-about'];
+  window.addEventListener('keydown', function (e) {
+    if (gameState !== 'menu') return;
+    if (e.code === 'Escape') {
+      showMenuPanel('main');
+      if (e.preventDefault) e.preventDefault();
+      return;
+    }
+    if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
+    if (e.preventDefault) e.preventDefault();
+    var ids = [];
+    if (menuMain && !menuMain.classList.contains('hidden')) ids = menuNavIds;
+    else if (menuControls && !menuControls.classList.contains('hidden')) ids = ['btn-back-controls'];
+    else if (menuAbout && !menuAbout.classList.contains('hidden')) ids = ['btn-back-about'];
+    else return;
+    var cur = -1;
+    try {
+      var ae = document.activeElement;
+      for (var i = 0; i < ids.length; i++) {
+        if (ae && ae.id === ids[i]) { cur = i; break; }
+      }
+    } catch (err) { /* abaikan */ }
+    var nx = e.code === 'ArrowDown' ? (cur + 1) % ids.length : (cur - 1 + ids.length) % ids.length;
+    var t = document.getElementById(ids[nx]);
+    if (t && t.focus) { try { t.focus(); } catch (err) { /* abaikan */ } }
+  });
+
+  loadLevelInternal(1);
   setupCanvas();
+  toMenu(); // boot ke menu utama (game tidak jalan di background)
 
   // Pause aman: tab hidden (mobile) + blur (desktop alt-tab).
   try {
@@ -1747,6 +2590,39 @@
     // bisa diverifikasi headless tanpa menjalankan loop penuh.
     forceGameOver: showGameOver,
     forceWin: showWin,
+    // Stage 5: level, menu, boss, shard, stats, transisi, stepping.
+    getLevel: function () { return currentLevel; },
+    getLevelName: function () { return Level.name; },
+    startLevel: startLevel,
+    startTrans: startTrans,
+    getTrans: function () { return { active: trans.active, phase: trans.phase }; },
+    stepTrans: updateTrans,
+    step: updatePlaying,
+    toMenu: toMenu,
+    getBoss: function () { return boss; },
+    hurtBoss: function (n, x) { return hurtBoss(n, x); },
+    hurtEnemy: function (id, n, x) {
+      for (var i = 0; i < enemies.length; i++) {
+        if (enemies[i].id === id) {
+          var s = enemies[i];
+          return slimeTakeDamage(s, n, (x === undefined ? s.x + 100 : x));
+        }
+      }
+      return false;
+    },
+    getShards: function () {
+      var first = null;
+      for (var i = 0; i < shards.length; i++) {
+        if (!shards[i].taken) { first = { x: shards[i].x, y: shards[i].y }; break; }
+      }
+      return { got: shardGot(), total: shards.length, at: first };
+    },
+    getStats: function () {
+      return { runKills: runStats.kills, runShards: runStats.shards,
+               levelKills: levelStats.kills, levelShards: levelStats.shards,
+               levelTime: levelStats.time, deaths: deaths };
+    },
+    getBest: loadBest,
     render: {
       scale: function () { return renderScale; },
       maxScale: function () { return RENDER_SCALE_MAX; },

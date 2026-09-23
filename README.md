@@ -1,25 +1,29 @@
-# Knight Platformer — Release Candidate
+# Knight Platformer — Content Expansion Build
 
 ![Ksatria](assets/knight/idle_0.png)
 
-Game platformer 2D side-view: ksatria pixel-art 32x32 menjelajahi level
-2400px side-scrolling — lewati 2 celah, kalahkan 3 slime dengan combat melee,
-sentuh checkpoint, dan capai gapura **FINISH**.
+Game platformer 2D side-view: ksatria pixel-art 32x32. Dari menu utama,
+mainkan **Level 1** (lewati 2 celah, kalahkan 3 slime, kumpulkan Gold Shard,
+capai FINISH), lanjut ke **Level 2** (varian Fast & Heavy Slime, 3 celah,
+8 shard), dan kalahkan **RAJA SLIME** di arena boss.
 
-**Status: Release Candidate** — gameplay dibekukan; polish tersisa hanya pada
-presentasi/metadata. Playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: Content Expansion Build** — playable: https://adjietegaralamsyah312.github.io/Game/
 
 ## Fitur utama
 
-- Gerak + lompat variabel (coyote time, jump buffer), 7 state player
-- Combat melee 3 fase (windup → strike → recovery) + kombo beruntun, i-frames
-- 3 slime prosedural (patrol/chase/attack/hurt/death), leash anti bunuh diri
-- Checkpoint, respawn, restart total, progress map, HUD HP + slime tersisa
-- Kamera smooth side-scrolling dengan batas level
-- Polish ringan: partikel pool, screen shake, slash, landing dust, parallax
-- Audio Web Audio API prosedural (tanpa file), pause aman saat tab hidden
-- Debug overlay (`DEBUG=true`): FPS rolling-average, frame ms, particle,
-  enemy, resolusi kanvas, DPR
+- Menu utama (PLAY / CONTROLS / ABOUT, navigasi keyboard + sentuh)
+- 2 level + transisi fade, reset level tanpa reload browser
+- Level 1: layout original + rute 6 Gold Shard
+- Level 2: traversal baru, 3 celah, checkpoint, arena boss
+- Varian musuh reusable: Fast Slime (cepat, HP rendah), Heavy Slime
+  (kuat, tahan knockback, telegraph jelas); slime klasik tak berubah
+- Boss RAJA SLIME: HP bar, 3 pola (strike, charge, shockwave), telegraph,
+  enrage di HP rendah, death FX + kemenangan
+- Collectible Gold Shard (counter `got/total` di HUD) + suara pickup
+- Stats per-level & total (musuh, shard, waktu, mati) + best lokal
+- Layar Level Complete (NEXT/REPLAY/MENU) & Game Complete (PLAY AGAIN/MENU)
+- Kamera smooth, parallax, partikel pool, screen shake, pause aman,
+  debug overlay (`DEBUG=true`)
 
 ## Kontrol desktop
 
@@ -28,30 +32,32 @@ presentasi/metadata. Playable: https://adjietegaralamsyah312.github.io/Game/
 | `A` / `D` atau `←` / `→` | Bergerak kiri / kanan |
 | `Space` / `W` / `↑` | Lompat (tahan = lebih tinggi) |
 | `J` / `X` | Serang pedang |
-| `R` / `Enter` | Respawn (Game Over) / main lagi (menang) |
+| `R` / `Enter` | Respawn / next / main lagi (kontekstual) |
+| `↑` / `↓` + `Enter`, `Esc` | Navigasi menu / kembali |
 
 ## Kontrol mobile (Android)
 
 Tombol sentuh di bawah kanvas: **◀ ▶** gerak, **⤒** lompat, **❖** serang.
-Multi-touch didukung (mis. tahan ◀ + ketuk ⤒). Ketuk kanvas untuk lanjut
-saat pause. Guard 500 ms mencegah double-trigger touch + mouse emulasi.
+Multi-touch didukung (mis. tahan ◀ + ketuk ⤒). Semua tombol menu & layar
+selesai touch-friendly (min 48px). Guard 500 ms mencegah double-trigger
+touch + mouse emulasi.
 
 ## Tech stack
 
 HTML5 Canvas + JavaScript vanilla + CSS — tanpa framework, tanpa dependency,
 tanpa CDN. Satu file `game.js` agar tetap jalan via `file://` dan kompatibel
-dengan GitHub Pages subpath `/Game/` (semua path relatif).
+dengan GitHub Pages subpath `/Game/` (semua path relatif). Grafis musuh
+baru & boss prosedural (Canvas pixel-style).
 
 ## Struktur project
 
 ```
 knight_game/
-├── index.html          # kanvas + overlay + tombol sentuh + metadata
-├── game.js             # seluruh game (~1760 baris, modular dalam 1 file)
+├── index.html          # kanvas + overlay (menu/clear) + tombol + metadata
+├── game.js             # seluruh game (menu, 2 level, varian, boss, ~2400 baris)
 ├── style.css           # tema + responsif + safe-area Android
-├── test.js             # 65 automated test headless (node test.js)
+├── test.js             # 77 automated test headless (node test.js)
 ├── README.md           # file ini
-├── plant.md            # rencana/petunjuk pengembangan
 └── assets/knight/      # 18 sprite PNG (idle/run/jump/fall/attack/hurt/death)
 ```
 
@@ -72,30 +78,31 @@ Atau buka `index.html` langsung. Audio aktif setelah interaksi pertama
 node --check game.js
 node --check test.js
 node test.js
+git diff --check
 ```
 
-65 test (57 dasar + 8 Tahap 4: pause, visibility, dt-clamp, DPR fallback,
-anti double-fire, restart-setelah-pause, resume Game Over/Win) — target
-semua PASS, 0 error.
+77 test (65 dasar + 12 Stage 5: menu, level switching/reset, varian,
+pickup, transisi boss, boss death, level/game complete, stats, transisi,
+isolasi input) — target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
 
 - Android kelas menengah (Chrome modern), RAM 3 GB+, layar 360px ke atas
-- Backing store kanvas dibatasi maks 2x DPR; pool partikel 120; 3 musuh
+- Backing store kanvas dibatasi maks 2x DPR; pool partikel 120
 
 ## Catatan pengujian
 
 - **FPS nyata di Android perlu physical testing** (aktifkan `DEBUG=true` dan
   baca overlay FPS/frame-time di perangkat). Dokumen ini tidak mengklaim
-  angka performa apa pun.
-- Yang masih butuh uji fisik: FPS di HP lemah, rasa tombol multi-touch,
-  pause saat telepon/notifikasi, rotasi portrait/landscape, audio unlock
-  di Chrome Android.
+  angka performa, dukungan perangkat, atau benchmark apa pun.
+- Yang masih butuh uji fisik: FPS di HP lemah, rasa tombol multi-touch +
+  menu di layar kecil, pause saat telepon/notifikasi, rotasi
+  portrait/landscape, audio unlock di Chrome Android.
 
 ## Project status & future improvements
 
-- Status: Release Candidate, live di GitHub Pages.
-- Repository: https://github.com/Adjietegaralamsyah312/Game.git
-- Ide lanjutan (di luar RC, belum dikerjakan): level tambahan, musuh baru,
-  musik latar, penyimpanan progres lokal, pengujian FPS terdokumentasi
-  di perangkat fisik.
+- Status: Content Expansion Build, live di GitHub Pages.
+- Repository: https://github.com/Adjietegaralamsyah312/Game
+- Ide lanjutan (belum dikerjakan): level tambahan, pola boss baru,
+  musik latar, penyimpanan progres antar-sesi, pengujian FPS
+  terdokumentasi di perangkat fisik.
