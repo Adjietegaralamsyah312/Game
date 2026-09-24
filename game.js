@@ -2403,7 +2403,8 @@
       pattern: 'strike', patIdx: 0, cooldown: 1.0,
       hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
       enraged: false, dead: false,
-      introduced: false, dustT: 0 // intro arena + debu charge (visual saja)
+      enraged: false, dead: false,
+      introduced: false, dustT: 0, deathFxT: 0 // intro arena + debu charge/final (visual saja)
     };
   }
 
@@ -2433,6 +2434,7 @@
       burst(b.x + b.w / 2, b.y + b.h / 2, 16, '#ffd23f', 220, 0.8, 4, 350);
       burst(b.x + b.w / 2, b.y + b.h / 2, 10, '#ffffff', 160, 0.7, 3, 300);
       triggerScreenShake(SHAKE_DIE + 2, 0.4);
+      triggerHitStop(0.08); // beku dramatis killing blow (cap, timing utuh)
       AudioManager.play('bossDie');
       return true;
     }
@@ -2469,6 +2471,9 @@
       // Minor E: mayat tetap di arena selama animasi (visual-only).
       if (b.x < b.arenaMin) b.x = b.arenaMin;
       if (b.x > b.arenaMax) b.x = b.arenaMax;
+      // Gugur bertahap: bara esensi naik tiap 0.12 dtk (visual saja).
+      b.deathFxT -= dt;
+      if (b.deathFxT <= 0) { b.deathFxT = 0.12; kingDeathEmber(b, 'slimeKing'); }
       if (b.deathT >= 1.0 && !b.dead) {
         b.dead = true;
         onBossDefeated();
@@ -2482,7 +2487,9 @@
       moveAndCollide(b, dt, Level.platforms);
       if (b.hurtT >= 0.25) { b.state = 'idle'; b.idleT = 0; }
       return; // M1: cegah integrasi ganda
-    } else if (b.state === 'idle') {
+    }
+
+    if (b.state === 'idle') {
       b.vx = 0;
       b.idleT += dt;
       b.dir = px >= bx ? 1 : -1;
@@ -2609,6 +2616,26 @@
     }
   }
 
+  /* Raja gugur bertahap (visual saja, durasi 1.0 dtk + victory utuh):
+   * bara esensi naik selama death (warna per jenis), lalu fade akhir.
+   * Tanpa ubah damage/timing/death-first/victoryArmed. */
+  function kingDeathEmber(o, kind) {
+    var cx = o.x + o.w / 2, i;
+    if (kind === 'lich') {
+      // Arwah ungu melayang ke atas.
+      for (i = 0; i < 3; i++) {
+        spawnParticle(cx + (Math.random() * 24 - 12), o.y + 10 + Math.random() * 30,
+          (Math.random() * 2 - 1) * 20, -70 - Math.random() * 50, 0.7,
+          i ? '#b46ae0' : '#e8c9ff', 3, -40);
+      }
+    } else if (kind === 'miniboss') {
+      burst(cx, o.y + 10, 3, '#e8e4d8', 130, 0.5, 3, 300);
+    } else {
+      burst(cx, o.y + 10, 3, '#7a3fc9', 130, 0.5, 3, 300);
+      burst(cx, o.y + 20, 2, '#c9a5f0', 100, 0.4, 3, 250);
+    }
+  }
+
   /* Stage 9: MINIBOSS — PANGLIMA TULANG (elite skeleton, Level 4).
    * FSM ringkas reuse primitif (fisika, burst, shake, suara): idle →
    * telegraph → slash(berat)/dash(charge) → recovery → hurt → death.
@@ -2630,7 +2657,7 @@
       atkT: 0, recT: 0, recDur: 0.6,
       pattern: 'slash', patIdx: 0, cooldown: 1.2,
       hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
-      enraged: false, dead: false, introduced: false
+      enraged: false, dead: false, introduced: false, deathFxT: 0
     };
   }
 
@@ -2658,6 +2685,7 @@
       burst(m.x + m.w / 2, m.y + m.h / 2, 14, '#ffd23f', 200, 0.8, 4, 350);
       burst(m.x + m.w / 2, m.y + m.h / 2, 8, '#ffffff', 150, 0.7, 3, 300);
       triggerScreenShake(SHAKE_DIE + 1, 0.35);
+      triggerHitStop(0.08); // beku dramatis killing blow (cap, timing utuh)
       AudioManager.play('bossDie');
       return true;
     }
@@ -2693,6 +2721,9 @@
       // Minor E: mayat tetap di arena selama animasi (visual-only).
       if (m.x < m.arenaMin) m.x = m.arenaMin;
       if (m.x > m.arenaMax) m.x = m.arenaMax;
+      // Gugur bertahap: serpihan tulang tiap 0.12 dtk (visual saja).
+      m.deathFxT -= dt;
+      if (m.deathFxT <= 0) { m.deathFxT = 0.12; kingDeathEmber(m, 'miniboss'); }
       if (m.deathT >= 1.0 && !m.dead) {
         m.dead = true;
         runStats.kills++;
@@ -2790,15 +2821,21 @@
     if (!m || m.dead) return;
     var t = m.animTime;
     var dw = 60, dh = 72;
+    // Gugur bertahap: topple + ambruk + fade akhir (durasi 1.0 dtk utuh).
+    var mTopple = 0, mFade = 1;
     if (m.state === 'death') {
       var k = clamp(1 - m.deathT / 1.0, 0, 1);
       dh = Math.round(dh * (0.3 + 0.7 * k));
+      mTopple = Math.round(Math.min(8, m.deathT * 20)) * (m.dir === 1 ? 1 : -1);
+      if (m.deathT > 0.7) mFade = clamp((1.0 - m.deathT) / 0.3, 0, 1);
     }
-    var dx = Math.round(m.x + m.w / 2 - dw / 2);
+    var dx = Math.round(m.x + m.w / 2 - dw / 2) + mTopple;
     var dy = Math.round(m.y + m.h - dh);
     var tele = m.state === 'telegraph';
     var blink = (m.iframes > 0 && Math.floor(t * 16) % 2 === 0) ||
                 (tele && Math.floor(t * 10) % 2 === 0);
+
+    if (mFade < 1) { ctx.save(); ctx.globalAlpha = mFade; }
 
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(Math.round(m.x + 6), Math.round(m.y + m.h - 3), m.w - 12, 5);
@@ -2852,6 +2889,7 @@
       ctx.fillRect(qx, dy - 30, 7, 15);
       ctx.fillRect(qx, dy - 11, 7, 7);
     }
+    if (mFade < 1) ctx.restore();
   }
 
   /* Stage 9: RAJA LICH — boss final L4 + klimaks L5.
@@ -2876,7 +2914,7 @@
       pattern: 'strike', patIdx: 0, cooldown: 1.2,
       hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
       phase: 1, phaseAnn: 1, enraged: false,
-      dead: false, introduced: false
+      dead: false, introduced: false, deathFxT: 0
     };
   }
 
@@ -2917,6 +2955,7 @@
       burst(b.x + b.w / 2, b.y + b.h / 2, 16, '#b46ae0', 220, 0.8, 4, 350);
       burst(b.x + b.w / 2, b.y + b.h / 2, 10, '#ffffff', 160, 0.7, 3, 300);
       triggerScreenShake(SHAKE_DIE + 2, 0.4);
+      triggerHitStop(0.08); // beku dramatis killing blow (cap, timing utuh)
       AudioManager.play('bossDie');
       return true;
     }
@@ -2985,6 +3024,9 @@
       // Minor E: mayat tetap di arena selama animasi (visual-only).
       if (b.x < b.arenaMin) b.x = b.arenaMin;
       if (b.x > b.arenaMax) b.x = b.arenaMax;
+      // Gugur bertahap: arwah naik tiap 0.12 dtk (visual saja).
+      b.deathFxT -= dt;
+      if (b.deathFxT <= 0) { b.deathFxT = 0.12; kingDeathEmber(b, 'lich'); }
       if (b.deathT >= 1.0 && !b.dead) {
         b.dead = true;
         onBossDefeated();
@@ -3069,15 +3111,21 @@
     if (!b || b.kind !== 'lich' || b.dead) return;
     var t = b.animTime;
     var dw = 64, dh = 80;
+    // Gugur bertahap: topple + ambruk + fade akhir (durasi 1.0 dtk utuh).
+    var lTopple = 0, lFade = 1;
     if (b.state === 'death') {
       var k = clamp(1 - b.deathT / 1.0, 0, 1);
       dh = Math.round(dh * (0.3 + 0.7 * k));
+      lTopple = Math.round(Math.min(8, b.deathT * 20)) * (b.dir === 1 ? 1 : -1);
+      if (b.deathT > 0.7) lFade = clamp((1.0 - b.deathT) / 0.3, 0, 1);
     }
-    var dx = Math.round(b.x + b.w / 2 - dw / 2);
+    var dx = Math.round(b.x + b.w / 2 - dw / 2) + lTopple;
     var dy = Math.round(b.y + b.h - dh);
     var tele = b.state === 'telegraph';
     var blink = (b.iframes > 0 && Math.floor(t * 16) % 2 === 0) ||
                 (tele && Math.floor(t * 10) % 2 === 0);
+
+    if (lFade < 1) { ctx.save(); ctx.globalAlpha = lFade; }
 
     // Aura undead (berdenyut, makin merah saat enrage).
     var pulse = 0.5 + 0.5 * Math.sin(t * (b.phase >= 3 ? 9 : 4));
@@ -3136,6 +3184,7 @@
       ctx.fillRect(qx, dy - 34, 7, 15);
       ctx.fillRect(qx, dy - 15, 7, 7);
     }
+    if (lFade < 1) ctx.restore();
   }
 
   /* ---- Collectible Coin level (non-colliding, hanya overlap) ----
@@ -4641,14 +4690,20 @@
     var b = boss, t = b.animTime;
     var squash = 1 + 0.06 * Math.sin(t * 6);
     var dw = Math.round(72 / squash), dh = Math.round(64 * squash);
+    // Gugur bertahap: topple + ambruk + fade akhir (durasi 1.0 dtk utuh).
+    var topple = 0, dFade = 1;
     if (b.state === 'death') {
       var k = clamp(1 - b.deathT / 1.0, 0, 1);
       dh = Math.round(dh * (0.3 + 0.7 * k));
+      topple = Math.round(Math.min(8, b.deathT * 20)) * (b.dir === 1 ? 1 : -1);
+      if (b.deathT > 0.7) dFade = clamp((1.0 - b.deathT) / 0.3, 0, 1);
     }
-    var dx = Math.round(b.x + b.w / 2 - dw / 2);
+    var dx = Math.round(b.x + b.w / 2 - dw / 2) + topple;
     var dy = Math.round(b.y + b.h - dh);
     var tele = b.state === 'telegraph';
     var blink = (b.iframes > 0 && Math.floor(t * 16) % 2 === 0) || (tele && Math.floor(t * 10) % 2 === 0);
+
+    if (dFade < 1) { ctx.save(); ctx.globalAlpha = dFade; }
 
     // Bayangan
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -4692,6 +4747,7 @@
       ctx.fillRect(qx, dy - 30, 7, 15);
       ctx.fillRect(qx, dy - 11, 7, 7);
     }
+    if (dFade < 1) ctx.restore();
   }
 
   // Shockwave boss: dua gelombang tanah ke kiri & kanan.

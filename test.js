@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 247 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 250 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -19,6 +19,7 @@
  * + 3 boss pit gugur normal.
  * + 4 boss gate arena.
  * + 3 player death + goo pile.
+ * + 3 king death bertahap.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -214,7 +215,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 247; // total test (244 + 3 death anim + goo)
+const EXPECTED_TOTAL = 250; // total test (247 + 3 king death)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1003,12 +1004,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('247 automated test'), 'README harus sebut 247 test, cek jumlah');
+  ok(readme.includes('250 automated test'), 'README harus sebut 250 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 247);
+  eq(EXPECTED_TOTAL, 250);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3130,6 +3131,61 @@ test('247 goo ikut reset + jurang tanpa goo', () => {
   ok(sl2.dead, 'mati di jurang');
   eq(G.getGooPiles().length, 0, 'jurang tanpa goo');
   G.restart();
+});
+
+// ---------- 3 TEST RAJA GUGUR BERTAHAP (behavior) ----------
+test('248 raja slime gugur: ember + topple + fade + victory', () => {
+  srcHas('kingDeathEmber'); srcHas('deathFxT');
+  G.forceStartLevel(2);
+  const b = G.getBoss();
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = 2000; pl.y = 402;
+  for (let k = 0; k < 10 && b.state !== 'death'; k++) { b.iframes = 0; G.hurtBoss(30, 0); }
+  eq(b.state, 'death');
+  const c0 = G.fx.count();
+  for (let i = 0; i < 10; i++) G.step(1 / 60); // fase ember naik
+  ok(G.fx.count() >= c0, 'ember death aktif');
+  noThrow(() => G.drawOnce(), 'draw death fase awal');
+  for (let i = 0; i < 40; i++) G.step(1 / 60); // fase fade akhir
+  noThrow(() => G.drawOnce(), 'draw death fase fade');
+  for (let i = 0; i < 150; i++) G.step(1 / 60);
+  eq(b.dead, true);
+  eq(G.getState(), 'levelcomplete', 'victory tetap jalan');
+  pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+test('249 panglima tulang gugur bertahap + toast', () => {
+  G.forceStartLevel(4);
+  const m = G.getMiniboss();
+  const k0 = G.getStats().runKills;
+  for (let k = 0; k < 20 && m.state !== 'death'; k++) { m.iframes = 0; G.hurtMiniboss(30, 0); }
+  eq(m.state, 'death');
+  for (let i = 0; i < 20; i++) G.step(1 / 60);
+  noThrow(() => G.drawOnce(), 'draw miniboss death');
+  for (let i = 0; i < 60; i++) G.step(1 / 60);
+  eq(m.dead, true);
+  eq(G.getStats().runKills, k0 + 1, 'kill terhitung sekali');
+  G.forceStartLevel(1);
+});
+test('250 raja lich gugur: arwah + fade + victory L4', () => {
+  G.forceStartLevel(4);
+  const b = G.getBoss();
+  ok(b && b.kind === 'lich', 'pra-kondisi lich');
+  const pl = G.getPlayer();
+  pl.x = 2000; pl.y = 402; pl.iframes = 9999;
+  for (let i = 0; i < 30; i++) G.step(1 / 60); // intro selesai
+  pl.iframes = 0;
+  for (let k = 0; k < 20 && b.state !== 'death'; k++) { b.iframes = 0; G.hurtBoss(30, 0); }
+  eq(b.state, 'death');
+  for (let i = 0; i < 20; i++) G.step(1 / 60);
+  noThrow(() => G.drawOnce(), 'draw lich death arwah');
+  pl.iframes = 9999;
+  for (let i = 0; i < 200; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  eq(b.dead, true);
+  eq(G.getState(), 'levelcomplete');
+  G.forceStartLevel(1);
 });
 
 // ---------- Ringkasan ----------

@@ -127,7 +127,7 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 247 automated test headless (node test.js)
+├── test.js             # 250 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
@@ -167,8 +167,9 @@ timing tidak berubah oleh pergantian visual.
   death-first & victoryArmed safety utuh.
 - **Kematian**: player (ledakan + arwah melayang + ambruk + fade,
   timing game-over tetap), skeleton (runtuh jadi tumpukan tulang menetap),
-  slime (genangan lendir warna varian menetap); semua reset saat
-  ganti level/respawn, jurang tanpa sisa.
+  slime (genangan lendir warna varian menetap), raja (hit-stop killing
+  blow + bara esensi + topple + fade, durasi 1 dtk + victory utuh);
+  semua reset saat ganti level/respawn, jurang tanpa sisa.
 - **Victory**: judul `CAMPAIGN COMPLETE!`, stats Coin • Gold Shard •
   Musuh • Mati • Waktu • Terbaik, tombol REPLAY/CAMPAIGN/MENU.
 - **HUD**: label `COIN n/m LVn` + `GOLD xN`, layout & safe-area sama.
@@ -192,7 +193,7 @@ node test.js
 git diff --check
 ```
 
-247 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish + 4 skeleton crumble/pit + 3 skeleton walk + 3 bone pile + 1 pit persisten + 3 audit + 3 boss pit + 4 boss gate + 3 death/goo) —
+250 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish + 4 skeleton crumble/pit + 3 skeleton walk + 3 bone pile + 1 pit persisten + 3 audit + 3 boss pit + 4 boss gate + 3 death/goo + 3 king death) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
