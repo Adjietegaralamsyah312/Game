@@ -4579,7 +4579,11 @@
 
   function bossFrameFor(kind, state) {
     if (kind === 'miniboss') {
-      if (currentLevel === 1) return ['lightningSlime', 0];
+      if (currentLevel === 1) {
+        if (state === 'slash' || state === 'attack') return ['lightningSlime', 1];
+        if (state === 'dash') return ['lightningSlime', 2];
+        return ['lightningSlime', 0];
+      }
       if (state === 'slash') return ['skelKnight', 1];
       if (state === 'dash') return ['skelKnight', 2];
       return ['skelKnight', 0];
