@@ -215,7 +215,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 250; // total test (247 + 3 king death)
+const EXPECTED_TOTAL = 251; // total test (251 termasuk regression audio)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1009,7 +1009,7 @@ test('103 README konsisten: count + settings + save', () => {
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 250);
+  eq(EXPECTED_TOTAL, 251);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3188,6 +3188,16 @@ test('250 raja lich gugur: arwah + fade + victory L4', () => {
   G.forceStartLevel(1);
 });
 
+test('251 SFX volume regression mobile: 100% tidak diredam master 0.16', () => {
+  G.fx.audio.setSfx(true, 100);
+  eq(G.fx.audio.getCfg().sfxVol, 100);
+  eq(G.fx.audio.getCfg().muted, false);
+  noThrow(() => G.fx.audio.play('jump'));
+  G.fx.audio.setSfx(true, 50);
+  eq(G.fx.audio.getCfg().sfxVol, 50);
+  G.fx.audio.setSfx(false, 0);
+  eq(G.fx.audio.getCfg().muted, true);
+});
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
 console.log('PASS: ' + pass + ' / ' + (pass + fail) + ', FAIL: ' + fail);

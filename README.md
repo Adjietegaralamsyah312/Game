@@ -119,6 +119,7 @@ Satu `requestAnimationFrame`; pool partikel/proyektil bounded; tanpa `setInterva
   gold shard, skeleton hit, sword swing, shield block, arrow shot/impact,
   miniboss cue, lich magic/summon, phase shift, chest open/heal/poison
 - **Volume independen** SFX/Music 0–100%; OFF/0 = diam; live tanpa reload
+- **Fix mobile SFX (Sep 2026)**: SFX dialihkan dari master 0.16 agar 100% cukup keras di speaker Android tanpa mengubah BGM
 - **Autoplay/unlock**: audio mulai setelah gesture pertama; pause suspend aman;
   BGM ikut state (menu/main, berhenti saat Game Over/Complete)
 

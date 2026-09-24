@@ -160,7 +160,7 @@
         master.gain.value = BASE_GAIN;
         master.connect(ctx.destination);
         sfxG = ctx.createGain();
-        sfxG.connect(master);
+        sfxG.connect(ctx.destination);
         musicG = ctx.createGain();
         musicG.connect(master);
         applyGain(); // hormati pengaturan (default = perilaku lama)
