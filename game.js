@@ -2756,7 +2756,7 @@
       // Intro sekali saat pemain memasuki arena.
       if (!m.introduced && player.x > m.arenaMin - 120) {
         m.introduced = true;
-        showToast('PANGLIMA TULANG MUNCUL!');
+        showToast(currentLevel === 1 ? 'PANGLIMA SLIME MUNCUL!' : 'PANGLIMA TULANG MUNCUL!');
         AudioManager.play('minibossCue');
         triggerScreenShake(SHAKE_HURT, 0.3);
         // Stage 11: aura intro (visual saja, tanpa ubah pola/timing).
@@ -2873,9 +2873,10 @@
         ctx.fillRect(dx, dy, dw, dh);
       }
     } else {
-    // Armor berat + jubah (enrage = semburat merah).
-    ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? '#8a3a4a' : '#5a6478');
-    ctx.fillRect(dx + 8, dy + 16, dw - 16, dh - 16);   // torso armor
+    var slimeVis = (currentLevel === 1);
+    // Armor berat + jubah (enrage = semburat merah) atau slime visual (L1).
+    ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? (slimeVis ? '#c0392b' : '#8a3a4a') : (slimeVis ? '#27ae60' : '#5a6478'));
+    ctx.fillRect(dx + 8, dy + 16, dw - 16, dh - 16);   // torso
     ctx.fillRect(dx + 14, dy + 6, dw - 28, 12);        // helm tengkorak
     ctx.fillStyle = m.enraged ? '#5c1a26' : '#39404f';
     ctx.fillRect(dx + 8, dy + dh - 10, dw - 16, 10);   // kaki berat
@@ -4475,6 +4476,7 @@
 
   function bossFrameFor(kind, state) {
     if (kind === 'miniboss') {
+      if (currentLevel === 1) return [null, 0];
       if (state === 'slash') return ['skelKnight', 1];
       if (state === 'dash') return ['skelKnight', 2];
       return ['skelKnight', 0];

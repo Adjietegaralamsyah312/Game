@@ -2285,6 +2285,7 @@ test('195 frame archer: aim saat shoot, release sesaat', () => {
   G.forceStartLevel(1);
 });
 test('196 frame miniboss/lich per state', () => {
+  G.forceStartLevel(3);
   const B = G.bossFrameFor;
   eq(B('miniboss', 'slash').join(','), 'skelKnight,1');
   eq(B('miniboss', 'dash').join(','), 'skelKnight,2');
