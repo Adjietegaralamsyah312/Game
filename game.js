@@ -2509,7 +2509,15 @@
     // Boss tidak boleh keluar arena maupun level.
     if (b.x < b.arenaMin) { b.x = b.arenaMin; b.vx = 0; }
     if (b.x > b.arenaMax) { b.x = b.arenaMax; b.vx = 0; }
-    if (b.y > WORLD_H + 100) { b.x = b.spawnX; b.y = b.spawnY; b.vx = 0; b.vy = 0; }
+    // Jatuh ke jurang = gugur via death normal (kill/victory tetap jalan
+    // lewat onBossDefeated). Tanpa teleport kembali.
+    if (b.y > WORLD_H + 100 && !b.dead && b.state !== 'death') {
+      b.hp = 0;
+      b.state = 'death';
+      b.deathT = 0;
+      b.vx = 0; b.vy = 0;
+      AudioManager.play('bossDie');
+    }
   }
 
   function spawnShocks(b) {
@@ -2712,7 +2720,15 @@
     moveAndCollide(m, dt, Level.platforms);
     if (m.x < m.arenaMin) { m.x = m.arenaMin; m.vx = 0; }
     if (m.x > m.arenaMax) { m.x = m.arenaMax; m.vx = 0; }
-    if (m.y > WORLD_H + 100) { m.x = m.spawnX; m.y = m.spawnY; m.vx = 0; m.vy = 0; }
+    // Jatuh ke jurang = gugur via death normal (kill/toast tetap jalan).
+    // Tanpa teleport kembali.
+    if (m.y > WORLD_H + 100 && !m.dead && m.state !== 'death') {
+      m.hp = 0;
+      m.state = 'death';
+      m.deathT = 0;
+      m.vx = 0; m.vy = 0;
+      AudioManager.play('bossDie');
+    }
   }
 
   function drawMiniboss() {
@@ -2874,6 +2890,15 @@
     b.animTime += dt;
     if (b.iframes > 0) b.iframes -= dt;
     if (b.cooldown > 0) b.cooldown -= dt;
+    // Jatuh ke jurang = gugur via death normal (berlaku juga saat dormant
+    // yang return lebih awal — cek di atas agar tak pernah lolos).
+    if (b.y > WORLD_H + 100 && !b.dead && b.state !== 'death') {
+      b.hp = 0;
+      b.state = 'death';
+      b.deathT = 0;
+      b.vx = 0; b.vy = 0;
+      AudioManager.play('bossDie');
+    }
     var px = player.x + player.w / 2, bx = b.x + b.w / 2;
     var rage = b.phase >= 3;
     var cdMul = rage ? 0.6 : (b.phase >= 2 ? 0.85 : 1);
@@ -2982,7 +3007,7 @@
     moveAndCollide(b, dt, Level.platforms);
     if (b.x < b.arenaMin) { b.x = b.arenaMin; b.vx = 0; }
     if (b.x > b.arenaMax) { b.x = b.arenaMax; b.vx = 0; }
-    if (b.y > WORLD_H + 100) { b.x = b.spawnX; b.y = b.spawnY; b.vx = 0; b.vy = 0; }
+    // NOTE: cek jurang ada di atas (dormant return lebih awal).
   }
 
   function drawLich() {

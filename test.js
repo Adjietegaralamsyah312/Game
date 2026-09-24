@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 237 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 240 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -16,6 +16,7 @@
  * + 3 bone pile persisten
  * + 1 pit kill persisten respawn.
  * + 3 audit profesional (pile snap, clamp, pit key).
+ * + 3 boss pit gugur normal.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -211,7 +212,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 237; // total test (234 + 3 audit profesional)
+const EXPECTED_TOTAL = 240; // total test (237 + 3 boss pit)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1000,12 +1001,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('237 automated test'), 'README harus sebut 237 test, cek jumlah');
+  ok(readme.includes('240 automated test'), 'README harus sebut 240 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 237);
+  eq(EXPECTED_TOTAL, 240);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2957,6 +2958,45 @@ test('237 pitDead key unik per spawn L1-L5', () => {
     const keys = G.getEnemies().map((e) => e.spawnX + ':' + e.spawnY);
     eq(new Set(keys).size, keys.length, 'L' + lv + ' spawn unik: ' + keys);
   });
+  G.forceStartLevel(1);
+});
+
+// ---------- 3 TEST BOSS PIT = GUGUR (behavior) ----------
+test('238 miniboss jatuh jurang gugur, tanpa teleport', () => {
+  G.forceStartLevel(4);
+  const m = G.getMiniboss();
+  const k0 = G.getStats().runKills;
+  m.y = 700; m.vy = 0; // di bawah dunia
+  G.step(1 / 60);
+  eq(m.state, 'death', 'masuk death normal');
+  eq(m.hp, 0);
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  eq(m.dead, true, 'gugur tuntas');
+  ok(m.y > 600, 'tak diteleport ke spawn, y=' + Math.round(m.y));
+  eq(G.getStats().runKills, k0 + 1, 'kill terhitung');
+  G.forceStartLevel(1);
+});
+test('239 raja slime jatuh jurang = victory L2', () => {
+  G.forceStartLevel(2);
+  const b = G.getBoss();
+  b.y = 700; b.vy = 0;
+  G.step(1 / 60);
+  eq(b.state, 'death', 'masuk death normal');
+  for (let i = 0; i < 200; i++) G.step(1 / 60); // death 1.0 + victory 1.2
+  eq(b.dead, true, 'gugur tuntas');
+  eq(G.getState(), 'levelcomplete', 'victory tetap jalan');
+  G.forceStartLevel(1);
+});
+test('240 raja lich jatuh jurang = victory L4', () => {
+  G.forceStartLevel(4);
+  const b = G.getBoss();
+  ok(b && b.kind === 'lich', 'pra-kondisi lich');
+  b.y = 700; b.vy = 0;
+  G.step(1 / 60);
+  eq(b.state, 'death', 'masuk death normal');
+  for (let i = 0; i < 200; i++) G.step(1 / 60);
+  eq(b.dead, true, 'gugur tuntas');
+  eq(G.getState(), 'levelcomplete', 'victory tetap jalan');
   G.forceStartLevel(1);
 });
 
