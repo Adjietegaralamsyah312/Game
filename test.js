@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 233 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 234 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -13,7 +13,8 @@
  * + 14 stage 11 polish (knight art, hit-stop, shake cap, decor, boss, victory)
  * + 4 skeleton crumble + pit permanen
  * + 3 skeleton walk realistis
- * + 3 bone pile persisten.
+ * + 3 bone pile persisten
+ * + 1 pit kill persisten respawn.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -209,7 +210,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 233; // total test (230 + 3 bone pile)
+const EXPECTED_TOTAL = 234; // total test (233 + 1 pit persisten)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -998,12 +999,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('233 automated test'), 'README harus sebut 233 test, cek jumlah');
+  ok(readme.includes('234 automated test'), 'README harus sebut 234 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 233);
+  eq(EXPECTED_TOTAL, 234);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2900,6 +2901,23 @@ test('233 mati di jurang tanpa pile', () => {
   ok(ar.dead, 'archer mati di jurang');
   eq(G.getBonePiles().length, 0, 'jurang tak berpile');
   G.forceStartLevel(1);
+});
+test('234 korban jurang tetap mati setelah player respawn', () => {
+  G.restart(); // L1 fresh
+  const victim = G.getEnemies()[0];
+  const vid = victim.id;
+  const k0 = G.getStats().runKills;
+  victim.x = 565; victim.y = 650; victim.vx = 0; victim.vy = 0; // celah L1
+  G.step(1 / 60);
+  eq(G.getEnemies().length, 2, 'jatuh = dihapus');
+  eq(G.getPitDead().length, 1, 'spawn tercatat');
+  G.respawn(); // player mati/R: musuh biasa kembali, korban jurang tidak
+  eq(G.getEnemies().length, 2, 'korban jurang tetap hilang');
+  ok(!G.getEnemies().some((e) => e.id === vid), 'id korban tak kembali');
+  eq(G.getStats().runKills, k0 + 1, 'kill jurang tetap terhitung');
+  G.restart(); // level fresh: semua hidup lagi
+  eq(G.getEnemies().length, 3, 'restart pulihkan semua');
+  eq(G.getPitDead().length, 0, 'catatan dibersihkan');
 });
 
 // ---------- Ringkasan ----------

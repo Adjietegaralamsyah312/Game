@@ -1467,6 +1467,14 @@
   var bonePileIdx = 0;
   var BONE_PILE_MAX = 20;
 
+  /* Korban jurang permanen: spawn musuh yang jatuh ke jurang dicatat
+   * agar TIDAK dibangun ulang saat player respawn (retry). Sword-kill
+   * biasa tetap kembali (desain retry); jurang = hilang selamanya dalam
+   * level run ini. Dibersihkan saat ganti level/restart. */
+  var pitDead = [];
+
+  function pitKey(s) { return s.spawnX + ':' + s.spawnY; }
+
   function dropBonePile(s) {
     if (s.y > WORLD_H) return; // mati di jurang: tak ada pile
     var pile = { x: Math.round(s.x + s.w / 2), y: Math.round(s.y + s.h),
@@ -1520,9 +1528,11 @@
     if (s.guardFlash > 0) s.guardFlash -= dt;
     if (s.cooldown > 0) s.cooldown -= dt;
 
-    // Jatuh ke jurang = mati permanen (tidak respawn ke spawn).
-    // Kill dihitung sekali oleh loop hapus di updatePlaying.
+    // Jatuh ke jurang = mati permanen (tidak respawn ke spawn, bahkan
+    // saat player respawn — spawn dicatat di pitDead). Kill dihitung
+    // sekali oleh loop hapus di updatePlaying.
     if (s.y > WORLD_H + 100 && !s.dead) {
+      pitDead.push(pitKey(s));
       s.dead = true;
       return;
     }
@@ -1646,8 +1656,10 @@
     if (s.cooldown > 0) s.cooldown -= dt;
     var px = player.x + player.w / 2, sx = s.x + s.w / 2;
 
-    // Jatuh ke jurang = mati permanen (tidak respawn ke spawn).
+    // Jatuh ke jurang = mati permanen (tidak respawn ke spawn, bahkan
+    // saat player respawn — spawn dicatat di pitDead).
     if (s.y > WORLD_H + 100 && !s.dead) {
+      pitDead.push(pitKey(s));
       s.dead = true;
       return;
     }
@@ -3382,6 +3394,7 @@
     toast.t = 0;
     clearParticles();
     clearBonePiles(); // pile lama tak terbawa ke level baru
+    pitDead.length = 0; // level baru = semua musuh hidup lagi
     resetShake();
     hitStopT = 0; // tanpa freeze basi antar level
     player = createPlayer();
@@ -3885,7 +3898,11 @@
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
-    enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
+    // Korban jurang (pitDead) TIDAK dibangun ulang — sisanya kembali
+    // seperti biasa (desain retry). Boss/miniboss selalu kembali.
+    enemies = Level.enemySpawns.filter(function (sp) {
+      return pitDead.indexOf(sp.x + ':' + sp.y) < 0;
+    }).map(function (sp) { return createSlime(sp); });
     boss = spawnLevelBoss();
     miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
     shocks = [];
@@ -5552,6 +5569,7 @@
     // Treasure (behavior tests).
     getChests: function () { return chests; },
     getBonePiles: function () { return bonePiles; },
+    getPitDead: function () { return pitDead.slice(); },
     pickReward: pickTreasureReward,
     getRewards: function () { return TREASURE_REWARDS; },
     debugReward: function (type) {
