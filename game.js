@@ -2875,20 +2875,103 @@
     } else {
     var slimeVis = (currentLevel === 1);
     if (slimeVis) {
-      // Lightning Slime midboss — visual petir/prosedural
-      ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? '#e74c3c' : '#f1c40f');
-      ctx.fillRect(dx + 6, dy + 10, dw - 12, dh - 10); // tubuh utama bulat
-      ctx.fillStyle = '#f39c12';
-      ctx.fillRect(dx + dw/2 - 10, dy + 4, 20, 14); // kepala/inti
+      // Lightning Slime — polished midboss pixel-art procedural
+      var bob = (currentLevel === 1) ? Math.sin(t * 3) * 3 : 0; // idle bob
+      var intensity = (m.state === 'attack' || m.enraged) ? 1.2 : 1.0;
+      var cx = dx + dw / 2, cy = dy + dh / 2 - 6 + bob;
+
+      // Shadow under body
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + dh / 2 - 4, dw / 2 + 4, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Main organic slime body (rounded, slightly wider at bottom)
+      ctx.fillStyle = m.enraged ? '#c0392b' : '#27ae60';
+      ctx.beginPath();
+      ctx.arc(cx, cy, dw / 2 - 2, Math.PI * 0.2, Math.PI * 1.8);
+      ctx.lineTo(cx + dw / 2 - 4, cy + dh / 2 - 6);
+      ctx.lineTo(cx - dw / 2 + 4, cy + dh / 2 - 6);
+      ctx.closePath();
+      ctx.fill();
+      // Lower gel drip
+      ctx.fillStyle = '#2ecc71';
+      ctx.fillRect(cx - 6, cy + dh / 2 - 10, 12, 8);
+      ctx.fillRect(cx - 14, cy + dh / 2 - 6, 6, 4);
+      ctx.fillRect(cx + 8, cy + dh / 2 - 8, 6, 4);
+
+      // Mid-body highlight (shading)
+      ctx.fillStyle = '#2ecc71';
+      ctx.beginPath();
+      ctx.ellipse(cx - 6, cy - 2, 14, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner glowing core — bright blue with yellow pulse
       ctx.fillStyle = '#3498db';
-      ctx.fillRect(dx + dw/2 - 4, dy + 2, 8, 8); // inti petir
-      // Efek petir mengelilingi
-      ctx.fillStyle = 'rgba(52,152,219,0.6)';
-      ctx.fillRect(dx - 4, dy + 6, 4, 6);
-      ctx.fillRect(dx + dw, dy + 8, 4, 6);
-      ctx.fillRect(dx + dw/2 - 2, dy - 6, 4, 4);
-      ctx.fillStyle = '#fdcb6e';
-      ctx.fillRect(dx + dw/2 - 3, dy + 2, 6, 6); // highlight petir
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Core glow ring
+      ctx.fillStyle = 'rgba(52,152,219,0.35)';
+      ctx.beginPath();
+      ctx.arc(cx, cy - 2, 14 * intensity, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Lightning arcs around body (organic jagged lines)
+      ctx.strokeStyle = '#f1c40f';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - dw/2 + 2, cy - 10);
+      ctx.lineTo(cx - dw/2 + 8, cy - 18);
+      ctx.lineTo(cx - dw/2 + 4, cy + 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + dw/2 - 2, cy - 12);
+      ctx.lineTo(cx + dw/2 - 6, cy - 20);
+      ctx.lineTo(cx + dw/2 + 4, cy + 4);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - 4, cy + dh/2 - 2);
+      ctx.lineTo(cx - 10, cy + dh/2 + 8);
+      ctx.lineTo(cx + 4, cy + dh/2 + 2);
+      ctx.stroke();
+      // Small side sparks
+      ctx.fillStyle = '#fdfefe';
+      ctx.fillRect(cx - dw/2 - 2, cy - 6, 3, 3);
+      ctx.fillRect(cx + dw/2 + 2, cy - 4, 3, 3);
+      ctx.fillRect(cx - dw/2 - 4, cy + 6, 3, 3);
+
+      // Eyes — sharp, menacing (slightly angled)
+      ctx.fillStyle = '#1a1a2e';
+      var eyeOff = m.dir === 1 ? 10 : -10;
+      ctx.fillRect(cx + eyeOff - 4, cy - 16, 8, 5);
+      ctx.fillRect(cx - eyeOff - 4, cy - 10, 8, 5);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(cx + eyeOff - 2, cy - 14, 4, 3);
+      ctx.fillRect(cx - eyeOff - 2, cy - 8, 4, 3);
+      // Eye highlights
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(cx + eyeOff - 1, cy - 13, 2, 1);
+      ctx.fillRect(cx - eyeOff - 1, cy - 7, 2, 1);
+
+      // Attack / enrage aura boost (more sparks on attack)
+      if (m.state === 'attack' || m.enraged) {
+        ctx.strokeStyle = 'rgba(255,215,0,0.7)';
+        ctx.lineWidth = 1;
+        for (var s = 0; s < 6; s++) {
+          var ang = (s / 6) * Math.PI * 2 + t * 2;
+          var rx = Math.cos(ang) * (dw / 2 + 2);
+          var ry = Math.sin(ang) * (dh / 2 + 2);
+          ctx.beginPath();
+          ctx.moveTo(cx + rx * 0.3, cy + ry * 0.3);
+          ctx.lineTo(cx + rx, cy + ry);
+          ctx.stroke();
+        }
+      }
     } else {
     // Armor berat + jubah (enrage = semburat merah).
     ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? '#8a3a4a' : '#5a6478');
