@@ -813,10 +813,10 @@
       { x: 2200, y: 430 }
     ]
   };
-  /* Level 4 (Stage 9): LICH DOMAIN — escalation L3 + miniboss + RAJA LICH.
+  /* Level 4 (Stage 9): LICH DOMAIN — escalation L3 + RAJA LICH.
    * Backbone skeleton tetap, placement lebih cerdas (choke defender,
-   * archer support, verticality via rute atas). Miniboss PANGLIMA TULANG
-   * di tengah, RAJA LICH sebagai final encounter (goal null). */
+   * archer support, verticality via rute atas). RAJA LICH sebagai final
+   * encounter (goal null). Midboss Panglima Tulang berada di Level 3. */
   var Level4 = {
     name: 'Level 4',
     playerSpawn: { x: 80, y: 300 },
@@ -2645,7 +2645,7 @@
     }
   }
 
-  /* Stage 9: MINIBOSS — PANGLIMA TULANG (elite skeleton, Level 4).
+  /* Stage 9: MINIBOSS — Lightning Slime (L1, slime midboss) / Panglima Tulang (L3, skeleton midboss).
    * FSM ringkas reuse primitif (fisika, burst, shake, suara): idle →
    * telegraph → slash(berat)/dash(charge) → recovery → hurt → death.
    * Enrage <36 HP: cooldown lebih cepat. Bukan copy Heavy Slime:
