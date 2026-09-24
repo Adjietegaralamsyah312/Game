@@ -124,7 +124,7 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 209 automated test headless (node test.js)
+├── test.js             # 223 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
@@ -142,6 +142,29 @@ gate). Render memakai `drawImage` bottom-anchored + flip arah hadap
 (`imageSmoothingEnabled=false` tetap); bila sprite belum siap dipakai
 fallback prosedural sehingga game tak pernah crash. Hitbox/AI/HP/damage/
 timing tidak berubah oleh pergantian visual.
+
+## Visual Polish (Stage 11)
+
+- **Knight player art**: set heroik lokal `assets/sprites/knight-*.png`
+  (idle, walk 2-frame, attack, attack-2 kombo, jump, fall, hurt, death,
+  victory) — helm/visor, armor + trim emas, cape/tabard merah, pedang
+  silhouette jelas; dipakai bila siap dengan fallback ke `assets/knight/`
+  tanpa ubah hitbox, physics, timing, atau damage.
+- **Environment identities**: dekorasi data-driven `LEVEL_DECOR`
+  (torch api 2-frame, banner, ruin, bones, rune, soul, slime, pillar)
+  per level — Slime Grounds, Slime Dominion, Skeleton Fortress,
+  Lich Domain, Final Convergence. Parallax 3 layer dipertahankan.
+- **Combat effects**: busur slash memudar, semburan lepas panah,
+  hit-stop micro-freeze 30–80ms (cap, nonaktif saat reduced-motion),
+  shake cap 8, shield spark & telegraph existing dipertahankan.
+- **Treasure polish**: highlight emas saat player dekat, reward icon
+  bounce, hasil tetap Gold Shard/Health/Poison (tanpa Coin).
+- **Boss presentation**: aura intro (RAJA SLIME, PANGLIMA TULANG,
+  RAJA LICH), pulse transisi phase Lich — visual saja, balance utuh,
+  death-first & victoryArmed safety utuh.
+- **Victory**: judul `CAMPAIGN COMPLETE!`, stats Coin • Gold Shard •
+  Musuh • Mati • Waktu • Terbaik, tombol REPLAY/CAMPAIGN/MENU.
+- **HUD**: label `COIN n/m LVn` + `GOLD xN`, layout & safe-area sama.
 
 ## Cara menjalankan lokal
 
@@ -162,7 +185,8 @@ node test.js
 git diff --check
 ```
 
-209 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap) —
+223 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish) —
+target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan

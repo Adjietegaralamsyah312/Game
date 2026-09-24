@@ -44,6 +44,9 @@
   var PLAYER_MAX_HP = 100;
   var PLAYER_W = 40, PLAYER_H = 78;
   var PLAYER_DRAW = 96;    // sprite 32px digambar 3x
+  // Stage 11: offset kaki data-driven — baris opaque terbawah sprite knight
+  // (32px) harus tepat di hitbox bawah: dy + (32*3-15) = y + 78.
+  var KNIGHT_FEET_DY = 15;
   var HURT_DURATION = 0.35;
   var PLAYER_IFRAMES = 0.8;
   var PLAYER_KNOCKBACK_X = 300;
@@ -489,6 +492,19 @@
               'assets/sprites/raja-lich-strike.png'],
     chest:   ['assets/sprites/treasure-chest.png',
               'assets/sprites/treasure-chest-open.png'],
+    // Stage 11: heroic knight set (lokal, 32px, bottom row ~26 —
+    // kompatibel dengan matematika kaki PLAYER_DRAW). Dipakai player
+    // bila siap; fallback ke assets/knight/* bila gagal/belum siap.
+    knightIdle:   ['assets/sprites/knight-idle.png'],
+    knightWalk:   ['assets/sprites/knight-walk.png',
+                   'assets/sprites/knight-walk-2.png'],
+    knightAttack:  ['assets/sprites/knight-attack.png'],
+    knightAttack2: ['assets/sprites/knight-attack-2.png'],
+    knightJump:   ['assets/sprites/knight-jump.png'],
+    knightFall:   ['assets/sprites/knight-fall.png'],
+    knightHurt:   ['assets/sprites/knight-hurt.png'],
+    knightDeath:  ['assets/sprites/knight-death.png'],
+    knightVictory: ['assets/sprites/knight-victory.png'],
     // Coin level (collectible): coin.png. Treasure Gold Shard: gold-shard.png
     // (berlian emas — jelas beda dari koin bulat).
     coin:    ['assets/sprites/coin.png'],
@@ -497,10 +513,14 @@
               'assets/sprites/poison.png']
   };
   var ANIM_ORDER = ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'death',
-    'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lich', 'chest', 'coin', 'reward'];
+    'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lich', 'chest', 'coin', 'reward',
+    'knightIdle', 'knightWalk', 'knightAttack', 'knightAttack2', 'knightJump',
+    'knightFall', 'knightHurt', 'knightDeath', 'knightVictory'];
 
   var sprites = { idle: [], run: [], jump: [], fall: [], attack: [], hurt: [], death: [],
-    skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lich: [], chest: [], coin: [], reward: [] };
+    skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lich: [], chest: [], coin: [], reward: [],
+    knightIdle: [], knightWalk: [], knightAttack: [], knightAttack2: [], knightJump: [],
+    knightFall: [], knightHurt: [], knightDeath: [], knightVictory: [] };
   var assetsReady = false;
   var assetErrors = [];
 
@@ -1017,12 +1037,13 @@
       hurtT: 0, iframes: 0,
       deathT: 0, attackBox: null,
       landT: 0,      // squash pendaratan (polish Tahap 3)
-      queued: false  // buffer serangan beruntun (responsif, Tahap 3)
+      queued: false, // buffer serangan beruntun (responsif, Tahap 3)
+      combo: false   // Stage 11: ayunan rantai memakai pose attack-2
     };
   }
   var player = createPlayer();
 
-  function playerStartAttack() {
+  function playerStartAttack(combo) {
     player.state = 'attack';
     player.animTime = 0;
     player.attackT = 0;
@@ -1032,6 +1053,8 @@
     // yang di-interrupt hurt/death tidak boleh bocor ke kombo berikutnya.
     // Kombo/buffer normal aman: queued hanya di-set selama ayunan berjalan.
     player.queued = false;
+    // Stage 11: pose kombo hanya untuk ayunan rantai (tanpa ubah timing).
+    player.combo = !!combo;
     AudioManager.play('attack');
   }
 
@@ -1146,10 +1169,10 @@
       if (player.attackT >= total) {
         player.attackBox = null;
         if (player.queued) {
-          // Kombo beruntun: langsung ayun lagi tanpa cooldown.
+          // Kombo beruntun: langsung ayun lagi tanpa cooldown (pose attack-2).
           player.queued = false;
           player.attackCooldown = 0;
-          playerStartAttack();
+          playerStartAttack(true);
         } else {
           player.state = player.onGround ? (move !== 0 ? 'run' : 'idle') : 'fall';
           player.animTime = 0;
@@ -1225,24 +1248,47 @@
     else player.animTime += dt;
   }
 
+  // Stage 11: set knight heroik diutamakan; fallback ke set lama bila
+  // sprite belum siap/gagal (tanpa crash, tanpa ubah timing/hitbox).
+  function knightImg(list, i, fallback) {
+    try {
+      if (list && list[i]) return list[i];
+    } catch (e) { /* abaikan, pakai fallback */ }
+    return fallback;
+  }
+
   function playerAttackFrame() {
-    // Petakan fase attack -> sprite attack_0/1/2.
-    if (player.attackT < ATTACK_WINDUP) return sprites.attack[0];
-    if (player.attackT < ATTACK_WINDUP + ATTACK_STRIKE) return sprites.attack[1];
-    return sprites.attack[2];
+    // Petakan fase attack -> pose (kombo memakai silhouette attack-2).
+    var windup = player.attackT < ATTACK_WINDUP;
+    var strike = !windup && player.attackT < ATTACK_WINDUP + ATTACK_STRIKE;
+    if (player.combo) {
+      if (windup) return knightImg(sprites.knightAttack2, 0, sprites.attack[0]);
+      if (strike) return knightImg(sprites.knightAttack, 0, sprites.attack[1]);
+      return knightImg(sprites.knightAttack2, 0, sprites.attack[2]);
+    }
+    if (windup) return knightImg(sprites.knightAttack, 0, sprites.attack[0]);
+    if (strike) return knightImg(sprites.knightAttack2, 0, sprites.attack[1]);
+    return knightImg(sprites.knightAttack, 0, sprites.attack[2]);
   }
 
   function playerCurrentSprite() {
     switch (player.state) {
-      case 'run': return sprites.run[Math.floor(player.animTime * 10) % sprites.run.length];
-      case 'jump': return sprites.jump[0];
-      case 'fall': return sprites.fall[0];
+      case 'run':
+        if (sprites.knightWalk && sprites.knightWalk.length >= 2) {
+          return sprites.knightWalk[Math.floor(player.animTime * 10) % 2];
+        }
+        return sprites.run[Math.floor(player.animTime * 10) % sprites.run.length];
+      case 'jump': return knightImg(sprites.knightJump, 0, sprites.jump[0]);
+      case 'fall': return knightImg(sprites.knightFall, 0, sprites.fall[0]);
       case 'attack': return playerAttackFrame() || sprites.attack[0];
-      case 'hurt': return sprites.hurt[0];
+      case 'hurt': return knightImg(sprites.knightHurt, 0, sprites.hurt[0]);
       case 'death':
+        if (sprites.knightDeath && sprites.knightDeath[0]) return sprites.knightDeath[0];
         // death_0 lalu death_1 (tahan).
         return (player.deathT < 0.3 ? sprites.death[0] : sprites.death[1]) || sprites.death[0];
-      default: return sprites.idle[Math.floor(player.animTime * 6) % sprites.idle.length];
+      default:
+        if (sprites.knightIdle && sprites.knightIdle[0]) return sprites.knightIdle[0];
+        return sprites.idle[Math.floor(player.animTime * 6) % sprites.idle.length];
     }
   }
 
@@ -1611,6 +1657,8 @@
 
   function fireArrow(s) {
     spawnShot(s.x + s.w / 2 - 7, s.y + 14, s.dir, 'arrow');
+    // Stage 11: semburan lepas panah di ujung busur (pool bounded, visual saja).
+    burst(s.x + s.w / 2 + s.dir * 20, s.y + 17, 3, '#e8dfc9', 90, 0.2, 2, 150);
     s.relT = 0.18; // follow-through release realistis
   }
 
@@ -1696,8 +1744,10 @@
           var px = player.x + player.w / 2;
           if (slimeTakeDamage(s, ATTACK_DAMAGE, px, ATTACK_KNOCKBACK)) {
             // Impact jelas tapi ringan: shake singkat (damage flash + suara
-            // sudah di slimeTakeDamage).
+            // sudah di slimeTakeDamage). Stage 11: hit-stop micro-freeze
+            // (kill lebih lama, tanpa ubah damage/timing).
             triggerScreenShake(SHAKE_HIT, 0.15);
+            triggerHitStop(s.state === 'death' ? 0.06 : 0.03);
           }
         }
       }
@@ -1706,6 +1756,7 @@
           player.didStrikeHit.boss = true;
           if (hurtBoss(ATTACK_DAMAGE, player.x + player.w / 2)) {
             triggerScreenShake(SHAKE_HIT, 0.15);
+            triggerHitStop(0.04);
           }
         }
       }
@@ -1714,6 +1765,7 @@
           player.didStrikeHit.mini = true;
           if (hurtMiniboss(ATTACK_DAMAGE, player.x + player.w / 2)) {
             triggerScreenShake(SHAKE_HIT, 0.15);
+            triggerHitStop(0.04);
           }
         }
       }
@@ -1847,15 +1899,33 @@
   }
 
   var shake = { mag: 0, t: 1, dur: 1, ox: 0, oy: 0 };
+  // Stage 11: cap anti runaway — shake tak pernah melebihi maksimum,
+  // durasi pendek; stacking berlebih ditolak oleh guard existing.
+  var SHAKE_MAX = 8;
 
   function triggerScreenShake(amount, duration) {
     // Reduced motion: shake visual dinonaktifkan, gameplay tidak berubah.
     if (reducedMotion) return;
-    if (amount >= shake.mag || shake.t >= shake.dur) {
-      shake.mag = amount;
+    var a = amount > SHAKE_MAX ? SHAKE_MAX : amount;
+    if (a >= shake.mag || shake.t >= shake.dur) {
+      shake.mag = a;
       shake.t = 0;
       shake.dur = Math.max(0.01, duration);
     }
+  }
+
+  /* Stage 11: HIT-STOP / micro-freeze (30–80ms, impact terasa berat).
+   * Hanya saat playing, bukan victory/death/pause/menu. Timer dikonsumsi
+   * di awal updatePlaying (deterministik untuk testing). Reduced-motion:
+   * hit-stop dinonaktifkan (jalan terus). Cap 0.08 dtk, tanpa freeze UI. */
+  var hitStopT = 0;
+  var HIT_STOP_MAX = 0.08;
+
+  function triggerHitStop(t) {
+    if (reducedMotion) return;
+    if (!(t > 0)) return;
+    var nt = hitStopT + t;
+    hitStopT = nt > HIT_STOP_MAX ? HIT_STOP_MAX : nt;
   }
 
   function updateShake(dt) {
@@ -1893,6 +1963,112 @@
       decorNear.push({ x: i * 220 + rnd() * 100, w: 26 + rnd() * 30, h: 40 + rnd() * 50 });
     }
   })();
+
+  /* Stage 11: LEVEL DECORATIONS (data-driven, world-space, tanpa alokasi
+   * per-frame). Setiap level punya identitas: torch (api 2-frame
+   * deterministik), banner, ruin, bones, rune, soul, slime, pillar.
+   * Semua menapak GROUND_TOP; x dipilih di segmen tanah (di luar celah).
+   * Collision tidak berubah — murni visual. */
+  var LEVEL_DECOR = {
+    1: [{ k: 'torch', x: 200 }, { k: 'slime', x: 450 }, { k: 'ruin', x: 900 },
+        { k: 'torch', x: 1300 }, { k: 'slime', x: 1500 }, { k: 'ruin', x: 2000 }],
+    2: [{ k: 'torch', x: 300 }, { k: 'banner', x: 700 }, { k: 'slime', x: 800 },
+        { k: 'ruin', x: 1200 }, { k: 'banner', x: 1300 }, { k: 'slime', x: 1600 },
+        { k: 'torch', x: 2100 }],
+    3: [{ k: 'banner', x: 400 }, { k: 'bones', x: 800 }, { k: 'banner', x: 1300 },
+        { k: 'bones', x: 1500 }, { k: 'torch', x: 1800 }, { k: 'banner', x: 2000 },
+        { k: 'bones', x: 2200 }],
+    4: [{ k: 'rune', x: 300 }, { k: 'soul', x: 700 }, { k: 'pillar', x: 1000 },
+        { k: 'rune', x: 1200 }, { k: 'soul', x: 1600 }, { k: 'pillar', x: 1800 },
+        { k: 'rune', x: 2000 }, { k: 'torch', x: 2200 }],
+    5: [{ k: 'torch', x: 200 }, { k: 'slime', x: 300 }, { k: 'banner', x: 600 },
+        { k: 'bones', x: 900 }, { k: 'rune', x: 1400 }, { k: 'ruin', x: 1700 },
+        { k: 'torch', x: 2100 }]
+  };
+  var DECOR_BANNER = { 1: '#5ec46f', 2: '#a03a3a', 3: '#8a97a8', 4: '#b46ae0', 5: '#c98a6b' };
+
+  function drawLevelDecor() {
+    var list = LEVEL_DECOR[currentLevel];
+    if (!list) return;
+    var g = GROUND_TOP;
+    // Api/obor 2-frame deterministik (pola sama seperti obor arena).
+    var fl = 0;
+    try { fl = reducedMotion ? 0 : Math.floor(nowPerf() / 180) % 2; } catch (e) { fl = 0; }
+    var i, d, x;
+    for (i = 0; i < list.length; i++) {
+      d = list[i];
+      x = Math.round(d.x);
+      if (x < camera.x - 60 || x > camera.x + VIEW_W + 60) continue; // cull murah
+      if (d.k === 'torch') {
+        ctx.fillStyle = '#4a3524';
+        ctx.fillRect(x, g - 30, 5, 30);
+        ctx.fillStyle = '#2c2118';
+        ctx.fillRect(x - 2, g - 34, 9, 5);
+        var fh = fl ? 13 : 10;
+        ctx.fillStyle = '#e0682a';
+        ctx.fillRect(x - 1, g - 34 - fh, 7, fh);
+        ctx.fillStyle = '#ffd23f';
+        ctx.fillRect(x + 1, g - 34 - fh, 3, fh - 4);
+      } else if (d.k === 'banner') {
+        ctx.fillStyle = '#2c2118';
+        ctx.fillRect(x, g - 74, 3, 74);
+        ctx.fillStyle = DECOR_BANNER[currentLevel] || '#8a8fa8';
+        ctx.fillRect(x + 3, g - 70, 20, 26);
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(x + 3, g - 70 + 22, 20, 4);
+        ctx.fillStyle = '#ffd23f';
+        ctx.fillRect(x + 9, g - 64, 8, 4);
+      } else if (d.k === 'ruin') {
+        ctx.fillStyle = '#3a3f5c';
+        ctx.fillRect(x, g - 18, 26, 18);
+        ctx.fillRect(x + 4, g - 28, 14, 10);
+        ctx.fillStyle = '#262b40';
+        ctx.fillRect(x, g - 4, 26, 4);
+        ctx.fillRect(x + 4, g - 28, 14, 3);
+      } else if (d.k === 'bones') {
+        ctx.fillStyle = '#a8a49a';
+        ctx.fillRect(x, g - 6, 24, 6);
+        ctx.fillStyle = '#d6d3c9';
+        ctx.fillRect(x + 3, g - 10, 8, 5);
+        ctx.fillRect(x + 13, g - 9, 6, 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + 5, g - 9, 3, 3);
+      } else if (d.k === 'rune') {
+        var pulse = 1;
+        try { pulse = reducedMotion ? 1 : (0.7 + 0.3 * Math.sin(nowPerf() / 400 + x)); } catch (e) { pulse = 1; }
+        ctx.fillStyle = '#241a38';
+        ctx.fillRect(x, g - 14, 22, 14);
+        ctx.fillStyle = pulse > 0.85 ? '#e8c9ff' : '#b46ae0';
+        ctx.fillRect(x + 4, g - 11, 14, 3);
+        ctx.fillRect(x + 9, g - 14, 4, 14);
+      } else if (d.k === 'soul') {
+        var bob = 0;
+        try { bob = reducedMotion ? 0 : Math.round(Math.sin(nowPerf() / 500 + x) * 4); } catch (e) { bob = 0; }
+        ctx.fillStyle = 'rgba(159,216,255,0.35)';
+        ctx.fillRect(x - 2, g - 52 + bob, 12, 12);
+        ctx.fillStyle = '#9fd8ff';
+        ctx.fillRect(x + 1, g - 49 + bob, 6, 6);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + 2, g - 48 + bob, 3, 3);
+      } else if (d.k === 'slime') {
+        ctx.fillStyle = '#2a8a3a';
+        ctx.fillRect(x, g - 5, 26, 5);
+        ctx.fillStyle = '#4fc94f';
+        ctx.fillRect(x + 4, g - 9, 12, 5);
+        ctx.fillRect(x + 16, g - 7, 7, 3);
+        ctx.fillStyle = '#a5f0a0';
+        ctx.fillRect(x + 6, g - 8, 4, 2);
+      } else if (d.k === 'pillar') {
+        ctx.fillStyle = '#241a38';
+        ctx.fillRect(x, g - 92, 16, 92);
+        ctx.fillStyle = '#4a3670';
+        ctx.fillRect(x, g - 92, 16, 6);
+        ctx.fillRect(x, g - 8, 16, 8);
+        ctx.fillStyle = '#b46ae0';
+        ctx.fillRect(x + 6, g - 86, 4, 60);
+      }
+    }
+  }
 
   /* ====================== 11. GAME STATE ====================== */
   // Stage 5: 'menu' (awal) + 'levelcomplete' + 'gamecomplete' melengkapi
@@ -2051,7 +2227,7 @@
   var lvlclearEl = null, lvlclearStats = null;
   var btnNext = null, btnReplay = null, btnLvlMenu = null;
   var gameclearEl = null, gameclearStats = null;
-  var btnAgain2 = null, btnGameMenu = null;
+  var btnAgain2 = null, btnGameMenu = null, btnGameCampaign = null;
 
   function createBoss(spawn, arena, mods) {
     // mods opsional (mis. L5 gauntlet): {hpMul}. L2 tanpa mods = perilaku
@@ -2160,6 +2336,9 @@
         showToast('RAJA SLIME MUNCUL!');
         AudioManager.play('bossAttack');
         triggerScreenShake(SHAKE_HURT, 0.3);
+        // Stage 11: aura intro (visual saja, pool bounded, tanpa ubah AI).
+        burst(b.x + b.w / 2, b.y + b.h / 2, 12, '#4fc94f', 180, 0.6, 4, 250);
+        burst(b.x + b.w / 2, b.y + b.h / 2, 6, '#ffffff', 120, 0.5, 3, 200);
       }
       if (b.idleT >= 0.5 && b.cooldown <= 0 && bossSeesPlayer(b)) {
         b.pattern = BOSS_PATTERNS[b.patIdx % BOSS_PATTERNS.length];
@@ -2375,6 +2554,9 @@
         showToast('PANGLIMA TULANG MUNCUL!');
         AudioManager.play('minibossCue');
         triggerScreenShake(SHAKE_HURT, 0.3);
+        // Stage 11: aura intro (visual saja, tanpa ubah pola/timing).
+        burst(m.x + m.w / 2, m.y + m.h / 2, 12, '#d6deea', 180, 0.6, 4, 250);
+        burst(m.x + m.w / 2, m.y + m.h / 2, 6, '#c9a227', 120, 0.5, 3, 200);
       }
       if (m.idleT >= 0.6 && m.cooldown <= 0 && miniSeesPlayer(m)) {
         m.pattern = (m.patIdx % 2 === 0) ? 'slash' : 'dash';
@@ -2573,6 +2755,8 @@
       triggerScreenShake(SHAKE_HURT, 0.3);
       AudioManager.play('phaseShift');
       showToast(np >= 3 ? 'RAJA LICH MURKA!' : 'RAJA LICH MENGAMUK!');
+      // Stage 11: pulse transisi phase (visual saja, tanpa ubah damage).
+      burst(b.x + b.w / 2, b.y + b.h / 2, 10, np >= 3 ? '#e05252' : '#b46ae0', 170, 0.6, 4, 250);
     }
     b.state = 'hurt';
     b.hurtT = 0;
@@ -2605,6 +2789,9 @@
         showToast('RAJA LICH MUNCUL!');
         AudioManager.play('lichMagic');
         triggerScreenShake(SHAKE_HURT, 0.3);
+        // Stage 11: aura entrance ungu (visual saja, tanpa ubah FSM).
+        burst(b.x + b.w / 2, b.y + b.h / 2, 14, '#b46ae0', 190, 0.7, 4, 250);
+        burst(b.x + b.w / 2, b.y + b.h / 2, 6, '#e8c9ff', 120, 0.5, 3, 200);
       }
       return;
     }
@@ -3115,6 +3302,7 @@
     toast.t = 0;
     clearParticles();
     resetShake();
+    hitStopT = 0; // tanpa freeze basi antar level
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
@@ -3535,8 +3723,11 @@
     persistSave();
     refreshRecordsUI();
     if (gameclearEl) {
-      var txt = 'Waktu total: ' + timeElapsed.toFixed(1) + ' dtk • Musuh: ' +
-        runStats.kills + ' • Coin: ' + runStats.coins + ' • Gold Shard: ' + (runStats.goldShards || 0) + ' • Mati: ' + deaths;
+      // Stage 11: hierarchy — Coin, Gold Shard, Musuh, Mati, Waktu, Best.
+      // Tanpa statistik palsu: semua dari run aktual + best tersimpan.
+      var txt = 'Coin: ' + runStats.coins + ' • Gold Shard: ' + (runStats.goldShards || 0) +
+        ' • Musuh: ' + runStats.kills + ' • Mati: ' + deaths +
+        ' • Waktu: ' + timeElapsed.toFixed(1) + ' dtk';
       if (save.bestTime != null) txt += ' • Terbaik: ' + Number(save.bestTime).toFixed(1) + ' dtk';
       if (gameclearStats) gameclearStats.textContent = txt;
       gameclearEl.classList.remove('hidden');
@@ -3631,6 +3822,7 @@
     finalT = 0;
     clearParticles();
     resetShake();
+    hitStopT = 0; // tanpa freeze basi setelah respawn
     clearInput();
     gameState = 'playing';
     gameOverT = 0;
@@ -3845,7 +4037,10 @@
     if (player.state !== 'death' && player.iframes > 0) {
       if (Math.floor(player.animTime * 14) % 2 === 0) return;
     }
-    var img = playerCurrentSprite();
+    // Stage 11: pose victory heroik di layar menang (tanpa ubah FSM).
+    var victoryPose = (gameState === 'levelcomplete' || gameState === 'gamecomplete') &&
+      player.state !== 'death' && sprites.knightVictory && sprites.knightVictory[0];
+    var img = victoryPose ? sprites.knightVictory[0] : playerCurrentSprite();
     if (!img) return;
     // Squash pendaratan + napas idle (polish: offset piksel bulat, murah).
     var squashing = player.landT > 0;
@@ -3854,9 +4049,9 @@
     var dx = Math.round(player.x + player.w / 2 - dw / 2);
     // Kaki menapak tanah: baris opaque terbawah sprite (baris 26 dari 32,
     // tepi bawah = 81px dari atas sprite 96px) harus tepat di hitbox bawah:
-    // dy + 81 = y + 78  ->  offset +15 (h-dh = -18). Saat squash, bawah
-    // dipin di tanah agar gepeng melebar, bukan tenggelam.
-    var dy = Math.round(player.y + player.h - dh + (squashing ? 0 : 15));
+    // dy + 81 = y + 78  ->  offset KNIGHT_FEET_DY (h-dh = -18). Saat squash,
+    // bawah dipin di tanah agar gepeng melebar, bukan tenggelam.
+    var dy = Math.round(player.y + player.h - dh + (squashing ? 0 : KNIGHT_FEET_DY));
     if (player.state === 'idle') dy += Math.round(Math.sin(player.animTime * 9));
     var cx = dx + dw / 2;
     drawFacing(function () {
@@ -3869,12 +4064,20 @@
     }, dx, cx, player.facing);
   }
 
-  // Efek tebasan: 3 garis energi mengikuti arah serangan, hanya fase strike.
-  // Tanpa state tambahan — murni turunan dari attackBox yang sudah ada.
+  // Efek tebasan: busur slash + 3 garis energi mengikuti arah serangan,
+  // hanya fase strike. Tanpa state tambahan — murni turunan dari attackBox
+  // dan attackT yang sudah ada (fade mengikuti progres fase).
   function drawSlash() {
     if (!player.attackBox) return;
     var ab = player.attackBox;
     var fx = player.facing;
+    // Busur ayunan: bara lebar memudar seiring attackT (anticipation->strike).
+    var prog = clamp(player.attackT / (ATTACK_WINDUP + ATTACK_STRIKE), 0, 1);
+    var arcA = 0.30 * (1 - prog) + 0.10;
+    ctx.fillStyle = 'rgba(160,200,255,' + arcA.toFixed(2) + ')';
+    var aw = Math.round(ab.w * (0.6 + 0.4 * prog));
+    var ax = fx === 1 ? ab.x + ab.w - aw : ab.x;
+    ctx.fillRect(Math.round(ax), Math.round(ab.y + 4), aw, Math.round(ab.h - 8));
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     for (var i = 0; i < 3; i++) {
       var off = i * 12;
@@ -4255,9 +4458,12 @@
     }
   }
 
-  /* Treasure Chest visual: closed (sparkle idle) / opening (bob+glow) /
-   * opened (lid terbuka + reward icon pop). Sprite PNG bila siap. */
+  /* Stage 11: Treasure Chest visual — closed (sparkle idle + highlight
+   * saat player dekat) / opening (bob+glow) / opened (lid + reward icon
+   * pop dengan bounce). Sprite PNG bila siap. Reward tetap Gold Shard /
+   * Health / Poison — tanpa Coin. */
   function drawChests() {
+    var pcx = player.x + player.w / 2, pcy = player.y + player.h / 2;
     for (var i = 0; i < chests.length; i++) {
       var c = chests[i];
       var bobY = (c.state === 'opening')
@@ -4280,13 +4486,25 @@
           ctx.fillStyle = '#fff2c9';
           ctx.fillRect(Math.round(c.x + c.w / 2 - 1), Math.round(c.y) + bobY - 8, 3, 3);
         }
+        // Highlight saat player dekat (radius ~110px): bingkai emas tipis.
+        var ccx = c.x + c.w / 2, ccy = c.y + c.h / 2;
+        var near = Math.abs(pcx - ccx) < 110 && Math.abs(pcy - ccy) < 110;
+        if (near && c.state === 'closed') {
+          var pulse = 0.35;
+          try { pulse = reducedMotion ? 0.35 : 0.30 + 0.15 * Math.sin(nowPerf() / 300); } catch (e) { pulse = 0.35; }
+          ctx.fillStyle = 'rgba(255,210,99,' + pulse.toFixed(2) + ')';
+          ctx.fillRect(Math.round(c.x) - 2, Math.round(c.y) + bobY - 2, c.w + 4, 2);
+          ctx.fillRect(Math.round(c.x) - 2, Math.round(c.y) + bobY + c.h, c.w + 4, 2);
+        }
         if (c.state === 'opening') {
           ctx.fillStyle = 'rgba(255,210,99,' + (0.25 + 0.35 * (c.openT / TREASURE_OPEN_T)).toFixed(2) + ')';
           ctx.fillRect(Math.round(c.x) - 3, Math.round(c.y) + bobY - 3, c.w + 6, c.h + 6);
         }
       } else if (c.reward && c.iconT < 1.2) {
-        // Reward icon pop: naik + fade (tanpa alokasi).
-        var iy = Math.round(c.y - 14 - c.iconT * 34);
+        // Reward icon pop: naik + bounce + fade (tanpa alokasi).
+        var bounce = 0;
+        try { bounce = reducedMotion ? 0 : Math.round(Math.abs(Math.sin(c.iconT * 10)) * -4); } catch (e) { bounce = 0; }
+        var iy = Math.round(c.y - 14 - c.iconT * 34) + bounce;
         var a = c.iconT < 0.8 ? 1 : Math.max(0, 1 - (c.iconT - 0.8) / 0.4);
         var rimg = foeImg(sprites.reward, c.reward.visual);
         ctx.save();
@@ -4415,7 +4633,7 @@
     }
     ctx.fillStyle = '#fff2c9';
     ctx.font = 'bold 12px monospace';
-    ctx.fillText(coinGot() + '/' + coins.length + '  LV' + currentLevel, VIEW_W - 124, 57);
+    ctx.fillText('COIN ' + coinGot() + '/' + coins.length + ' LV' + currentLevel, VIEW_W - 124, 57);
     // Gold Shard terpisah dari coin level (sistem treasure sendiri).
     var gimg = foeImg(sprites.reward, 0);
     if (gimg) ctx.drawImage(gimg, VIEW_W - 140, 70, 14, 14);
@@ -4424,7 +4642,7 @@
       ctx.fillRect(VIEW_W - 140, 70, 14, 14);
     }
     ctx.fillStyle = '#fff2c9';
-    ctx.fillText('x' + (runStats.goldShards || 0), VIEW_W - 124, 78);
+    ctx.fillText('GOLD x' + (runStats.goldShards || 0), VIEW_W - 124, 78);
 
     // --- Bar HP foe besar (boss / miniboss aktif; boss diprioritaskan) ---
     var foeBar = (boss && !boss.dead) ? boss : ((miniboss && !miniboss.dead) ? miniboss : null);
@@ -4555,6 +4773,13 @@
   /* Stage 5: satu langkah simulasi gameplay. Dipakai frame() dan
    * diekspos sebagai step() untuk testing deterministik headless. */
   function updatePlaying(dt) {
+    // Stage 11: hit-stop micro-freeze — dunia diam sangat singkat saat
+    // impact (bukan victory/death/pause). Timer saja yang jalan.
+    if (hitStopT > 0) {
+      hitStopT -= dt;
+      if (hitStopT < 0) hitStopT = 0;
+      return;
+    }
     // M3: R/Enter saat PLAYING -> respawn checkpoint (ekspektasi HUD).
     // Jangan reset campaign/progression; pakai respawn() existing.
     // Abaikan saat victory armed atau player death (hindari batal victory/death flow).
@@ -4630,6 +4855,7 @@
     ctx.translate(-shx, shy);
     drawArenaDecor();
     drawPlatforms();
+    drawLevelDecor();
     drawCheckpoints();
     drawGoal();
     drawCoins();
@@ -4654,6 +4880,7 @@
     ctx.save();
     ctx.translate(-Math.round(camera.x), 0);
     drawPlatforms();
+    drawLevelDecor();
     drawCheckpoints();
     drawGoal();
     ctx.restore();
@@ -4781,6 +5008,7 @@
   gameclearStats = document.getElementById('gameclear-stats');
   btnAgain2 = document.getElementById('btn-again2');
   btnGameMenu = document.getElementById('btn-gamemenu');
+  btnGameCampaign = document.getElementById('btn-gamecampaign');
   // Stage 6: overlay settings + reset + records.
   btnSettings = document.getElementById('btn-settings');
   settingsEl = document.getElementById('settings');
@@ -4867,6 +5095,9 @@
   onClick(btnLvlMenu, function () { toMenu(); });
   onClick(btnAgain2, function () { playFresh(); });
   onClick(btnGameMenu, function () { toMenu(); });
+  // Stage 11: CAMPAIGN dari victory -> menu dulu (openCampaign parent-nya
+  // Main Menu), lalu buka panel campaign. Keyboard + touch friendly.
+  onClick(btnGameCampaign, function () { toMenu(); openCampaign(); });
   // Bug fix: Game Over -> Main Menu via toMenu() yang sudah ada.
   // toMenu() tak menyentuh save/progresi/unlock/best; BGM ikut state menu.
   onClick(btnGameOverMenu, function () { toMenu(); });
@@ -5183,11 +5414,17 @@
     },
     getSprites: function () { return sprites; },
     drawOnce: function () { drawWorld(); drawHUD(); return true; },
+    // Stage 11: sprite player per state (test mapping animasi).
+    playerSprite: playerCurrentSprite,
     foeFrameFor: foeFrameFor,
     bossFrameFor: bossFrameFor,
     // Hardening hooks (behavior tests, tidak memengaruhi gameplay).
     getVictoryArmed: function () { return victoryArmed; },
     getShocks: function () { return shocks; },
+    // Stage 11: hit-stop hooks (tanpa memengaruhi gameplay).
+    getHitStop: function () { return hitStopT; },
+    hitStop: triggerHitStop,
+    getShakeMag: function () { return shake.mag; },
     // Stage 10: campaign select + explicit pause + reduced motion.
     openCampaign: openCampaign,
     campaignBack: campaignBack,

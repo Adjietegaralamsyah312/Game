@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 209 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 223 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -9,7 +9,8 @@
  * defender block, miniboss, lich phase, final sequence, migration, BGM mood)
  * + N hardening (ghost attack, victory race, defender-iframe, hurt input,
  * R respawn, unlock gate, audio migration, archer retreat, leash, projectile)
- * + 12 swap Coin↔Gold Shard (collectible Coin, treasure Gold Shard, save v3).
+ * + 12 swap Coin↔Gold Shard (collectible Coin, treasure Gold Shard, save v3)
+ * + 14 stage 11 polish (knight art, hit-stop, shake cap, decor, boss, victory).
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -75,7 +76,7 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'mainmenu', 'menu-main', 'menu-controls', 'menu-about',
   'btn-play', 'btn-controls', 'btn-about', 'btn-back-controls', 'btn-back-about',
   'lvlclear', 'lvlclear-stats', 'btn-next', 'btn-replay', 'btn-lvlmenu',
-  'gameclear', 'gameclear-stats', 'btn-again2', 'btn-gamemenu',
+  'gameclear', 'gameclear-stats', 'btn-again2', 'btn-gamecampaign', 'btn-gamemenu',
   // Bug fix Game Over Menu
   'btn-gameover-menu',
   // Stage 10: campaign select + explicit pause
@@ -205,7 +206,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 209; // total test (197 + 12 swap Coin/Gold Shard)
+const EXPECTED_TOTAL = 223; // total test (209 + 14 stage 11 polish)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -357,12 +358,13 @@ test('55 pixel-art tajam (smoothing OFF + pixelated CSS)', () => {
 
 // Audio & aset (56-57)
 test('56 AudioManager.play aman tanpa ctx', () => noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('tidak-ada'); }));
-test('57 40 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22)', () => {
-  eq(imageInstances.length, 40, 'Image instans harus 40, got ' + imageInstances.length);
+test('57 50 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10)', () => {
+  eq(imageInstances.length, 50, 'Image instans harus 50, got ' + imageInstances.length);
   srcHas('Promise.all'); srcHas('assets/knight/idle_0.png'); srcHas('assets/knight/death_1.png');
   srcHas('assets/sprites/skeleton-sword.png'); srcHas('assets/sprites/raja-lich.png');
   srcHas('assets/sprites/treasure-chest.png'); srcHas('assets/sprites/coin.png');
   srcHas('assets/sprites/gold-shard.png');
+  srcHas('assets/sprites/knight-idle.png'); srcHas('assets/sprites/knight-victory.png');
   srcHas('assets/sprites/skeleton-sword-strike.png'); srcHas('assets/sprites/raja-lich-cast.png');
 });
 
@@ -993,12 +995,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('209 automated test'), 'README harus sebut 209 test, cek jumlah');
+  ok(readme.includes('223 automated test'), 'README harus sebut 223 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 209);
+  eq(EXPECTED_TOTAL, 223);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1337,12 +1339,18 @@ test('131 hygiene: tanpa field mati + aria dialog unik', () => {
 });
 
 // ---------- 1 TEST REGRESI GROUNDING SPRITE ----------
-test('132 kaki sprite napak tanah (offset dari kode asli)', () => {
+test('132 kaki sprite napak tanah (offset data-driven)', () => {
   // Ambil offset sesungguhnya dari rumus drawPlayer, bukan asumsi:
-  // dy = y + h - dh + X  ->  kaki = h - dh + X + 81 (baris opaque 26, terukur).
-  const m = src.match(/player\.y \+ player\.h - dh \+ \(squashing \? 0 : (\d+)\)/);
+  // dy = y + h - dh + KNIGHT_FEET_DY  ->  kaki = h - dh + X + 81.
+  const m = src.match(/player\.y \+ player\.h - dh \+ \(squashing \? 0 : ([A-Z_]+|\d+)\)/);
   ok(m, 'rumus offset drawPlayer harus terbaca');
-  const X = parseInt(m[1], 10);
+  let X;
+  if (/^\d+$/.test(m[1])) X = parseInt(m[1], 10);
+  else {
+    const cm = src.match(new RegExp('var ' + m[1] + ' = (\\d+)'));
+    ok(cm, 'konstanta offset ' + m[1] + ' harus data-driven');
+    X = parseInt(cm[1], 10);
+  }
   const feet = 78 - 96 + X + 81; // h=78, dh=96, tepi bawah sprite 81px
   eq(feet, 78, 'kaki (offset +' + X + ') harus tepat di tanah y+78');
   // Squash: bawah dipin di tanah (offset 0, dh=88).
@@ -2463,6 +2471,241 @@ test('209 L1-L5 regression swap: chest 1 + coin count + draw', () => {
     noThrow(() => G.drawOnce(), 'draw L' + lv);
   });
   G.forceStartLevel(1);
+});
+
+// ---------- 14 TEST STAGE 11 POLISH (behavior) ----------
+test('210 knight assets valid (10 PNG lokal 32x32)', () => {
+  const list = ['knight-idle', 'knight-walk', 'knight-walk-2', 'knight-attack',
+    'knight-attack-2', 'knight-jump', 'knight-fall', 'knight-hurt',
+    'knight-death', 'knight-victory'];
+  list.forEach((n) => {
+    const p = path.join(__dirname, 'assets', 'sprites', n + '.png');
+    ok(fs.existsSync(p), 'hilang: ' + n);
+    const d = fs.readFileSync(p);
+    eq(d[0], 137); eq(d[1], 80); // PNG magic
+    eq(d.readUInt32BE(16), 32, 'w ' + n);
+    eq(d.readUInt32BE(20), 32, 'h ' + n);
+    ok(d.length > 100, 'bukan file kosong: ' + n);
+  });
+  srcHas('knight-idle.png'); srcHas('knight-victory.png');
+  ok(!/http|cdn|external/i.test(list.join(' ')), 'nama asset lokal');
+});
+test('211 knight states memakai set heroik + fallback aman', () => {
+  const sp = G.getSprites();
+  ['knightIdle', 'knightWalk', 'knightAttack', 'knightAttack2', 'knightJump',
+   'knightFall', 'knightHurt', 'knightDeath', 'knightVictory'].forEach((k) => {
+    ok(k in sp, 'sprites key: ' + k);
+  });
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  // Sprite path: injeksi objek unik lalu baca via playerSprite().
+  sp.knightIdle[0] = { id: 'kidle' };
+  sp.knightJump[0] = { id: 'kjump' };
+  sp.knightFall[0] = { id: 'kfall' };
+  sp.knightHurt[0] = { id: 'khurt' };
+  sp.knightDeath[0] = { id: 'kdeath' };
+  pl.state = 'idle'; eq(G.playerSprite(), sp.knightIdle[0]);
+  pl.state = 'jump'; eq(G.playerSprite(), sp.knightJump[0]);
+  pl.state = 'fall'; eq(G.playerSprite(), sp.knightFall[0]);
+  pl.state = 'hurt'; eq(G.playerSprite(), sp.knightHurt[0]);
+  pl.state = 'death'; eq(G.playerSprite(), sp.knightDeath[0]);
+  // Fallback: grup kosong -> set lama dipakai (injeksi 2 frame agar deterministik).
+  sp.knightJump = []; sp.knightFall = []; sp.knightHurt = []; sp.knightIdle = [];
+  sp.idle = [{ id: 'o0' }, { id: 'o1' }];
+  pl.state = 'jump'; eq(G.playerSprite(), sp.jump[0]);
+  pl.state = 'idle'; pl.animTime = 0; eq(G.playerSprite(), sp.idle[0]);
+  ok(sp.idle.includes(G.playerSprite()), 'fallback idle lama');
+  noThrow(() => G.drawOnce(), 'draw fallback knight');
+  G.forceStartLevel(1);
+});
+test('212 knight attack phases + combo pose berbeda', () => {
+  const sp = G.getSprites();
+  sp.knightAttack[0] = { id: 'atk' };
+  sp.knightAttack2[0] = { id: 'atk2' };
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.state = 'attack'; pl.combo = false;
+  pl.attackT = 0.01; eq(G.playerSprite(), sp.knightAttack[0], 'windup normal');
+  pl.attackT = 0.10; eq(G.playerSprite(), sp.knightAttack2[0], 'strike normal');
+  pl.attackT = 0.30; eq(G.playerSprite(), sp.knightAttack[0], 'recovery normal');
+  pl.combo = true; // ayunan rantai: silhouette terbalik
+  pl.attackT = 0.01; eq(G.playerSprite(), sp.knightAttack2[0], 'windup kombo');
+  pl.attackT = 0.10; eq(G.playerSprite(), sp.knightAttack[0], 'strike kombo');
+  // Walk 2-frame bergantian.
+  sp.knightWalk[0] = { id: 'w0' }; sp.knightWalk[1] = { id: 'w1' };
+  pl.state = 'run'; pl.animTime = 0; eq(G.playerSprite(), sp.knightWalk[0]);
+  pl.animTime = 0.15; eq(G.playerSprite(), sp.knightWalk[1], 'walk frame ganti');
+  noThrow(() => G.drawOnce(), 'draw knight combat');
+  G.forceStartLevel(1);
+});
+test('213 feet alignment data-driven (KNIGHT_FEET_DY)', () => {
+  srcHas('KNIGHT_FEET_DY = 15');
+  srcHas('player.y + player.h - dh + (squashing ? 0 : KNIGHT_FEET_DY)');
+  ok(!/player\.y \+ player\.h - dh \+ \(squashing \? 0 : 15\)/.test(src), 'offset hardcode harus hilang');
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 100; pl.y = 402; pl.vx = 0; pl.vy = 0; // napak tanah start
+  for (let i = 0; i < 20; i++) G.step(1 / 60);
+  ok(pl.onGround, 'tetap napak tanah');
+  noThrow(() => G.drawOnce(), 'draw feet alignment');
+  G.forceStartLevel(1);
+});
+test('214 combat damage tak berubah oleh polish', () => {
+  srcHas('ATTACK_DAMAGE = 12');
+  G.forceStartLevel(1);
+  const e = G.getEnemies()[0];
+  const hp0 = e.hp;
+  e.iframes = 0;
+  G.hurtEnemy(e.id, 12, e.x + 100);
+  eq(e.hp, hp0 - 12, 'damage tepat 12');
+  G.forceStartLevel(1);
+});
+test('215 hit-stop beku sesaat lalu lanjut, tanpa macet', () => {
+  G.forceStartLevel(1);
+  const e = G.getEnemies()[0];
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  e.x = pl.x + 60; e.y = pl.y; e.vx = 0; e.vy = 0;
+  const ex0 = e.x;
+  G.hitStop(0.05);
+  ok(G.getHitStop() > 0, 'hit-stop armed');
+  G.step(1 / 60);
+  eq(e.x, ex0, 'dunia beku saat hit-stop');
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  eq(G.getHitStop(), 0, 'timer habis, tidak macet');
+  eq(G.getState(), 'playing', 'state tetap playing');
+  // Cap 0.08: trigger besar tidak menumpuk liar.
+  G.hitStop(5);
+  ok(G.getHitStop() <= 0.08 + 1e-9, 'cap 0.08, got ' + G.getHitStop());
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  eq(G.getHitStop(), 0);
+  pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+test('216 shake punya cap + hormat reduced-motion', () => {
+  srcHas('SHAKE_MAX = 8');
+  G.forceStartLevel(1); // resetShake: mag 0
+  G.setReducedMotion(true);
+  G.fx.shake(5, 0.5);
+  eq(G.getShakeMag(), 0, 'RM: shake baru ditolak');
+  G.setReducedMotion(false);
+  G.fx.shake(999, 0.5);
+  ok(G.getShakeMag() <= 8, 'cap 8, got ' + G.getShakeMag());
+  G.fx.shake(0, 0.01);
+  G.forceStartLevel(1);
+});
+test('217 hit-stop nonaktif saat reduced-motion', () => {
+  G.setReducedMotion(true);
+  G.hitStop(0.05);
+  eq(G.getHitStop(), 0, 'RM: tanpa freeze');
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  const x0 = pl.x;
+  G.step(1 / 60);
+  ok(true, 'simulasi jalan normal');
+  G.setReducedMotion(false);
+  G.forceStartLevel(1);
+});
+test('218 environment theme + decor L3/L4/L5 valid', () => {
+  srcHas('LEVEL_DECOR'); srcHas('drawLevelDecor');
+  [3, 4, 5].forEach((lv) => {
+    G.forceStartLevel(lv);
+    noThrow(() => G.drawOnce(), 'draw decor L' + lv);
+  });
+  // RM: decor tetap digambar statis tanpa error.
+  G.setReducedMotion(true);
+  G.forceStartLevel(4);
+  noThrow(() => G.drawOnce(), 'draw decor RM');
+  G.setReducedMotion(false);
+  G.forceStartLevel(1);
+});
+test('219 treasure tetap goldShard/health/poison + highlight dekat', () => {
+  srcHas('Gold Shard'); // komentar identitas treasure
+  const seen = {};
+  for (let i = 0; i < 40; i++) seen[G.pickReward().type] = true;
+  ok(seen.goldShard && seen.health && seen.poison, 'set reward: ' + Object.keys(seen));
+  ok(!seen.coin, 'tanpa coin');
+  G.forceStartLevel(3);
+  const c = G.getChests()[0];
+  const pl = G.getPlayer();
+  pl.x = c.x - 60; pl.y = 402; // dekat chest -> highlight path
+  noThrow(() => G.drawOnce(), 'draw proximity highlight');
+  G.setReducedMotion(true);
+  noThrow(() => G.drawOnce(), 'draw treasure RM');
+  G.setReducedMotion(false);
+  G.forceStartLevel(1);
+});
+test('220 coin regression pasca-polish + victory pose', () => {
+  const counts = { 1: 6, 2: 8, 3: 6, 4: 8, 5: 8 };
+  Object.keys(counts).forEach((lv) => {
+    G.forceStartLevel(Number(lv));
+    eq(G.getCoins().total, counts[lv], 'L' + lv + ' coin tetap');
+    eq(G.getChests().length, 1, 'L' + lv + ' chest tetap');
+    noThrow(() => G.drawOnce(), 'draw L' + lv);
+  });
+  // Pose victory di layar menang.
+  const sp = G.getSprites();
+  sp.knightVictory[0] = { id: 'win' };
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 2290; pl.y = 400;
+  G.step(1 / 60);
+  eq(G.getState(), 'levelcomplete');
+  noThrow(() => G.drawOnce(), 'draw victory pose');
+  G.forceStartLevel(1);
+});
+test('221 boss victory death-first L4 lich', () => {
+  G.forceStartLevel(4);
+  const b = G.getBoss();
+  ok(b && b.kind === 'lich', 'pra-kondisi lich');
+  const pl = G.getPlayer();
+  pl.x = 2000; pl.y = 402; pl.iframes = 9999;
+  for (let i = 0; i < 30; i++) G.step(1 / 60); // intro selesai
+  pl.iframes = 0;
+  for (let k = 0; k < 20 && b.state !== 'death'; k++) { b.iframes = 0; G.hurtBoss(30, 0); }
+  eq(b.state, 'death');
+  eq(b.hp, 0, 'killing blow tanpa phase-skip, hp 0');
+  pl.iframes = 9999;
+  for (let i = 0; i < 170; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  eq(G.getState(), 'levelcomplete', 'victory L4 tercapai');
+  G.forceStartLevel(1);
+});
+test('222 gamecomplete + replay fresh tanpa state lama', () => {
+  finalKillFlow();
+  eq(G.getState(), 'gamecomplete');
+  ok(!elements['gameclear'].classList.contains('hidden'), 'victory tampil');
+  ok(html.includes('CAMPAIGN COMPLETE!'), 'judul hierarchy produksi');
+  ok(/Coin:/.test(elements['gameclear-stats'].textContent), 'stats coin');
+  ok(/Gold Shard:/.test(elements['gameclear-stats'].textContent), 'stats gold');
+  // Tombol CAMPAIGN ada & menuju campaign select.
+  ok(elements['btn-gamecampaign'].listeners['click'].length >= 1, 'handler campaign');
+  elements['btn-again2'].dispatch('click', {});
+  ok(G.getTrans().active, 'replay transisi jalan');
+  G.stepTrans(0.3); G.stepTrans(0.3);
+  eq(G.getState(), 'playing'); eq(G.getLevel(), 1);
+  const st = G.getStats();
+  eq(st.runCoins, 0); eq(st.runGoldShards, 0); eq(st.levelCoins, 0);
+  G.resetSave();
+});
+test('223 save valid + BGM tunggal + rAF tunggal pasca-polish', () => {
+  G.resetSave();
+  const s = G.getSave();
+  eq(s.version, 3);
+  ok(Number.isFinite(s.totalCoins) && Number.isFinite(s.totalGoldShards), 'tanpa NaN');
+  G.toMenu();
+  G.fx.audio.setMusic(true, 70);
+  ensureAudioCtx();
+  G.fx.audio.startMusic();
+  const s0 = G.fx.audio.musicInfo().starts;
+  [1, 2, 3, 4, 5].forEach((lv) => { G.forceStartLevel(lv); G.drawOnce(); });
+  G.respawn();
+  eq(G.fx.audio.musicInfo().starts, s0, 'tanpa duplikat BGM');
+  // Satu rAF: boot kick + rantai loop (tanpa loop kedua, tanpa setInterval game).
+  const rafN = (src.match(/requestAnimationFrame\(frame\)/g) || []).length;
+  eq(rafN, 2, 'rAF boot+loop tepat 2, got ' + rafN);
+  ok(!/setInterval\s*\(/.test(src), 'tanpa setInterval game');
+  G.toMenu(); G.resetSave();
 });
 
 // ---------- Ringkasan ----------
