@@ -215,7 +215,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 251; // total test (251 termasuk regression audio)
+const EXPECTED_TOTAL = 252; // total test (252 termasuk regression BGM chain)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1009,7 +1009,7 @@ test('103 README konsisten: count + settings + save', () => {
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 251);
+  eq(EXPECTED_TOTAL, 252);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3197,6 +3197,15 @@ test('251 SFX volume regression mobile: 100% tidak diredam master 0.16', () => {
   eq(G.fx.audio.getCfg().sfxVol, 50);
   G.fx.audio.setSfx(false, 0);
   eq(G.fx.audio.getCfg().muted, true);
+});
+test('252 BGM audio chain valid setelah BASE_GAIN 0.5', () => {
+  ok(src.includes('musicG.connect(master)'), 'musicG harus terhubung ke master');
+  ok(src.includes('master.connect(ctx.destination)'), 'master harus ke destination');
+  ok(src.includes('BASE_GAIN = 0.5'), 'BASE_GAIN harus 0.5');
+  ok(src.includes('sfxG.connect(ctx.destination)'), 'SFX routing tetap destination');
+  noThrow(() => G.fx.audio.updateMusicState());
+  const cfg = G.fx.audio.getCfg();
+  eq(cfg.muted, !(cfg.sfxOn && cfg.sfxVol > 0)); // SFX state tidak rusak
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
