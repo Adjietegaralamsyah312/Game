@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 227 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 230 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -11,7 +11,8 @@
  * R respawn, unlock gate, audio migration, archer retreat, leash, projectile)
  * + 12 swap Coin↔Gold Shard (collectible Coin, treasure Gold Shard, save v3)
  * + 14 stage 11 polish (knight art, hit-stop, shake cap, decor, boss, victory)
- * + 4 skeleton crumble + pit permanen.
+ * + 4 skeleton crumble + pit permanen
+ * + 3 skeleton walk realistis.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -207,7 +208,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 227; // total test (223 + 4 skeleton crumble + pit permanen)
+const EXPECTED_TOTAL = 230; // total test (227 + 3 skeleton walk)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -996,12 +997,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('227 automated test'), 'README harus sebut 227 test, cek jumlah');
+  ok(readme.includes('230 automated test'), 'README harus sebut 230 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 227);
+  eq(EXPECTED_TOTAL, 230);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2794,6 +2795,57 @@ test('227 archer jatuh jurang ikut mati permanen', () => {
   eq(G.getStats().runKills, k0 + 1, 'kill dihitung sekali');
   for (let i = 0; i < 120; i++) G.step(1 / 60);
   ok(!G.getEnemies().some((e) => e.id === aid), 'archer tak kembali');
+  G.forceStartLevel(1);
+});
+
+// ---------- 3 TEST SKELETON WALK REALISTIS (behavior) ----------
+test('228 stride ikut kecepatan: chase lebih cepat dari patrol', () => {
+  const F = G.foeFrameFor;
+  // t=0.12: rate 9 (chase) sudah ganti frame, rate 5 (patrol) belum.
+  eq(F('skeletonSword', 'patrol', { moving: true, t: 0.12, rate: 9 }).join(','), 'skelSword,1', 'chase stride cepat');
+  eq(F('skeletonSword', 'patrol', { moving: true, t: 0.12, rate: 5 }).join(','), 'skelSword,0', 'patrol stride lambat');
+  // Default rate 6 = perilaku lama bila rate tak diisi.
+  eq(F('skeletonSword', 'patrol', { moving: true, t: 0.2 }).join(','), 'skelSword,1', 'default rate 6');
+  eq(F('skeletonSword', 'patrol', { moving: false, t: 0.2, rate: 9 }).join(','), 'skelSword,0', 'diam = frame idle');
+  srcHas('o.rate || 6');
+});
+test('229 skeleton chase melangkah + debu, patrol hemat pool', () => {
+  G.forceStartLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  const pl = G.getPlayer();
+  ok(typeof sw.stepPhase === 'number', 'stepPhase ada');
+  pl.iframes = 9999;
+  pl.x = sw.x + 100; pl.y = 402; pl.vx = 0; pl.vy = 0; // paksa chase
+  G.step(1 / 60);
+  eq(sw.state, 'chase', 'mengejar');
+  const c0 = G.fx.count();
+  for (let i = 0; i < 20; i++) G.step(1 / 60);
+  ok(G.fx.count() > c0, 'debu langkah muncul saat chase');
+  ok(sw.x !== sw.spawnX || sw.vx !== 0, 'bergerak mengejar');
+  // Sprite + fallback digambar tanpa error saat melangkah.
+  const sp = G.getSprites();
+  sp.skelSword[0] = {}; sp.skelSword[1] = {};
+  noThrow(() => G.drawOnce(), 'draw walk sprite');
+  sp.skelSword = [];
+  noThrow(() => G.drawOnce(), 'draw walk fallback kaki melangkah');
+  srcHas('melangkah bergantian');
+  pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+test('230 archer ikut melangkah (tak lagi statis)', () => {
+  G.forceStartLevel(3);
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = ar.x - 200; pl.y = 402; pl.vx = 0; pl.vy = 0;
+  for (let i = 0; i < 15; i++) G.step(1 / 60);
+  const sp = G.getSprites();
+  sp.skelArch[0] = {}; sp.skelArch[1] = {}; sp.skelArch[2] = {};
+  noThrow(() => G.drawOnce(), 'draw archer gerak sprite');
+  sp.skelArch = [];
+  noThrow(() => G.drawOnce(), 'draw archer fallback melangkah');
+  srcHas('aStepping'); srcHas('skeletonFootstep');
+  pl.iframes = 0;
   G.forceStartLevel(1);
 });
 

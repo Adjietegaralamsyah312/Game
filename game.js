@@ -1369,6 +1369,7 @@
       animTime: Math.random() * 10,
       atkT: 0, cooldown: 0, hurtT: 0, deathT: 0,
       iframes: 0, struckPlayer: false, guardFlash: 0, relT: 0, // relT: follow-through lepas panah
+      stepPhase: 0, // fase langkah kaki (debu stride, visual saja)
       dead: false
     };
   }
@@ -1441,6 +1442,21 @@
     var px = player.x + player.w / 2, sx = s.x + s.w / 2;
     var py = player.y + player.h / 2, sy = s.y + s.h / 2;
     return Math.abs(px - sx) < s.st.detectX && Math.abs(py - sy) < s.st.detectY;
+  }
+
+  // Debu langkah skeleton saat mengejar (sinkron stride draw, pool guarded).
+  // Patrol tidak berdebu (hemat pool); hanya chase + napak tanah + bergerak.
+  function skeletonFootstep(s) {
+    if (s.state !== 'chase' || !s.onGround || s.vx === 0) return;
+    if (particleCount >= 40) return;
+    var ph = Math.floor(s.animTime * 9) % 2;
+    if (ph !== s.stepPhase) {
+      s.stepPhase = ph;
+      if (ph === 0) {
+        spawnParticle(s.x + (s.dir === 1 ? s.w - 2 : 2), s.y + s.h - 2,
+          -s.dir * 20, -30, 0.3, '#8a8fa8', 2, 150);
+      }
+    }
   }
 
   function slimeHasGroundAhead(s, moveDir) {
@@ -1570,6 +1586,7 @@
       if (s.x < lo) { s.x = lo; if (s.vx < 0) s.vx = 0; }
       if (s.x > hi) { s.x = hi; if (s.vx > 0) s.vx = 0; }
     }
+    skeletonFootstep(s);
     // NOTE: tidak ada teleport kembali — jatuh jurang = mati (cek di atas).
   }
 
@@ -1659,6 +1676,7 @@
     // Archer memegang zona patrol (tak pernah keluar level).
     if (s.x < s.minX) { s.x = s.minX; s.dir = 1; }
     if (s.x > s.maxX) { s.x = s.maxX; s.dir = -1; }
+    skeletonFootstep(s);
     // NOTE: tidak ada teleport kembali — jatuh jurang = mati (cek di atas).
   }
 
@@ -4217,7 +4235,9 @@
         if (o.atkT < o.windup + o.strike) return ['skelSword', 3];
         return ['skelSword', 0];
       }
-      return ['skelSword', o.moving ? (Math.floor((o.t || 0) * 6) % 2) : 0];
+      // Jalan realistis: frekuensi langkah ikut kecepatan gerak
+      // (patrol lambat, chase cepat). Default 6 = perilaku lama.
+      return ['skelSword', o.moving ? (Math.floor((o.t || 0) * (o.rate || 6)) % 2) : 0];
     }
     if (kind === 'skeletonArcher') {
       if (state === 'shoot') return ['skelArch', 1];
@@ -4246,7 +4266,12 @@
    * Archer: busur + quiver, glow kuning saat telegraph 'shoot'. */
   function drawSkeleton(s) {
     var t = s.animTime;
-    var bob = (s.state === 'patrol' || s.state === 'chase') ? Math.round(Math.sin(t * 8) * 1.5) : 0;
+    // Jalan realistis: stride ikut state (patrol 5 amble, chase 9 march),
+    // 2 pose kaki per siklus + badan naik-turun sinkron (tanpa sliding).
+    var stepping = (s.state === 'patrol' || s.state === 'chase');
+    var stride = s.state === 'chase' ? 9 : 5;
+    var phase = stepping ? (Math.floor(t * stride) % 2) : 0;
+    var bob = stepping ? Math.round(-Math.abs(Math.sin(t * stride * Math.PI)) * 2) : 0;
     var dw = s.w + 6, dh = s.h + 6;
     // Runtuh realistis: fase A tegak-topple, fase B ambruk (melebar) + fade.
     var topple = 0, dFade = 1, crumbled = false;
@@ -4274,7 +4299,7 @@
     var fr = foeFrameFor(s.kind, s.state, {
       atkT: s.atkT, windup: s.st.windup, strike: s.st.strike,
       guardFlash: s.guardFlash,
-      moving: (s.state === 'patrol' || s.state === 'chase'), t: t
+      moving: (s.state === 'patrol' || s.state === 'chase'), t: t, rate: stride
     });
     if (s.state === 'attack') {
       striking = s.atkT >= s.st.windup && s.atkT < s.st.windup + s.st.strike;
@@ -4298,10 +4323,18 @@
       }
     } else {
     ctx.fillStyle = blink ? '#ffffff' : s.st.body;
-    ctx.fillRect(dx + 5, dy + 12, dw - 10, dh - 12);   // torso
+    ctx.fillRect(dx + 5, dy + 12, dw - 10, dh - 12);   // torso ramping
     ctx.fillRect(dx + 9, dy + 4, dw - 18, 10);         // tengkorak
     ctx.fillStyle = s.st.dark;
-    ctx.fillRect(dx + 5, dy + dh - 8, dw - 10, 8);     // kaki
+    // Kaki melangkah bergantian mengikuti fase stride (bukan blok statis):
+    // satu kaki maju+angkat, satunya mundur — sinkron dengan bob badan.
+    var legW = Math.max(4, Math.round((dw - 10) / 2));
+    var swing = stepping ? (phase === 0 ? 2 : -2) : 0;
+    var fwdL = s.dir === 1 ? 1 : -1;
+    ctx.fillRect(dx + 5 + fwdL * swing, dy + dh - 8, legW,
+      8 - ((phase === 0 && stepping) ? 2 : 0));
+    ctx.fillRect(dx + 5 + legW - fwdL * swing, dy + dh - 8, legW,
+      8 - ((phase !== 0 && stepping) ? 2 : 0));
     // Mata merah berongga (ikut arah).
     var ex = s.dir === 1 ? dx + dw - 18 : dx + 6;
     ctx.fillStyle = '#e05252';
@@ -4316,9 +4349,9 @@
       ctx.fillStyle = '#c9a227';
       ctx.fillRect(shx + 2, dy + 14, 4, 6);
     } else {
-      // Pedang di sisi hadap (terangkat saat windup).
+      // Pedang di sisi hadap (terangkat saat windup, sway ikut langkah).
       var swx = s.dir === 1 ? dx + dw - 6 : dx - 8;
-      var swy = windup ? dy - 6 : dy + 8;
+      var swy = (windup ? dy - 6 : dy + 8) + (stepping ? (phase === 0 ? -1 : 1) : 0);
       ctx.fillStyle = '#d6deea';
       ctx.fillRect(swx, swy, 5, 22);
       ctx.fillStyle = '#8a6d3b';
@@ -4345,6 +4378,12 @@
 
   function drawArcher(s) {
     var t = s.animTime;
+    // Archer ikut melangkah realistis (sebelumnya statis): stride sama
+    // seperti skeleton melee, bob + kaki bergantian saat patrol/chase.
+    var aStepping = (s.state === 'patrol' || s.state === 'chase');
+    var aStride = s.state === 'chase' ? 9 : 5;
+    var aPhase = aStepping ? (Math.floor(t * aStride) % 2) : 0;
+    var aBob = aStepping ? Math.round(-Math.abs(Math.sin(t * aStride * Math.PI)) * 2) : 0;
     var dw = s.w + 6, dh = s.h + 6;
     // Runtuh realistis seperti skeleton melee (topple + crumble + fade).
     var topple = 0, dFade = 1, crumbled = false;
@@ -4358,7 +4397,7 @@
       }
     }
     var dx = Math.round(s.x + s.w / 2 - dw / 2) + topple;
-    var dy = Math.round(s.y + s.h - dh);
+    var dy = Math.round(s.y + s.h - dh) + aBob;
     var blink = s.iframes > 0 && Math.floor(t * 16) % 2 === 0;
     var tele = s.state === 'shoot';
 
@@ -4383,7 +4422,14 @@
     ctx.fillRect(dx + 6, dy + 12, dw - 12, dh - 12);   // torso ramping
     ctx.fillRect(dx + 10, dy + 4, dw - 20, 10);        // tengkorak
     ctx.fillStyle = s.st.dark;
-    ctx.fillRect(dx + 6, dy + dh - 8, dw - 12, 8);
+    // Kaki melangkah bergantian (sinkron bob), bukan blok statis.
+    var aLegW = Math.max(4, Math.round((dw - 12) / 2));
+    var aSwing = aStepping ? (aPhase === 0 ? 2 : -2) : 0;
+    var aFwd = s.dir === 1 ? 1 : -1;
+    ctx.fillRect(dx + 6 + aFwd * aSwing, dy + dh - 8, aLegW,
+      8 - ((aPhase === 0 && aStepping) ? 2 : 0));
+    ctx.fillRect(dx + 6 + aLegW - aFwd * aSwing, dy + dh - 8, aLegW,
+      8 - ((aPhase !== 0 && aStepping) ? 2 : 0));
     var ex = s.dir === 1 ? dx + dw - 19 : dx + 7;
     ctx.fillStyle = '#e05252';
     ctx.fillRect(ex, dy + 6, 5, 5);
