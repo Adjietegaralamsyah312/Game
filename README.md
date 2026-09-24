@@ -4,12 +4,12 @@
 
 Game platformer 2D side-view: ksatria pixel-art 32x32. Dari menu utama,
 mainkan **5 level campaign**:
-**Level 1 — Slime Grounds** (shard, checkpoint, FINISH),
-**Level 2 — Slime Dominion** (celah, shard, checkpoint, **RAJA SLIME**),
-**Level 3 — Skeleton Fortress** (shard, checkpoint, FINISH),
-**Level 4 — Lich Domain** (shard, checkpoint, miniboss **PANGLIMA TULANG**,
+**Level 1 — Slime Grounds** (coin, checkpoint, FINISH),
+**Level 2 — Slime Dominion** (celah, coin, checkpoint, **RAJA SLIME**),
+**Level 3 — Skeleton Fortress** (coin, checkpoint, FINISH),
+**Level 4 — Lich Domain** (coin, checkpoint, miniboss **PANGLIMA TULANG**,
 **RAJA LICH**),
-**Level 5 — Final Convergence** (shard, **RAJA SLIME lalu RAJA LICH**
+**Level 5 — Final Convergence** (coin, **RAJA SLIME lalu RAJA LICH**
 berurutan, GAME COMPLETE).
 
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
@@ -22,12 +22,12 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 - Menu utama (PLAY / CAMPAIGN / CONTROLS / SETTINGS / ABOUT, keyboard + sentuh)
 - Campaign Select: replay 5 level terbuka (🔒 locked, ✓ CLEAR + best time), tanpa bypass progression
 - 5 level + transisi fade, reset level tanpa reload browser
-- Level 1 — Slime Grounds: onboarding cerah + 6 Gold Shard (risk/reward di atas celah)
+- Level 1 — Slime Grounds: onboarding cerah + 6 Coin (risk/reward di atas celah)
 - Level 2 — Slime Dominion: blood moon, 3 celah, Fast solo / Heavy solo / kombo, arena boss
 - Level 3 — Skeleton Fortress: Skeleton Sword (pressure), Skeleton Defender
-  (tank perisai, guard frontal), Skeleton Archer (ranged), 2 checkpoint, 6 shard
+  (tank perisai, guard frontal), Skeleton Archer (ranged), 2 checkpoint, 6 coin
 - Level 4 — Lich Domain: skeleton elite + miniboss **PANGLIMA TULANG**
-  (2 pola + enrage + HP bar) + **RAJA LICH** (3 phase + summon, HP bar), 2 checkpoint, 8 shard
+  (2 pola + enrage + HP bar) + **RAJA LICH** (3 phase + summon, HP bar), 2 checkpoint, 8 coin
 - Level 5 — Final Convergence: slime + skeleton, gauntlet
   **RAJA SLIME → interlude → RAJA LICH**; mati di gauntlet mengulang dari awal
   (by design, reset hanya untuk run berjalan)
@@ -35,20 +35,20 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 - Raja Lich final boss (sprite crown + robe + staff + orb, aura phase)
 - Treasure Chest (L1/L2/L3/L4/L5): serang dengan pedang untuk membuka
   (closed→opening→opened, sekali saja, aman dari duplikat & persist respawn); reward random
-  Coin (+5, HUD & total persist) / Health (+30, clamp max) / Poison (−HP, min 1)
+  Gold Shard (+1, HUD & total persist) / Health (+30, clamp max) / Poison (−HP, min 1)
 - 6 enemy archetype: Slime, Fast Slime, Heavy Slime,
   Skeleton Swordsman, Skeleton Defender, Skeleton Archer
   (sprite PNG dark-fantasy di `assets/sprites/`; walk + windup/strike,
   guard, aim/release; miniboss slash/dash; lich cast/strike)
 - Boss RAJA SLIME: intro sekali, HP bar, strike/charge/shockwave, telegraph, enrage
-- Collectible Gold Shard (`got/total` di HUD) + suara pickup
-- Stats per-level & total (musuh, shard, waktu, mati) + best lokal
+- Collectible Coin (`got/total` di HUD, sprite `coin.png`) + suara coin
+- Stats per-level & total (musuh, coin, gold shard, waktu, mati) + best lokal
 - Level Complete (NEXT/REPLAY/MENU) & Game Complete (PLAY AGAIN/MENU)
 - Explicit pause: tombol ⏸, `P` / `Esc` (freeze gameplay + timer + BGM suspend, tanpa input bocor)
 - Kamera smooth, parallax, partikel pool, screen shake (nonaktif saat reduced-motion),
   debug overlay (`DEBUG=true`: FPS, avg/peak/p95 frame time, enemy/projectile/particle)
 - Touch via Pointer Events (multi-touch, anti double by-design, pointercancel aman)
-- Checkpoints + shard/statistics + persistence unlock L1→L5
+- Checkpoints + coin/statistics + persistence unlock L1→L5
 
 ## Settings
 
@@ -61,9 +61,12 @@ Dari Main Menu → **SETTINGS** (`↑`/`↓` + `Enter`, `Esc` kembali):
 
 ## Persistence
 
-Satu key terversi **`knightSaveV1`** (schema v2, migrasi aman dari v1:
-field audio hilang berarti ON): best total/L1–L5, best shard, total shard/mati,
-completion L1–L5/game, unlock L2–L5, settings. Guarded: JSON rusak → default;
+Satu key terversi **`knightSaveV1`** (schema v3, migrasi aman dari v1/v2:
+field audio hilang berarti ON): best total/L1–L5, best coin, total coin/gold shard/mati,
+completion L1–L5/game, unlock L2–L5, settings. Migrasi v1/v2→v3: totalCoins lama
+tetap coin (tidak dianggap gold shard), totalShards lama digabung ke totalCoins
+(keduanya kini currency coin), bestShards lama → bestCoins, totalGoldShards mulai 0.
+Guarded: JSON rusak → default;
 localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 
 - L1 selalu terbuka; L2 setelah L1, L3 setelah L2, L4 setelah L3, L5 setelah L4
@@ -109,9 +112,9 @@ Satu `requestAnimationFrame`; pool partikel/proyektil bounded; tanpa `setInterva
   arpeggio, motif + variasi), Web Audio clock (tanpa `setInterval`),
   satu AudioContext, tanpa node bocor/duplikat; mood per level
   (slime / dungeon / final) tanpa restart scheduler
-- **SFX prosedural**: lompat, serang, hit, checkpoint, menang, boss, pickup,
-  skeleton hit, sword swing, shield block, arrow shot/impact,
-  miniboss cue, lich magic/summon, phase shift
+- **SFX prosedural**: lompat, serang, hit, checkpoint, menang, boss, coin,
+  gold shard, skeleton hit, sword swing, shield block, arrow shot/impact,
+  miniboss cue, lich magic/summon, phase shift, chest open/heal/poison
 - **Volume independen** SFX/Music 0–100%; OFF/0 = diam; live tanpa reload
 - **Autoplay/unlock**: audio mulai setelah gesture pertama; pause suspend aman;
   BGM ikut state (menu/main, berhenti saat Game Over/Complete)
@@ -121,13 +124,13 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 197 automated test headless (node test.js)
+├── test.js             # 209 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
 └── assets/
     ├── knight/         # 18 sprite PNG ksatria
-    ├── sprites/        # 13 sprite undead + chest + reward (lokal)
+    ├── sprites/        # 14 sprite undead + chest + coin + reward (lokal, termasuk gold-shard.png)
     └── og/             # social preview 1200x630 (lokal, tanpa CDN)
 ```
 
@@ -159,7 +162,7 @@ node test.js
 git diff --check
 ```
 
-197 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame) —
+209 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap) —
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan

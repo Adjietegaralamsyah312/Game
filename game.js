@@ -230,7 +230,7 @@
         for (var i = 0; i < n.length; i++) tone(n[i], 0.16, 'square', 0.4, 0, i * 0.11);
       },
       gameover:   function () { tone(220, 0.5, 'sawtooth', 0.4, 55); tone(110, 0.7, 'triangle', 0.4, 40, 0.1); },
-      // Stage 5: event baru (menu, shard, varian, boss). Tetap prosedural.
+      // Stage 5: event baru (menu, coin, varian, boss). Tetap prosedural.
       click:      function () { tone(660, 0.07, 'square', 0.3, 880); },
       pickup:     function () { tone(880, 0.09, 'square', 0.35, 1320); tone(1320, 0.12, 'square', 0.3, 1760, 0.07); },
       hitHeavy:   function () { noise(0.10, 0.5, 900); tone(140, 0.12, 'square', 0.45, 70); },
@@ -251,6 +251,8 @@
       // Treasure (prosedural, hormat SFX ON/volume via play()).
       chestOpen: function () { noise(0.12, 0.4, 900); tone(196, 0.15, 'square', 0.4, 392); },
       coin:      function () { tone(988, 0.09, 'square', 0.35, 1319); tone(1319, 0.14, 'square', 0.3, 1760, 0.07); },
+      // Gold Shard treasure: shimmer permata (beda dari coin — sine cerah).
+      shard:     function () { tone(1319, 0.10, 'sine', 0.35, 1760); tone(1760, 0.16, 'sine', 0.3, 2637, 0.08); },
       heal:      function () { tone(523, 0.12, 'sine', 0.4, 784); tone(784, 0.2, 'sine', 0.35, 1047, 0.1); },
       poison:    function () { tone(330, 0.25, 'sawtooth', 0.4, 110); noise(0.15, 0.35, 500, 0.05); }
     };
@@ -487,15 +489,18 @@
               'assets/sprites/raja-lich-strike.png'],
     chest:   ['assets/sprites/treasure-chest.png',
               'assets/sprites/treasure-chest-open.png'],
-    reward:  ['assets/sprites/coin.png',
+    // Coin level (collectible): coin.png. Treasure Gold Shard: gold-shard.png
+    // (berlian emas — jelas beda dari koin bulat).
+    coin:    ['assets/sprites/coin.png'],
+    reward:  ['assets/sprites/gold-shard.png',
               'assets/sprites/health.png',
               'assets/sprites/poison.png']
   };
   var ANIM_ORDER = ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'death',
-    'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lich', 'chest', 'reward'];
+    'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lich', 'chest', 'coin', 'reward'];
 
   var sprites = { idle: [], run: [], jump: [], fall: [], attack: [], hurt: [], death: [],
-    skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lich: [], chest: [], reward: [] };
+    skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lich: [], chest: [], coin: [], reward: [] };
   var assetsReady = false;
   var assetErrors = [];
 
@@ -615,7 +620,7 @@
   /* ========================= 6. LEVEL DATA =========================
    * Lima level dalam struktur data yang sama (mudah diedit).
    * Level 1 = level existing PERSIS (physics/layout musuh/checkpoint/goal
-   * tidak berubah) + rute Gold Shard (non-colliding, nol risiko regresi).
+   * tidak berubah) + rute Coin (non-colliding, nol risiko regresi).
    * Level 2 = traversal, 3 celah, encounter Fast+Heavy,
    * checkpoint, arena boss RAJA SLIME.
    * Zona Level 1:
@@ -663,9 +668,9 @@
     bossSpawn: null,
     bossArena: null,
     treasures: [{ x: 300, y: 444 }],
-    // Gold Shard: mudah = eksplorasi, menengah = traversal,
+    // Coin: mudah = eksplorasi, menengah = traversal,
     // sulit = risk/reward (HARD di atas celah — diambil sambil melompat).
-    shards: [
+    coins: [
       { x: 250, y: 430 },   // tanah start (mudah)
       { x: 350, y: 258 },   // atas platform 300,300 (menengah)
       { x: 565, y: 378 },   // atas CELAH 1: lompat untuk mengambil (sulit)
@@ -718,7 +723,7 @@
     bossSpawn: { x: 2150, y: 380 },
     bossArena: { minX: 1930, maxX: 2360 },
     treasures: [{ x: 300, y: 444 }],
-    shards: [
+    coins: [
       { x: 250, y: 430 },   // start
       { x: 465, y: 380 },   // bibir celah 1 (risiko kecil)
       { x: 795, y: 250 },   // atas platform tinggi
@@ -770,7 +775,7 @@
     lichArena: null,
     treasures: [{ x: 300, y: 444 }],
     musicSet: 1,
-    shards: [
+    coins: [
       { x: 250, y: 430 },
       { x: 350, y: 258 },
       { x: 565, y: 378 },
@@ -824,7 +829,7 @@
     lichArena: null,
     treasures: [{ x: 1770, y: 444 }],
     musicSet: 1,
-    shards: [
+    coins: [
       { x: 250, y: 430 },
       { x: 465, y: 380 },
       { x: 795, y: 250 },
@@ -880,7 +885,7 @@
     lichArena: { minX: 1930, maxX: 2360 },
     treasures: [{ x: 1150, y: 444 }],
     musicSet: 2,
-    shards: [
+    coins: [
       { x: 250, y: 430 },
       { x: 465, y: 380 },
       { x: 795, y: 250 },
@@ -916,11 +921,11 @@
   // Copy misi per level: jujur terhadap kondisi menang aktual (Option A).
   // L1/L3 menang via FINISH (combat opsional); L2/L4/L5 via boss.
   var MISSION_COPY = {
-    1: 'L1: shard • checkpoint • capai <b>FINISH</b>',
-    2: 'L2: lewati celah • shard • checkpoint • kalahkan <b>RAJA SLIME</b>',
-    3: 'L3: shard • checkpoint • capai <b>FINISH</b>',
-    4: 'L4: shard • checkpoint • kalahkan <b>RAJA LICH</b>',
-    5: 'L5: shard • kalahkan <b>KEDUA RAJA</b>'
+    1: 'L1: coin • checkpoint • capai <b>FINISH</b>',
+    2: 'L2: lewati celah • coin • checkpoint • kalahkan <b>RAJA SLIME</b>',
+    3: 'L3: coin • checkpoint • capai <b>FINISH</b>',
+    4: 'L4: coin • checkpoint • kalahkan <b>RAJA LICH</b>',
+    5: 'L5: coin • kalahkan <b>KEDUA RAJA</b>'
   };
   // Pointer level aktif — seluruh sistem (fisika, kamera, render) membaca
   // dari sini sehingga ganti level = tukar pointer + reset state.
@@ -2018,7 +2023,7 @@
     return n;
   }
 
-  /* ============ 11b. STAGE 5: BOSS, SHARD, STATS, TRANSISI ============
+  /* ============ 11b. STAGE 5: BOSS, COIN, STATS, TRANSISI ============
    * Semua memakai sistem existing (fisika, partikel, shake, audio).
    * Tidak ada rAF/interval baru, tidak ada alokasi di loop panas
    * (shockwave dibatasi + hapus swap-pop in-place).
@@ -2030,9 +2035,11 @@
 
   var boss = null;
   var shocks = [];
-  var shards = [];
-  var runStats = { kills: 0, shards: 0, coins: 0 }; // total lintas level
-  var levelStats = { kills: 0, shards: 0, time: 0 }; // per level
+  // Level collectible = COIN (single currency). Treasure reward = GOLD SHARD
+  // (resource terpisah, run-only + total persist). Dua resource tidak tertukar.
+  var coins = [];
+  var runStats = { kills: 0, coins: 0, goldShards: 0 }; // total lintas level
+  var levelStats = { kills: 0, coins: 0, time: 0 }; // per level
   var victoryArmed = false, victoryT = 0;
   var VICTORY_DELAY = 1.2;
   var trans = { active: false, phase: '', t: 0, dur: 0.25, target: 1 };
@@ -2763,22 +2770,25 @@
     }
   }
 
-  /* ---- Collectible Gold Shard (non-colliding, hanya overlap) ---- */
-  function resetShards() {
-    shards = Level.shards.map(function (p) {
+  /* ---- Collectible Coin level (non-colliding, hanya overlap) ----
+   * Identitas: COIN. Satu-satunya sumber currency coin (totalCoins += 1
+   * per pickup, tepat sekali). Jumlah/placement/collision/pickup/animation/
+   * particle sama seperti dulu; yang berubah hanya identitas + SFX coin. */
+  function resetCoins() {
+    coins = Level.coins.map(function (p) {
       return { x: p.x, y: p.y, taken: false, bob: Math.random() * 6 };
     });
   }
 
-  function shardGot() {
+  function coinGot() {
     var n = 0;
-    for (var i = 0; i < shards.length; i++) if (shards[i].taken) n++;
+    for (var i = 0; i < coins.length; i++) if (coins[i].taken) n++;
     return n;
   }
 
-  function updateShards(dt) {
-    for (var i = 0; i < shards.length; i++) {
-      var s = shards[i];
+  function updateCoins(dt) {
+    for (var i = 0; i < coins.length; i++) {
+      var s = coins[i];
       if (s.taken) continue;
       s.bob += dt;
       if (player.state === 'death') continue;
@@ -2786,22 +2796,23 @@
       setR(_r2, player.x, player.y, player.w, player.h);
       if (rectsOverlap(_r1, _r2)) {
         s.taken = true;
-        runStats.shards++;
-        levelStats.shards++;
-        // Persistent: total shard lintas sesi (event, bukan per-frame).
-        save.totalShards++;
+        runStats.coins++;
+        levelStats.coins++;
+        // Persistent: total coin lintas sesi (event, bukan per-frame).
+        save.totalCoins = Math.floor(saveNum(save.totalCoins, 0, 0, 1e9)) + 1;
         persistSave();
         burst(s.x, s.y, 8, '#ffd23f', 140, 0.5, 3, 250);
-        AudioManager.play('pickup');
+        AudioManager.play('coin');
       }
     }
   }
 
   /* ---- Treasure Chest (non-colliding, overlap untuk membuka) ----
    * State: closed -> opening (0.45 dtk) -> opened (sekali, anti duplikat).
-   * Reward data-driven via TREASURE_REWARDS, terpisah dari shard. */
+   * Reward data-driven via TREASURE_REWARDS, terpisah dari coin level.
+   * Treasure TIDAK menambah coin — hanya goldShard/health/poison. */
   var TREASURE_REWARDS = {
-    coin:   { type: 'coin', amount: 5, visual: 0, sound: 'coin' },
+    goldShard: { type: 'goldShard', amount: 1, visual: 0, sound: 'shard' },
     health: { type: 'health', heal: 30, visual: 1, sound: 'heal' },
     poison: { type: 'poison', dmg: 15, visual: 2, sound: 'poison' }
   };
@@ -2825,11 +2836,11 @@
     return n;
   }
 
-  // Random aman: selalu salah satu dari coin/health/poison, tanpa NaN.
+  // Random aman: selalu salah satu dari goldShard/health/poison, tanpa NaN.
   function pickTreasureReward() {
     var r = Math.random();
     if (!(r >= 0) || r >= 1) r = 0.5; // guard ekstrem
-    if (r < 0.5) return TREASURE_REWARDS.coin;
+    if (r < 0.5) return TREASURE_REWARDS.goldShard;
     if (r < 0.8) return TREASURE_REWARDS.health;
     return TREASURE_REWARDS.poison;
   }
@@ -2838,12 +2849,14 @@
     var rw = c.reward;
     if (!rw) return;
     var cx = c.x + c.w / 2, cy = c.y;
-    if (rw.type === 'coin') {
-      runStats.coins = (runStats.coins || 0) + rw.amount;
-      save.totalCoins = Math.floor(saveNum(save.totalCoins, 0, 0, 1e9)) + rw.amount;
+    if (rw.type === 'goldShard') {
+      // Gold Shard treasure: resource sendiri (+1, tepat sekali).
+      // Tidak masuk counter coin level, tidak menambah totalCoins.
+      runStats.goldShards = (runStats.goldShards || 0) + rw.amount;
+      save.totalGoldShards = Math.floor(saveNum(save.totalGoldShards, 0, 0, 1e9)) + rw.amount;
       persistSave();
-      burst(cx, cy, 8, '#ffd23f', 140, 0.5, 3, 250);
-      AudioManager.play('coin');
+      burst(cx, cy, 8, '#ffe98a', 140, 0.5, 3, 250);
+      AudioManager.play('shard');
     } else if (rw.type === 'health') {
       player.hp = Math.min(PLAYER_MAX_HP, player.hp + rw.heal);
       burst(cx, cy, 8, '#5ec46f', 130, 0.5, 3, 250);
@@ -2915,10 +2928,10 @@
 
   function getDefaultSave() {
     return {
-      version: 2,
+      version: 3,
       bestTime: null, bestL1: null, bestL2: null,
-      bestL3: null, bestL4: null, bestL5: null, bestShards: 0,
-      totalShards: 0, totalDeaths: 0, totalCoins: 0,
+      bestL3: null, bestL4: null, bestL5: null, bestCoins: 0,
+      totalCoins: 0, totalGoldShards: 0, totalDeaths: 0,
       level1Completed: false, level2Completed: false,
       level3Completed: false, level4Completed: false, level5Completed: false,
       gameCompleted: false,
@@ -2939,20 +2952,35 @@
   }
 
   // Validasi schema: rusak / versi tak dikenal -> default penuh.
-  // Migrasi aman: save v1 lama tetap valid (field baru diberi default).
+  // Migrasi aman: save v1/v2 lama tetap valid (semantic swap coin/shard).
+  // Aturan migrasi v1/v2 -> v3 (tanpa kehilangan progres):
+  // - totalCoins lama (treasure coin) TETAP coin — jangan dianggap gold shard.
+  // - totalShards lama (level gold shard = coin di identitas baru) digabung
+  //   ke totalCoins baru (keduanya kini currency coin yang sama).
+  // - bestShards lama -> bestCoins baru (posisi/count run sama).
+  // - totalGoldShards baru mulai 0 (resource treasure baru, tanpa histori).
   function sanitizeSave(o) {
     var d = getDefaultSave();
-    if (!o || typeof o !== 'object' || (o.version !== 1 && o.version !== 2)) return d;
+    if (!o || typeof o !== 'object' || (o.version !== 1 && o.version !== 2 && o.version !== 3)) return d;
     d.bestTime = (o.bestTime == null) ? null : saveNum(o.bestTime, null, 0, 1e9);
     d.bestL1 = (o.bestL1 == null) ? null : saveNum(o.bestL1, null, 0, 1e9);
     d.bestL2 = (o.bestL2 == null) ? null : saveNum(o.bestL2, null, 0, 1e9);
     d.bestL3 = (o.bestL3 == null) ? null : saveNum(o.bestL3, null, 0, 1e9);
     d.bestL4 = (o.bestL4 == null) ? null : saveNum(o.bestL4, null, 0, 1e9);
     d.bestL5 = (o.bestL5 == null) ? null : saveNum(o.bestL5, null, 0, 1e9);
-    d.bestShards = Math.floor(saveNum(o.bestShards, 0, 0, 1e9));
-    d.totalShards = Math.floor(saveNum(o.totalShards, 0, 0, 1e9));
+    // bestCoins: v3 langsung; v1/v2 fallback ke bestShards legacy.
+    var legacyBest = Math.floor(saveNum(o.bestShards, 0, 0, 1e9));
+    d.bestCoins = Math.floor(saveNum((o.bestCoins == null ? legacyBest : o.bestCoins), 0, 0, 1e9));
+    // totalCoins: v3 langsung; v1/v2 = treasure-coin lama + shard lama.
+    var legacyCoins = Math.floor(saveNum(o.totalCoins, 0, 0, 1e9));
+    var legacyShards = Math.floor(saveNum(o.totalShards, 0, 0, 1e9));
+    if (o.version === 3) {
+      d.totalCoins = legacyCoins;
+    } else {
+      d.totalCoins = Math.min(1e9, legacyCoins + legacyShards);
+    }
+    d.totalGoldShards = Math.floor(saveNum(o.totalGoldShards, 0, 0, 1e9));
     d.totalDeaths = Math.floor(saveNum(o.totalDeaths, 0, 0, 1e9));
-    d.totalCoins = Math.floor(saveNum(o.totalCoins, 0, 0, 1e9));
     d.level1Completed = !!o.level1Completed;
     d.level2Completed = !!o.level2Completed;
     d.level3Completed = !!o.level3Completed;
@@ -3030,9 +3058,9 @@
     return false;
   }
 
-  // Kompatibilitas baca best lama (bentuk {time, shards} seperti dulu).
+  // Kompatibilitas baca best lama (bentuk {time, coins} seperti dulu).
   function loadBest() {
-    return { time: save.bestTime, shards: save.bestShards };
+    return { time: save.bestTime, coins: save.bestCoins };
   }
 
   /* ---- Overlay & panel ---- */
@@ -3064,7 +3092,7 @@
   function resetTotals() {
     deaths = 0;
     timeElapsed = 0;
-    runStats = { kills: 0, shards: 0, coins: 0 };
+    runStats = { kills: 0, coins: 0, goldShards: 0 };
   }
 
   // Muat level n (1-based): tukar pointer + reset total per-level.
@@ -3095,9 +3123,9 @@
     miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
     shocks = [];
     shots = [];
-    resetShards();
+    resetCoins();
     resetChests(); // level baru: semua chest tertutup
-    levelStats = { kills: 0, shards: 0, time: 0 };
+    levelStats = { kills: 0, coins: 0, time: 0 };
     victoryArmed = false;
     victoryT = 0;
     finalPhase = 'slime';
@@ -3373,7 +3401,7 @@
         'Best L1: ' + fmtTime(save.bestL1) + ' • Best L2: ' + fmtTime(save.bestL2) +
         ' • Best L3: ' + fmtTime(save.bestL3) + ' • Best L4: ' + fmtTime(save.bestL4) +
         ' • Best L5: ' + fmtTime(save.bestL5) +
-        ' • Best: ' + fmtTime(save.bestTime) + ' • Shard: ' + save.bestShards +
+        ' • Best: ' + fmtTime(save.bestTime) + ' • Coin: ' + save.bestCoins +
         ' • Mati: ' + save.totalDeaths + ' • Selesai: ' + done + '/5';
     } catch (e) { /* abaikan */ }
   }
@@ -3484,7 +3512,7 @@
       if (lvlclearStats) {
         lvlclearStats.textContent = 'Level ' + currentLevel + ' • Waktu: ' +
           levelStats.time.toFixed(1) + ' dtk • Musuh: ' +
-          levelStats.kills + ' • Shard: ' + shardGot() + '/' + shards.length;
+          levelStats.kills + ' • Coin: ' + coinGot() + '/' + coins.length;
       }
       lvlclearEl.classList.remove('hidden');
     }
@@ -3503,12 +3531,12 @@
     save.gameCompleted = true;
     if (save.bestTime == null || timeElapsed < save.bestTime) save.bestTime = timeElapsed;
     if (save.bestL5 == null || levelStats.time < save.bestL5) save.bestL5 = levelStats.time;
-    if (runStats.shards > save.bestShards) save.bestShards = runStats.shards;
+    if (runStats.coins > save.bestCoins) save.bestCoins = runStats.coins;
     persistSave();
     refreshRecordsUI();
     if (gameclearEl) {
       var txt = 'Waktu total: ' + timeElapsed.toFixed(1) + ' dtk • Musuh: ' +
-        runStats.kills + ' • Shard: ' + runStats.shards + ' • Mati: ' + deaths;
+        runStats.kills + ' • Coin: ' + runStats.coins + ' • Gold Shard: ' + (runStats.goldShards || 0) + ' • Mati: ' + deaths;
       if (save.bestTime != null) txt += ' • Terbaik: ' + Number(save.bestTime).toFixed(1) + ' dtk';
       if (gameclearStats) gameclearStats.textContent = txt;
       gameclearEl.classList.remove('hidden');
@@ -3573,7 +3601,7 @@
   }
 
   // Respawn di checkpoint terakhir (atau spawn): HP pulih, musuh + boss
-  // reset, checkpoint TETAP aktif, timer & deaths lanjut. Shard yang sudah
+  // reset, checkpoint TETAP aktif, timer & deaths lanjut. Coin yang sudah
   // diambil tetap diambil (retry ramah). Efek sementara dibersihkan.
   // Tahap 4: selalu unpause + reset timer agar "restart setelah pause" aman.
   function respawn() {
@@ -4202,18 +4230,28 @@
     }
   }
 
-  // Gold Shard: belah ketupat berkilau + animasi bob 2-frame.
-  function drawShards() {
-    for (var i = 0; i < shards.length; i++) {
-      var s = shards[i];
+  // Coin level: sprite coin.png + animasi bob. Fallback kotak emas bila
+  // sprite belum siap/gagal (game tak pernah crash, hitbox tak berubah).
+  function drawCoins() {
+    var cimg = foeImg(sprites.coin, 0);
+    for (var i = 0; i < coins.length; i++) {
+      var s = coins[i];
       if (s.taken) continue;
       var bobY = Math.round(s.y + Math.sin(s.bob * 4) * 3);
-      var tw = Math.floor(s.bob * 6) % 2 === 0;
-      ctx.fillStyle = tw ? '#ffd23f' : '#ffed9e';
-      ctx.fillRect(s.x - 3, bobY - 8, 6, 16);
-      ctx.fillRect(s.x - 8, bobY - 3, 16, 6);
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(s.x - 2, bobY - 5, 4, 4);
+      if (cimg) {
+        ctx.drawImage(cimg, Math.round(s.x - 10), bobY - 10, 20, 20);
+      } else {
+        var tw = Math.floor(s.bob * 6) % 2 === 0;
+        ctx.fillStyle = tw ? '#ffd23f' : '#e8b62a';
+        ctx.fillRect(s.x - 7, bobY - 7, 14, 14);
+        ctx.fillStyle = '#fff2c9';
+        ctx.fillRect(s.x - 3, bobY - 3, 6, 6);
+      }
+      // Kilau kecil agar kolektibel terbaca di semua tema level.
+      if (Math.floor(s.bob * 6) % 4 === 0) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(Math.round(s.x) - 1, bobY - 14, 2, 2);
+      }
     }
   }
 
@@ -4364,24 +4402,29 @@
     ctx.font = 'bold 14px monospace';
     ctx.fillText('FOE x' + alive, VIEW_W - 118, 25);
 
-    // --- Shard + coin + level (kanan; kecil agar tak tutup game) ---
+    // --- Coin level + Gold Shard treasure (kanan; kecil agar tak tutup game) ---
+    // Baris 1: progres collectible COIN "got/total LVn" (completion = ini).
+    // Baris 2: resource GOLD SHARD dari treasure (terpisah, bukan completion).
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(VIEW_W - 150, 44, 138, 44);
-    ctx.fillStyle = '#ffd23f';
-    ctx.fillRect(VIEW_W - 140, 51, 10, 10);
-    ctx.fillRect(VIEW_W - 137, 48, 4, 16);
-    ctx.fillStyle = '#fff2c9';
-    ctx.font = 'bold 12px monospace';
-    ctx.fillText(shardGot() + '/' + shards.length + '  LV' + currentLevel, VIEW_W - 124, 57);
-    // Coin terpisah dari shard (sistem treasure sendiri).
-    var cimg = foeImg(sprites.reward, 0);
-    if (cimg) ctx.drawImage(cimg, VIEW_W - 140, 70, 14, 14);
+    var coinImg = foeImg(sprites.coin, 0);
+    if (coinImg) ctx.drawImage(coinImg, VIEW_W - 140, 48, 14, 14);
     else {
       ctx.fillStyle = '#ffd23f';
+      ctx.fillRect(VIEW_W - 140, 48, 14, 14);
+    }
+    ctx.fillStyle = '#fff2c9';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(coinGot() + '/' + coins.length + '  LV' + currentLevel, VIEW_W - 124, 57);
+    // Gold Shard terpisah dari coin level (sistem treasure sendiri).
+    var gimg = foeImg(sprites.reward, 0);
+    if (gimg) ctx.drawImage(gimg, VIEW_W - 140, 70, 14, 14);
+    else {
+      ctx.fillStyle = '#ffe98a';
       ctx.fillRect(VIEW_W - 140, 70, 14, 14);
     }
     ctx.fillStyle = '#fff2c9';
-    ctx.fillText('x' + (runStats.coins || 0), VIEW_W - 124, 78);
+    ctx.fillText('x' + (runStats.goldShards || 0), VIEW_W - 124, 78);
 
     // --- Bar HP foe besar (boss / miniboss aktif; boss diprioritaskan) ---
     var foeBar = (boss && !boss.dead) ? boss : ((miniboss && !miniboss.dead) ? miniboss : null);
@@ -4550,7 +4593,7 @@
     Combat.resolveEnemyAttacks();
     checkCheckpoints();
     checkGoal();
-    updateShards(dt);
+    updateCoins(dt);
     updateChests(dt);
     updateShake(dt);
     updateParticles(dt);
@@ -4589,7 +4632,7 @@
     drawPlatforms();
     drawCheckpoints();
     drawGoal();
-    drawShards();
+    drawCoins();
     drawChests();
     drawEnemies();
     drawBoss();
@@ -5080,7 +5123,7 @@
     // bisa diverifikasi headless tanpa menjalankan loop penuh.
     forceGameOver: showGameOver,
     forceWin: showWin,
-    // Stage 5: level, menu, boss, shard, stats, transisi, stepping.
+    // Stage 5: level, menu, boss, coin, stats, transisi, stepping.
     getLevel: function () { return currentLevel; },
     getLevelName: function () { return Level.name; },
     startLevel: startLevel,
@@ -5101,16 +5144,20 @@
       return false;
     },
     enemyKindOf: enemyKindOf,
-    getShards: function () {
+    // Level collectible = COIN (progres got/total/at). Completion = ini.
+    getCoins: function () {
       var first = null;
-      for (var i = 0; i < shards.length; i++) {
-        if (!shards[i].taken) { first = { x: shards[i].x, y: shards[i].y }; break; }
+      for (var i = 0; i < coins.length; i++) {
+        if (!coins[i].taken) { first = { x: coins[i].x, y: coins[i].y }; break; }
       }
-      return { got: shardGot(), total: shards.length, at: first };
+      return { got: coinGot(), total: coins.length, at: first };
     },
+    // Treasure Gold Shard = resource terpisah (run total, bukan completion).
+    getGoldShards: function () { return runStats.goldShards || 0; },
     getStats: function () {
-      return { runKills: runStats.kills, runShards: runStats.shards,
-               levelKills: levelStats.kills, levelShards: levelStats.shards,
+      return { runKills: runStats.kills, runCoins: runStats.coins,
+               runGoldShards: runStats.goldShards || 0,
+               levelKills: levelStats.kills, levelCoins: levelStats.coins,
                levelTime: levelStats.time, deaths: deaths };
     },
     getBest: loadBest,
@@ -5126,7 +5173,6 @@
     fireArrow: fireArrow,
     // Treasure (behavior tests).
     getChests: function () { return chests; },
-    getCoins: function () { return runStats.coins || 0; },
     pickReward: pickTreasureReward,
     getRewards: function () { return TREASURE_REWARDS; },
     debugReward: function (type) {

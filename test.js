@@ -1,14 +1,15 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 197 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 209 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
- * + 12 Stage 5 (menu/level/boss/shard/stats/transisi) + 7 responsif
+ * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
  * + 20 Stage 6 (settings/persistence) + 8 Stage 7 (BGM) + 6 Game Over Menu
  * + 5 audit + 6 Stage 8 + 4 audit putaran dua/grounding/platform
  * + 21 Stage 9 (skeleton campaign: L3-5 unlock, skeleton stats, projectile,
  * defender block, miniboss, lich phase, final sequence, migration, BGM mood)
  * + N hardening (ghost attack, victory race, defender-iframe, hurt input,
- * R respawn, unlock gate, audio migration, archer retreat, leash, projectile).
+ * R respawn, unlock gate, audio migration, archer retreat, leash, projectile)
+ * + 12 swap Coin↔Gold Shard (collectible Coin, treasure Gold Shard, save v3).
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -204,7 +205,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 197; // total test (193 + 4 attack-frame)
+const EXPECTED_TOTAL = 209; // total test (197 + 12 swap Coin/Gold Shard)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -356,11 +357,12 @@ test('55 pixel-art tajam (smoothing OFF + pixelated CSS)', () => {
 
 // Audio & aset (56-57)
 test('56 AudioManager.play aman tanpa ctx', () => noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('tidak-ada'); }));
-test('57 39 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/reward 13 + attack 8)', () => {
-  eq(imageInstances.length, 39, 'Image instans harus 39, got ' + imageInstances.length);
+test('57 40 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22)', () => {
+  eq(imageInstances.length, 40, 'Image instans harus 40, got ' + imageInstances.length);
   srcHas('Promise.all'); srcHas('assets/knight/idle_0.png'); srcHas('assets/knight/death_1.png');
   srcHas('assets/sprites/skeleton-sword.png'); srcHas('assets/sprites/raja-lich.png');
   srcHas('assets/sprites/treasure-chest.png'); srcHas('assets/sprites/coin.png');
+  srcHas('assets/sprites/gold-shard.png');
   srcHas('assets/sprites/skeleton-sword-strike.png'); srcHas('assets/sprites/raja-lich-cast.png');
 });
 
@@ -466,7 +468,7 @@ test('66 menu state + PLAY -> transisi -> Level 1', () => {
   eq(G.getState(), 'playing'); eq(G.getLevel(), 1);
   srcHas('mainmenu'); srcHas('btn-play');
 });
-test('67 level switching: Level 2 (varian + boss + shard)', () => {
+test('67 level switching: Level 2 (varian + boss + coin)', () => {
   G.forceStartLevel(2);
   eq(G.getLevel(), 2); eq(G.getState(), 'playing');
   eq(G.getEnemies().length, 3);
@@ -476,26 +478,26 @@ test('67 level switching: Level 2 (varian + boss + shard)', () => {
   ok(b && b.hp === 120 && b.state === 'idle', 'boss RAJA SLIME hp120 idle');
   eq(G.getCheckpoints().length, 2);
   eq(G.getGoal(), null);
-  eq(G.getShards().total, 8);
+  eq(G.getCoins().total, 8);
   G.forceStartLevel(1); // kembalikan agar tidak pengaruhi sisanya
 });
-test('68 level reset: HP/posisi/musuh/boss/shard/stats pulih', () => {
+test('68 level reset: HP/posisi/musuh/boss/coin/stats pulih', () => {
   G.forceStartLevel(2);
   G.hurtPlayer(30, 9999);
   ok(G.getPlayer().hp < 100, 'HP harus berkurang dulu');
-  const at = G.getShards().at;
+  const at = G.getCoins().at;
   const pl = G.getPlayer();
   pl.vx = 0; pl.vy = 0; // netralkan knockback agar posisi uji stabil
-  pl.x = at.x - 20; pl.y = 402; // berdiri di tanah, overlap kotak shard
+  pl.x = at.x - 20; pl.y = 402; // berdiri di tanah, overlap kotak coin
   G.step(1 / 60);
-  eq(G.getShards().got, 1);
+  eq(G.getCoins().got, 1);
   G.forceStartLevel(2);
   eq(G.getPlayer().hp, 100);
-  eq(G.getShards().got, 0);
+  eq(G.getCoins().got, 0);
   eq(G.getEnemies().length, 3);
   eq(G.getBoss().hp, 120);
   const st = G.getStats();
-  eq(st.levelKills, 0); eq(st.levelShards, 0);
+  eq(st.levelKills, 0); eq(st.levelCoins, 0);
   eq(G.getState(), 'playing');
 });
 test('69 enemy variant stats + slime klasik tak berubah', () => {
@@ -510,17 +512,19 @@ test('69 enemy variant stats + slime klasik tak berubah', () => {
   const c = G.getEnemies()[0];
   eq(c.kind, 'slime'); eq(c.hp, 30); eq(c.w, 44); eq(c.h, 32);
 });
-test('70 collectible pickup: shard + counter + suara aman', () => {
+test('70 collectible pickup: coin + counter + totalCoins + suara aman', () => {
   G.forceStartLevel(1);
-  eq(G.getShards().total, 6); eq(G.getShards().got, 0);
-  const rs0 = G.getStats().runShards; // total run terbawa dari test sebelum
-  const at = G.getShards().at;
+  eq(G.getCoins().total, 6); eq(G.getCoins().got, 0);
+  const rs0 = G.getStats().runCoins; // total run terbawa dari test sebelum
+  const tc0 = G.getSave().totalCoins;
+  const at = G.getCoins().at;
   const pl = G.getPlayer();
-  pl.x = at.x - 20; pl.y = at.y; // overlap kotak shard walau ada gravitasi
+  pl.x = at.x - 20; pl.y = at.y; // overlap kotak coin walau ada gravitasi
   G.step(1 / 60);
-  eq(G.getShards().got, 1);
-  eq(G.getStats().levelShards, 1); eq(G.getStats().runShards, rs0 + 1);
-  noThrow(() => G.fx.audio.play('pickup'));
+  eq(G.getCoins().got, 1);
+  eq(G.getStats().levelCoins, 1); eq(G.getStats().runCoins, rs0 + 1);
+  eq(G.getSave().totalCoins, tc0 + 1, 'pickup coin masuk totalCoins tepat 1x');
+  noThrow(() => G.fx.audio.play('coin'));
 });
 test('71 boss state transitions: idle -> telegraph -> attack', () => {
   G.forceStartLevel(2);
@@ -759,10 +763,12 @@ function finalKillFlow() {
 test('85 default save schema knightSaveV1', () => {
   G.resetSave();
   const s = G.getSave();
-  eq(s.version, 2);
+  eq(s.version, 3);
   eq(s.bestTime, null); eq(s.bestL1, null); eq(s.bestL2, null);
   eq(s.bestL3, null); eq(s.bestL4, null); eq(s.bestL5, null);
-  eq(s.bestShards, 0); eq(s.totalShards, 0); eq(s.totalDeaths, 0);
+  eq(s.bestCoins, 0); eq(s.totalCoins, 0); eq(s.totalGoldShards, 0); eq(s.totalDeaths, 0);
+  ok(!('bestShards' in s), 'legacy bestShards tidak ada di default v3');
+  ok(!('totalShards' in s), 'legacy totalShards tidak ada di default v3');
   eq(s.level1Completed, false); eq(s.level2Completed, false);
   eq(s.level3Completed, false); eq(s.level4Completed, false); eq(s.level5Completed, false);
   eq(s.gameCompleted, false);
@@ -804,19 +810,19 @@ test('87 best time hanya membaik', () => {
   eq(G.getSave().bestL1, 0.001, 'run buruk jangan overwrite best');
   G.resetSave();
 });
-test('88 best shards + total shards persist', () => {
+test('88 best coins + total coins persist', () => {
   G.resetSave();
   G.forceStartLevel(1);
-  const at = G.getShards().at, pl = G.getPlayer();
+  const at = G.getCoins().at, pl = G.getPlayer();
   pl.x = at.x - 20; pl.y = at.y;
   G.step(1 / 60);
-  eq(G.getSave().totalShards, 1);
-  eq(JSON.parse(testStorage._map.get('knightSaveV1')).totalShards, 1);
+  eq(G.getSave().totalCoins, 1);
+  eq(JSON.parse(testStorage._map.get('knightSaveV1')).totalCoins, 1);
   bossKillFlow();
   eq(G.getState(), 'levelcomplete');
   finalKillFlow();
   eq(G.getState(), 'gamecomplete');
-  ok(G.getSave().bestShards >= 1, 'bestShards tercatat');
+  ok(G.getSave().bestCoins >= 1, 'bestCoins tercatat');
   G.resetSave();
 });
 test('89 Level 2 unlock persist + gate NEXT', () => {
@@ -857,7 +863,7 @@ test('92 JSON corrupt -> default + game tetap jalan', () => {
   const s = G.getSave();
   eq(s.sfxVolume, 100); eq(s.bestTime, null); eq(s.level2Unlocked, false);
   noThrow(() => { G.forceStartLevel(1); G.step(1 / 60); });
-  ok(JSON.parse(testStorage._map.get('knightSaveV1')).version === 2, 'storage ditulis ulang valid');
+  ok(JSON.parse(testStorage._map.get('knightSaveV1')).version === 3, 'storage ditulis ulang valid');
   G.resetSave();
 });
 test('93 localStorage hilang/rusak -> fallback memori, tanpa error', () => {
@@ -987,12 +993,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('197 automated test'), 'README harus sebut 197 test, cek jumlah');
+  ok(readme.includes('209 automated test'), 'README harus sebut 209 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 197);
+  eq(EXPECTED_TOTAL, 209);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1237,19 +1243,19 @@ test('123 R2: key lama dibersihkan, save aktif utuh', () => {
 });
 
 // ---------- 6 TEST STAGE 8 (feel + konten) ----------
-test('124 shard celah L1 terjangkau lompat normal', () => {
+test('124 coin celah L1 terjangkau lompat normal', () => {
   G.forceStartLevel(1);
-  const before = G.getShards().got;
+  const before = G.getCoins().got;
   const pl = G.getPlayer();
   pl.x = 470; pl.y = 402; pl.vx = 0; pl.vy = 0;
   G.input.right = true; G.input.jumpHeld = true; G.input.jumpPressed = true;
   let dead = false;
-  for (let i = 0; i < 120 && G.getShards().got === before; i++) {
+  for (let i = 0; i < 120 && G.getCoins().got === before; i++) {
     G.step(1 / 60);
     if (pl.state === 'death') dead = true;
   }
-  ok(!dead, 'lompat shard tak boleh mati');
-  eq(G.getShards().got, before + 1, 'tepat 1 shard celah terambil');
+  ok(!dead, 'lompat coin tak boleh mati');
+  eq(G.getCoins().got, before + 1, 'tepat 1 coin celah terambil');
   // Lanjutkan hingga mendarat (koleksi terjadi di tengah lompatan).
   for (let i = 0; i < 120 && !pl.onGround && pl.state !== 'death'; i++) {
     G.step(1 / 60);
@@ -1615,7 +1621,7 @@ test('153 old save v1 migrasi aman', () => {
   testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 12.5, level1Completed: true, level2Unlocked: true, sfxVolume: 80 }));
   noThrow(() => G.reloadSave());
   const s = G.getSave();
-  eq(s.version, 2, 'migrasi ke v2');
+  eq(s.version, 3, 'migrasi ke v3');
   eq(s.bestL1, 12.5, 'best lama lestari');
   eq(s.level1Completed, true); eq(s.level2Unlocked, true);
   eq(s.level3Unlocked, false, 'field baru default terkunci');
@@ -2022,18 +2028,18 @@ test('177 mock mirror: id campaign/pause ter-wire', () => {
 });
 
 // ---------- 15 TEST TREASURE + ASSET (behavior) ----------
-test('178 asset path valid (13 sprite lokal)', () => {
+test('178 asset path valid (14 sprite lokal)', () => {
   const list = ['skeleton-sword', 'skeleton-sword-walk', 'skeleton-defender',
     'skeleton-defender-guard', 'skeleton-archer', 'skeleton-archer-aim',
     'skeleton-knight', 'raja-lich', 'treasure-chest', 'treasure-chest-open',
-    'coin', 'health', 'poison'];
+    'coin', 'gold-shard', 'health', 'poison'];
   list.forEach((n) => {
     ok(fs.existsSync(path.join(__dirname, 'assets', 'sprites', n + '.png')), 'hilang: ' + n);
   });
   ok(!/http|cdn|cdn\.|external/i.test(src.match(/assets\/sprites\/[^'"]+/g).join(' ')), 'asset harus lokal');
 });
 test('179 PNG signature + dimensi valid', () => {
-  const dims = { 'skeleton-sword': [46, 62], 'skeleton-defender': [50, 64], 'skeleton-archer': [44, 60], 'skeleton-knight': [60, 72], 'raja-lich': [64, 80], 'treasure-chest': [44, 36], 'coin': [20, 20], 'health': [20, 20], 'poison': [20, 20] };
+  const dims = { 'skeleton-sword': [46, 62], 'skeleton-defender': [50, 64], 'skeleton-archer': [44, 60], 'skeleton-knight': [60, 72], 'raja-lich': [64, 80], 'treasure-chest': [44, 36], 'coin': [20, 20], 'gold-shard': [20, 20], 'health': [20, 20], 'poison': [20, 20] };
   Object.keys(dims).forEach((n) => {
     const d = fs.readFileSync(path.join(__dirname, 'assets', 'sprites', n + '.png'));
     eq(d[0], 137); eq(d[1], 80); // PNG magic
@@ -2101,14 +2107,15 @@ test('184 overlap tanpa serang TIDAK membuka; serangan membuka sekali', () => {
   eq(c.state, 'opening', 'serangan -> opening');
   for (let i = 0; i < 40; i++) G.step(1 / 60);
   eq(c.state, 'opened', 'animasi -> opened');
-  ok(['coin', 'health', 'poison'].includes(c.reward.type), 'reward valid: ' + c.reward.type);
-  const coins = G.getCoins();
+  ok(['goldShard', 'health', 'poison'].includes(c.reward.type), 'reward valid: ' + c.reward.type);
+  ok(c.reward.type !== 'coin', 'treasure tidak boleh coin');
+  const gold = G.getGoldShards();
   // Ayunan kedua ke chest terbuka: tidak ada reward ganda.
   pl.attackCooldown = 0;
   G.input.attackPressed = true;
   for (let i = 0; i < 60; i++) G.step(1 / 60);
   eq(c.state, 'opened', 'tetap opened');
-  eq(G.getCoins(), coins, 'reward tidak duplicate');
+  eq(G.getGoldShards(), gold, 'reward tidak duplicate');
   pl.iframes = 0;
   G.forceStartLevel(1);
 });
@@ -2116,10 +2123,11 @@ test('185 reward random selalu dalam set', () => {
   const seen = {};
   for (let i = 0; i < 50; i++) {
     const r = G.pickReward();
-    ok(['coin', 'health', 'poison'].includes(r.type), 'tipe valid: ' + r.type);
+    ok(['goldShard', 'health', 'poison'].includes(r.type), 'tipe valid: ' + r.type);
+    ok(r.type !== 'coin', 'tidak boleh coin: ' + r.type);
     seen[r.type] = true;
   }
-  ok(seen.coin && seen.health && seen.poison, 'ketiga tipe muncul: ' + Object.keys(seen));
+  ok(seen.goldShard && seen.health && seen.poison, 'ketiga tipe muncul: ' + Object.keys(seen));
 });
 test('186 health tidak melebihi max HP', () => {
   G.forceStartLevel(3);
@@ -2144,15 +2152,21 @@ test('187 poison aman: min HP 1, tanpa NaN', () => {
   eq(pl.hp, 1, 'tetap min 1');
   G.forceStartLevel(1);
 });
-test('188 coin reward tepat sekali per chest', () => {
+test('188 goldShard reward tepat +1 per chest, coin hanya dari level', () => {
   G.resetSave();
-  const c0 = G.getCoins();
+  G.forceStartLevel(3);
+  const tc0 = G.getSave().totalCoins;
+  const got0 = G.getCoins().got;
+  const g0 = G.getGoldShards();
   const c = attackOpenChest(3);
   const pl = G.getPlayer();
   eq(c.state, 'opened');
-  const delta = G.getCoins() - c0;
-  ok(delta === 0 || delta === 5, 'delta coin valid (0/5), got ' + delta);
-  if (c.reward.type === 'coin') eq(delta, 5, 'coin +5 tepat sekali');
+  const goldDelta = G.getGoldShards() - g0;
+  ok(goldDelta === 0 || goldDelta === 1, 'delta goldShard valid (0/1), got ' + goldDelta);
+  if (c.reward.type === 'goldShard') eq(goldDelta, 1, 'goldShard +1 tepat sekali');
+  // Semua kenaikan totalCoins harus berasal dari coin level yang terinjak
+  // saat menuju chest — treasure sendiri tidak menambah coin.
+  eq(G.getSave().totalCoins - tc0, G.getCoins().got - got0, 'treasure tidak menambah coin');
   pl.iframes = 0;
   G.resetSave(); G.forceStartLevel(1);
 });
@@ -2160,12 +2174,12 @@ test('189 respawn pertahankan opened (anti duplikat)', () => {
   const c = attackOpenChest(3);
   const pl = G.getPlayer();
   eq(c.state, 'opened');
-  const coins = G.getCoins();
+  const gold = G.getGoldShards();
   G.respawn();
   const c2 = G.getChests()[0];
   eq(c2.state, 'opened', 'respawn pertahankan opened');
   for (let i = 0; i < 40; i++) G.step(1 / 60);
-  eq(G.getCoins(), coins, 'tanpa reward ganda setelah respawn');
+  eq(G.getGoldShards(), gold, 'tanpa reward ganda setelah respawn');
   pl.iframes = 0;
   G.forceStartLevel(1);
 });
@@ -2184,10 +2198,12 @@ test('191 treasure tidak merusak save', () => {
   const c = attackOpenChest(3);
   const pl = G.getPlayer();
   const s = G.getSave();
-  eq(s.version, 2, 'schema v2 utuh');
+  eq(s.version, 3, 'schema v3 utuh');
+  ok(Number.isFinite(s.totalGoldShards) && s.totalGoldShards >= 0, 'totalGoldShards valid');
   ok(Number.isFinite(s.totalCoins) && s.totalCoins >= 0, 'totalCoins valid');
   ok(s.level1Completed === false, 'progresi tak tersentuh');
   G.reloadSave();
+  eq(G.getSave().totalGoldShards, s.totalGoldShards, 'gold persist');
   eq(G.getSave().totalCoins, s.totalCoins, 'coin persist');
   pl.iframes = 0;
   G.resetSave(); G.forceStartLevel(1);
@@ -2203,7 +2219,7 @@ test('192 BGM/SFX tunggal saat treasure', () => {
   const pl = G.getPlayer();
   eq(G.fx.audio.musicInfo().starts, s0, 'tanpa restart BGM');
   G.fx.audio.setSfx(false, 70); // SFX OFF = semua treasure silent
-  noThrow(() => { G.fx.audio.play('chestOpen'); G.fx.audio.play('coin'); G.fx.audio.play('heal'); G.fx.audio.play('poison'); });
+  noThrow(() => { G.fx.audio.play('chestOpen'); G.fx.audio.play('shard'); G.fx.audio.play('coin'); G.fx.audio.play('heal'); G.fx.audio.play('poison'); });
   pl.iframes = 0;
   G.toMenu(); G.resetSave();
 });
@@ -2283,6 +2299,169 @@ test('197 render attack states tanpa error (sprite path)', () => {
   noThrow(() => G.drawOnce(), 'draw lich cast');
   b.state = 'strike'; b.atkT = 0.1;
   noThrow(() => G.drawOnce(), 'draw lich strike');
+  G.forceStartLevel(1);
+});
+
+// ---------- 12 TEST SWAP COIN <-> GOLD SHARD (behavior) ----------
+test('198 level collectible semantic Coin, jumlah tetap', () => {
+  const counts = { 1: 6, 2: 8, 3: 6, 4: 8, 5: 8 };
+  Object.keys(counts).forEach((lv) => {
+    G.forceStartLevel(Number(lv));
+    const c = G.getCoins();
+    eq(c.total, counts[lv], 'L' + lv + ' jumlah coin tetap');
+    eq(c.got, 0, 'L' + lv + ' awal 0');
+  });
+  srcHas('Level.coins'); srcHas('function resetCoins'); srcHas('function coinGot');
+  srcHas('function updateCoins'); srcHas('function drawCoins');
+  ok(!/Level\.shards/.test(src), 'Level.shards legacy harus hilang');
+  ok(!/function resetShards/.test(src), 'resetShards harus hilang');
+  G.forceStartLevel(1);
+});
+test('199 pickup coin +1 tepat sekali ke totalCoins', () => {
+  G.resetSave();
+  G.forceStartLevel(1);
+  const tc0 = G.getSave().totalCoins;
+  const rc0 = G.getStats().runCoins;
+  const at = G.getCoins().at, pl = G.getPlayer();
+  pl.x = at.x - 20; pl.y = at.y; pl.vx = 0; pl.vy = 0;
+  G.step(1 / 60);
+  eq(G.getCoins().got, 1, 'counter 1');
+  eq(G.getStats().runCoins, rc0 + 1, 'run +1 tepat sekali');
+  eq(G.getSave().totalCoins, tc0 + 1, 'totalCoins +1 tepat sekali');
+  for (let i = 0; i < 30; i++) G.step(1 / 60);
+  eq(G.getStats().runCoins, rc0 + 1, 'tanpa duplikat');
+  eq(G.getSave().totalCoins, tc0 + 1, 'persist tanpa duplikat');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('200 treasure random tidak pernah coin, bisa goldShard', () => {
+  const seen = {};
+  for (let i = 0; i < 60; i++) {
+    const r = G.pickReward();
+    ok(r.type !== 'coin', 'tidak boleh coin');
+    seen[r.type] = true;
+  }
+  ok(seen.goldShard, 'goldShard harus muncul');
+  const rw = G.getRewards();
+  ok(!('coin' in rw), 'entry coin harus hilang dari TREASURE_REWARDS');
+  ok(rw.goldShard && rw.goldShard.amount === 1, 'goldShard amount 1');
+  eq(rw.goldShard.type, 'goldShard');
+});
+test('201 goldShard +1 tepat sekali via grant langsung', () => {
+  G.resetSave();
+  G.forceStartLevel(3);
+  const g0 = G.getGoldShards();
+  const tg0 = G.getSave().totalGoldShards;
+  const tc0 = G.getSave().totalCoins;
+  ok(G.debugReward('goldShard'), 'grant goldShard');
+  eq(G.getGoldShards() - g0, 1, 'run +1 tepat sekali');
+  eq(G.getSave().totalGoldShards - tg0, 1, 'persist +1 tepat sekali');
+  eq(G.getSave().totalCoins, tc0, 'coin tak tersentuh');
+  ok(!G.debugReward('coin'), 'tipe coin legacy ditolak');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('202 goldShard tidak masuk counter coin level', () => {
+  G.forceStartLevel(3);
+  const before = G.getCoins().got, total = G.getCoins().total;
+  ok(G.debugReward('goldShard'), 'grant goldShard tanpa gerak');
+  eq(G.getCoins().total, total, 'total level tetap');
+  eq(G.getCoins().got, before, 'got level tetap (treasure terpisah)');
+  G.forceStartLevel(1);
+});
+test('203 HUD coin + gold terpisah, tanpa label shard', () => {
+  G.forceStartLevel(1);
+  noThrow(() => G.drawOnce(), 'draw HUD coin');
+  srcHas('coinGot()'); srcHas('runStats.goldShards');
+  srcHas("sprites.coin"); srcHas("sprites.reward");
+  ok(!/shardGot\(\)/.test(src), 'shardGot harus hilang dari HUD/logic');
+  G.forceStartLevel(1);
+});
+test('204 completion 6/6 Coin L1 + teks lvlclear', () => {
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  for (let k = 0; k < 6; k++) {
+    const at = G.getCoins().at;
+    if (!at) break;
+    pl.x = at.x - 20; pl.y = at.y; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+    for (let i = 0; i < 10 && G.getCoins().got <= k; i++) G.step(1 / 60);
+  }
+  pl.iframes = 0;
+  eq(G.getCoins().got, 6, '6/6 coin terkumpul');
+  eq(G.getCoins().total, 6);
+  pl.x = 2290; pl.y = 400;
+  G.step(1 / 60);
+  eq(G.getState(), 'levelcomplete');
+  ok(/Coin: 6\/6/.test(elements['lvlclear-stats'].textContent), 'teks Coin: 6/6, got ' + elements['lvlclear-stats'].textContent);
+  G.forceStartLevel(1);
+});
+test('205 migrasi save v2 -> v3 tanpa kehilangan progres', () => {
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, totalCoins: 10, totalShards: 6, bestShards: 4, bestL1: 12 }));
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.version, 3, 'naik ke v3');
+  eq(s.totalCoins, 16, '10 treasure-coin + 6 shard lama = 16 coin');
+  eq(s.bestCoins, 4, 'bestShards -> bestCoins');
+  eq(s.totalGoldShards, 0, 'gold baru mulai 0');
+  eq(s.bestL1, 12, 'best lain lestari');
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, totalCoins: 5 }));
+  G.reloadSave();
+  eq(G.getSave().totalCoins, 5, 'tanpa shard = tetap');
+  G.resetSave();
+});
+test('206 save v3 round-trip (coin + gold terpisah)', () => {
+  G.resetSave();
+  G.forceStartLevel(1);
+  const at = G.getCoins().at, pl = G.getPlayer();
+  pl.x = at.x - 20; pl.y = at.y;
+  G.step(1 / 60);
+  const c = attackOpenChest(1);
+  const s = G.getSave();
+  ok(s.totalCoins >= 1, 'coin persist');
+  ok(Number.isFinite(s.totalGoldShards), 'gold valid');
+  G.reloadSave();
+  eq(G.getSave().totalCoins, s.totalCoins, 'coin reload utuh');
+  eq(G.getSave().totalGoldShards, s.totalGoldShards, 'gold reload utuh');
+  pl.iframes = 0;
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('207 SFX shard ada + ikut setting, BGM tetap tunggal', () => {
+  G.resetSave(); G.toMenu();
+  G.fx.audio.setSfx(true, 80);
+  ensureAudioCtx();
+  noThrow(() => { G.fx.audio.play('shard'); G.fx.audio.play('coin'); });
+  G.fx.audio.setSfx(false, 80);
+  noThrow(() => { G.fx.audio.play('shard'); G.fx.audio.play('coin'); });
+  srcHas("shard:     function");
+  G.fx.audio.setMusic(true, 70);
+  ensureAudioCtx();
+  G.fx.audio.startMusic();
+  const s0 = G.fx.audio.musicInfo().starts;
+  G.forceStartLevel(1); attackOpenChest(1);
+  const pl = G.getPlayer();
+  pl.iframes = 0;
+  eq(G.fx.audio.musicInfo().starts, s0, 'treasure swap jangan restart BGM');
+  G.toMenu(); G.resetSave();
+});
+test('208 coin sprite dipakai level, gold-shard untuk treasure', () => {
+  srcHas("assets/sprites/gold-shard.png");
+  srcHas("coin:    ['assets/sprites/coin.png']");
+  const sp = G.getSprites();
+  ok(sp && ('coin' in sp), 'sprites.coin key ada');
+  ok(sp.reward && sp.reward !== undefined, 'sprites.reward ada');
+  G.forceStartLevel(1);
+  sp.coin = []; // paksa fallback (sprite async belum tentu siap di headless)
+  noThrow(() => G.drawOnce(), 'draw coin fallback');
+  sp.coin = [{}]; // paksa jalur sprite
+  noThrow(() => G.drawOnce(), 'draw coin sprite path');
+  G.forceStartLevel(1);
+});
+test('209 L1-L5 regression swap: chest 1 + coin count + draw', () => {
+  const counts = { 1: 6, 2: 8, 3: 6, 4: 8, 5: 8 };
+  Object.keys(counts).forEach((lv) => {
+    G.forceStartLevel(Number(lv));
+    eq(G.getChests().length, 1, 'L' + lv + ' 1 chest');
+    eq(G.getCoins().total, counts[lv], 'L' + lv + ' coin count');
+    noThrow(() => G.drawOnce(), 'draw L' + lv);
+  });
   G.forceStartLevel(1);
 });
 
