@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 223 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 227 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -10,7 +10,8 @@
  * + N hardening (ghost attack, victory race, defender-iframe, hurt input,
  * R respawn, unlock gate, audio migration, archer retreat, leash, projectile)
  * + 12 swap Coin↔Gold Shard (collectible Coin, treasure Gold Shard, save v3)
- * + 14 stage 11 polish (knight art, hit-stop, shake cap, decor, boss, victory).
+ * + 14 stage 11 polish (knight art, hit-stop, shake cap, decor, boss, victory)
+ * + 4 skeleton crumble + pit permanen.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -206,7 +207,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 223; // total test (209 + 14 stage 11 polish)
+const EXPECTED_TOTAL = 227; // total test (223 + 4 skeleton crumble + pit permanen)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -995,12 +996,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('223 automated test'), 'README harus sebut 223 test, cek jumlah');
+  ok(readme.includes('227 automated test'), 'README harus sebut 227 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 223);
+  eq(EXPECTED_TOTAL, 227);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2706,6 +2707,94 @@ test('223 save valid + BGM tunggal + rAF tunggal pasca-polish', () => {
   eq(rafN, 2, 'rAF boot+loop tepat 2, got ' + rafN);
   ok(!/setInterval\s*\(/.test(src), 'tanpa setInterval game');
   G.toMenu(); G.resetSave();
+});
+
+// ---------- 4 TEST SKELETON CRUMBLE + PIT PERMANEN (behavior) ----------
+test('224 skeleton death terpental+runtuh, slime tetap diam', () => {
+  G.forceStartLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  sw.iframes = 0;
+  for (let k = 0; k < 10 && sw.state !== 'death'; k++) {
+    sw.iframes = 0;
+    G.hurtEnemy(sw.id, 12, sw.x - 100); // dari kiri -> terhuyung kanan
+  }
+  eq(sw.state, 'death', 'skeleton masuk death');
+  ok(sw.vy < 0, 'hop sebelum ambruk, vy=' + sw.vy);
+  ok(sw.vx !== 0, 'terhuyung, vx=' + sw.vx);
+  const p0 = G.fx.count();
+  ok(p0 >= 0, 'partikel pool aman');
+  // Slime klasik: mati diam (tanpa hop).
+  G.forceStartLevel(1);
+  const sl = G.getEnemies()[0];
+  for (let k = 0; k < 10 && sl.state !== 'death'; k++) {
+    sl.iframes = 0;
+    G.hurtEnemy(sl.id, 12, sl.x - 100);
+  }
+  eq(sl.state, 'death');
+  eq(sl.vx, 0, 'slime diam');
+  for (let i = 0; i < 40; i++) G.step(1 / 60);
+  eq(sl.dead, true, 'slime selesai mati');
+  G.forceStartLevel(1);
+});
+test('225 crumble draw: topple + fade tanpa error', () => {
+  srcHas('topple'); srcHas('crumbled'); srcHas('dFade');
+  G.forceStartLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  [sw, ar].forEach((e) => {
+    for (let k = 0; k < 10 && e.state !== 'death'; k++) {
+      e.iframes = 0;
+      G.hurtEnemy(e.id, 12, e.x - 100);
+    }
+  });
+  const sp = G.getSprites();
+  ['skelSword', 'skelDef', 'skelArch'].forEach((k) => {
+    for (let i = 0; i < sp[k].length; i++) if (!sp[k][i]) sp[k][i] = {};
+  });
+  for (let i = 0; i < 12; i++) G.step(1 / 60); // fase A: topple
+  noThrow(() => G.drawOnce(), 'draw crumble fase A sprite');
+  for (let i = 0; i < 12; i++) G.step(1 / 60); // fase B: crumble+fade
+  noThrow(() => G.drawOnce(), 'draw crumble fase B sprite');
+  sp.skelSword = []; sp.skelArch = []; // fallback prosedural
+  G.forceStartLevel(3);
+  const sw2 = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  for (let k = 0; k < 10 && sw2.state !== 'death'; k++) {
+    sw2.iframes = 0;
+    G.hurtEnemy(sw2.id, 12, sw2.x - 100);
+  }
+  for (let i = 0; i < 20; i++) G.step(1 / 60);
+  noThrow(() => G.drawOnce(), 'draw crumble fallback + tumpukan tulang');
+  G.forceStartLevel(1);
+});
+test('226 monster jatuh jurang mati permanen, tanpa respawn', () => {
+  G.restart(); // totals fresh, L1
+  const k0 = G.getStats().runKills;
+  eq(G.getEnemies().length, 3);
+  const victim = G.getEnemies()[0];
+  const vid = victim.id;
+  victim.x = 565; victim.y = 650; victim.vx = 0; victim.vy = 0; // celah 520-610
+  G.step(1 / 60);
+  eq(G.getEnemies().length, 2, 'mayat jurang dihapus, bukan direspawn');
+  eq(G.getStats().runKills, k0 + 1, 'kill dihitung sekali');
+  for (let i = 0; i < 120; i++) G.step(1 / 60);
+  eq(G.getEnemies().length, 2, 'tetap 2 setelah 2 dtk');
+  ok(!G.getEnemies().some((e) => e.id === vid), 'id korban tak kembali');
+  ok(!G.getEnemies().some((e) => e.x === victim.spawnX && e.y === victim.spawnY), 'tanpa teleport ke spawn');
+  G.restart();
+});
+test('227 archer jatuh jurang ikut mati permanen', () => {
+  G.forceStartLevel(3);
+  const k0 = G.getStats().runKills;
+  const n0 = G.getEnemies().length;
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  const aid = ar.id;
+  ar.x = 565; ar.y = 650; ar.vx = 0; ar.vy = 0; // celah L3 520-610
+  G.step(1 / 60);
+  eq(G.getEnemies().length, n0 - 1, 'archer dihapus');
+  eq(G.getStats().runKills, k0 + 1, 'kill dihitung sekali');
+  for (let i = 0; i < 120; i++) G.step(1 / 60);
+  ok(!G.getEnemies().some((e) => e.id === aid), 'archer tak kembali');
+  G.forceStartLevel(1);
 });
 
 // ---------- Ringkasan ----------

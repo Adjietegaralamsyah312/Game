@@ -1411,6 +1411,17 @@
       // Poof kematian + shake kecil (warna mengikuti varian).
       burst(s.x + s.w / 2, s.y + s.h / 2, 10, s.st.body, 170, 0.6, 4, 350);
       burst(s.x + s.w / 2, s.y + s.h / 2, 5, s.st.light, 120, 0.5, 3, 300);
+      // Skeleton runtuh realistis: tulang bertebaran + badan terpental
+      // sedikit (hop), lalu ambruk di update/draw. Slime tak berubah.
+      var skel = (s.kind === 'skeletonSword' || s.kind === 'skeletonDefender' ||
+                  s.kind === 'skeletonArcher');
+      if (skel) {
+        burst(s.x + s.w / 2, s.y + 10, 7, '#e8e4d8', 150, 0.6, 3, 400);
+        burst(s.x + s.w / 2, s.y + s.h / 2, 4, '#8f9bb0', 110, 0.5, 3, 300);
+        s.vx = s.dir * 50; // terhuyung ke arah hadap
+        s.vy = -160;       // hop kecil sebelum ambruk
+        s.onGround = false;
+      }
       triggerScreenShake(SHAKE_DIE, 0.2);
       AudioManager.play('slimeDie');
       return true;
@@ -1455,10 +1466,21 @@
     if (s.guardFlash > 0) s.guardFlash -= dt;
     if (s.cooldown > 0) s.cooldown -= dt;
 
+    // Jatuh ke jurang = mati permanen (tidak respawn ke spawn).
+    // Kill dihitung sekali oleh loop hapus di updatePlaying.
+    if (s.y > WORLD_H + 100 && !s.dead) {
+      s.dead = true;
+      return;
+    }
+
     if (s.state === 'death') {
       s.deathT += dt;
       applyGravity(s, dt);
-      s.vx = 0;
+      // Skeleton terhuyung runtuh (redam cepat); slime diam seperti semula.
+      var isSkel = (s.kind === 'skeletonSword' || s.kind === 'skeletonDefender' ||
+                    s.kind === 'skeletonArcher');
+      if (isSkel) s.vx -= s.vx * Math.min(1, 8 * dt);
+      else s.vx = 0;
       moveAndCollide(s, dt, Level.platforms);
       if (s.deathT >= SLIME_DEATH_DURATION) s.dead = true; // dihapus Game
       return;
@@ -1548,10 +1570,7 @@
       if (s.x < lo) { s.x = lo; if (s.vx < 0) s.vx = 0; }
       if (s.x > hi) { s.x = hi; if (s.vx > 0) s.vx = 0; }
     }
-
-    if (s.y > WORLD_H + 100) { // jaring pengaman: kembali ke spawn
-      s.x = s.spawnX; s.y = s.spawnY; s.vx = 0; s.vy = 0;
-    }
+    // NOTE: tidak ada teleport kembali — jatuh jurang = mati (cek di atas).
   }
 
   /* Stage 9: SKELETON ARCHER — AI ranged khusus (ringkas, reuse primitif).
@@ -1572,10 +1591,17 @@
     if (s.cooldown > 0) s.cooldown -= dt;
     var px = player.x + player.w / 2, sx = s.x + s.w / 2;
 
+    // Jatuh ke jurang = mati permanen (tidak respawn ke spawn).
+    if (s.y > WORLD_H + 100 && !s.dead) {
+      s.dead = true;
+      return;
+    }
+
     if (s.state === 'death') {
       s.deathT += dt;
       applyGravity(s, dt);
-      s.vx = 0;
+      // Archer ikut runtuh skeleton (redam cepat, bukan diam kaku).
+      s.vx -= s.vx * Math.min(1, 8 * dt);
       moveAndCollide(s, dt, Level.platforms);
       if (s.deathT >= SLIME_DEATH_DURATION) s.dead = true;
       return;
@@ -1633,9 +1659,7 @@
     // Archer memegang zona patrol (tak pernah keluar level).
     if (s.x < s.minX) { s.x = s.minX; s.dir = 1; }
     if (s.x > s.maxX) { s.x = s.maxX; s.dir = -1; }
-    if (s.y > WORLD_H + 100) {
-      s.x = s.spawnX; s.y = s.spawnY; s.vx = 0; s.vy = 0;
-    }
+    // NOTE: tidak ada teleport kembali — jatuh jurang = mati (cek di atas).
   }
 
   /* Stage 9: pool projectile terpadu (panah archer + bolt lich).
@@ -4224,14 +4248,23 @@
     var t = s.animTime;
     var bob = (s.state === 'patrol' || s.state === 'chase') ? Math.round(Math.sin(t * 8) * 1.5) : 0;
     var dw = s.w + 6, dh = s.h + 6;
+    // Runtuh realistis: fase A tegak-topple, fase B ambruk (melebar) + fade.
+    var topple = 0, dFade = 1, crumbled = false;
     if (s.state === 'death') {
       var k = clamp(1 - s.deathT / SLIME_DEATH_DURATION, 0, 1);
       dh = Math.round(dh * (0.3 + 0.7 * k));
+      topple = Math.round(Math.min(10, s.deathT * 60)) * (s.dir === 1 ? 1 : -1);
+      if (k < 0.55) { crumbled = true; dw += 8; } // tulang menyebar
+      if (s.deathT > SLIME_DEATH_DURATION - 0.15) {
+        dFade = clamp((SLIME_DEATH_DURATION - s.deathT) / 0.15, 0, 1);
+      }
     }
-    var dx = Math.round(s.x + s.w / 2 - dw / 2);
+    var dx = Math.round(s.x + s.w / 2 - dw / 2) + topple;
     var dy = Math.round(s.y + s.h - dh) + bob;
     var blink = s.iframes > 0 && Math.floor(t * 16) % 2 === 0;
     var windup = s.state === 'attack' && s.atkT < s.st.windup;
+
+    if (dFade < 1) { ctx.save(); ctx.globalAlpha = dFade; }
 
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
@@ -4292,6 +4325,14 @@
       ctx.fillRect(swx - 2, swy + 20, 9, 4);
     }
     } // end fallback prosedural (sprite path memakai overlay sendiri)
+    // Tumpukan tulang saat ambruk (fallback; sprite path memakai fade saja).
+    if (crumbled) {
+      ctx.fillStyle = '#e8e4d8';
+      ctx.fillRect(dx + 6, dy + dh - 6, dw - 12, 5);
+      ctx.fillRect(dx + dw / 2 - 6, dy + dh - 11, 12, 5);
+      ctx.fillStyle = '#8f9bb0';
+      ctx.fillRect(dx + 4, dy + dh - 3, dw - 8, 3);
+    }
     // Telegraph windup: tanda seru (konsisten dengan slime, semua path).
     if (windup) {
       ctx.fillStyle = '#ffd23f';
@@ -4299,19 +4340,29 @@
       ctx.fillRect(qx, dy - 18, 5, 10);
       ctx.fillRect(qx, dy - 5, 5, 5);
     }
+    if (dFade < 1) ctx.restore();
   }
 
   function drawArcher(s) {
     var t = s.animTime;
     var dw = s.w + 6, dh = s.h + 6;
+    // Runtuh realistis seperti skeleton melee (topple + crumble + fade).
+    var topple = 0, dFade = 1, crumbled = false;
     if (s.state === 'death') {
       var k = clamp(1 - s.deathT / SLIME_DEATH_DURATION, 0, 1);
       dh = Math.round(dh * (0.3 + 0.7 * k));
+      topple = Math.round(Math.min(10, s.deathT * 60)) * (s.dir === 1 ? 1 : -1);
+      if (k < 0.55) { crumbled = true; dw += 8; }
+      if (s.deathT > SLIME_DEATH_DURATION - 0.15) {
+        dFade = clamp((SLIME_DEATH_DURATION - s.deathT) / 0.15, 0, 1);
+      }
     }
-    var dx = Math.round(s.x + s.w / 2 - dw / 2);
+    var dx = Math.round(s.x + s.w / 2 - dw / 2) + topple;
     var dy = Math.round(s.y + s.h - dh);
     var blink = s.iframes > 0 && Math.floor(t * 16) % 2 === 0;
     var tele = s.state === 'shoot';
+
+    if (dFade < 1) { ctx.save(); ctx.globalAlpha = dFade; }
 
     ctx.fillStyle = 'rgba(0,0,0,0.30)';
     ctx.fillRect(Math.round(s.x + 4), Math.round(s.y + s.h - 3), s.w - 8, 4);
@@ -4346,12 +4397,21 @@
     ctx.fillStyle = (tele && Math.floor(t * 10) % 2 === 0) ? '#ffd23f' : '#8a6d3b';
     ctx.fillRect(bwx, dy + 6, 4, 26);
     } // end fallback prosedural
+    // Tumpukan tulang saat ambruk (fallback; sprite path memakai fade saja).
+    if (crumbled) {
+      ctx.fillStyle = '#e8e4d8';
+      ctx.fillRect(dx + 6, dy + dh - 6, dw - 12, 5);
+      ctx.fillRect(dx + dw / 2 - 6, dy + dh - 11, 12, 5);
+      ctx.fillStyle = '#6b6350';
+      ctx.fillRect(dx + 4, dy + dh - 3, dw - 8, 3);
+    }
     if (tele) {
       ctx.fillStyle = '#ffd23f';
       var qx = Math.round(s.x + s.w / 2 - 2);
       ctx.fillRect(qx, dy - 18, 5, 10);
       ctx.fillRect(qx, dy - 5, 5, 5);
     }
+    if (dFade < 1) ctx.restore();
   }
 
   /* Stage 5: RAJA SLIME — blob besar + mahkota emas + alis marah.
