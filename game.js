@@ -696,7 +696,7 @@
     bossArena: null,
     treasures: [{ x: 300, y: 444 }],
     // Coin: mudah = eksplorasi, menengah = traversal,
-    // sulit = risk/reward (HARD di atas celah — diambil sambil melompat).
+    // sulit = risk/reward (HARD di atas celah — diambil sambil lompat).
     coins: [
       { x: 250, y: 430 },   // tanah start (mudah)
       { x: 350, y: 258 },   // atas platform 300,300 (menengah)
@@ -704,7 +704,9 @@
       { x: 1250, y: 430 },  // arena combat (lawan Slime)
       { x: 1470, y: 258 },  // atas platform arena (menengah)
       { x: 2200, y: 430 }   // dekat goal (menengah)
-    ]
+    ],
+    miniSpawn: { x: 1750, y: 440 },
+    miniArena: { minX: 1600, maxX: 1900 }
   };
   /* Level 2 (Stage 5): traversal baru + encounter varian + arena boss.
    *   x 0-420     : start datar (spawn 80)
@@ -796,8 +798,8 @@
     bossArena: null,
     bossKind: null,
     bossMods: null,
-    miniSpawn: null,
-    miniArena: null,
+    miniSpawn: { x: 1400, y: 400 },
+    miniArena: { minX: 1200, maxX: 1600 },
     lichSpawn: null,
     lichArena: null,
     treasures: [{ x: 300, y: 444 }],
@@ -850,8 +852,8 @@
     bossArena: { minX: 1930, maxX: 2360 },
     bossKind: 'lich',
     bossMods: null,
-    miniSpawn: { x: 1300, y: 416 },
-    miniArena: { minX: 1050, maxX: 1600 },
+    miniSpawn: null,
+    miniArena: null,
     lichSpawn: null,
     lichArena: null,
     treasures: [{ x: 1770, y: 444 }],
@@ -2652,9 +2654,10 @@
   var miniboss = null;
 
   function createMiniboss(spawn, arena) {
+    var isSlimeMid = (currentLevel === 1);
     return {
-      id: ++slimeUid, kind: 'miniboss', name: 'PANGLIMA TULANG',
-      x: spawn.x, y: spawn.y, w: 52, h: 64,
+      id: ++slimeUid, kind: 'miniboss', name: isSlimeMid ? 'Panglima Slime' : 'PANGLIMA TULANG',
+      x: spawn.x, y: spawn.y, w: isSlimeMid ? 56 : 52, h: isSlimeMid ? 48 : 64,
       vx: 0, vy: 0, onGround: false, hitWall: false,
       spawnX: spawn.x, spawnY: spawn.y,
       arenaMin: arena.minX, arenaMax: arena.maxX,
