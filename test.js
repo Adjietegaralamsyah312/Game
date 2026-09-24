@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 234 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 237 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -15,6 +15,7 @@
  * + 3 skeleton walk realistis
  * + 3 bone pile persisten
  * + 1 pit kill persisten respawn.
+ * + 3 audit profesional (pile snap, clamp, pit key).
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -210,7 +211,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 234; // total test (233 + 1 pit persisten)
+const EXPECTED_TOTAL = 237; // total test (234 + 3 audit profesional)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -999,12 +1000,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('234 automated test'), 'README harus sebut 234 test, cek jumlah');
+  ok(readme.includes('237 automated test'), 'README harus sebut 237 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 234);
+  eq(EXPECTED_TOTAL, 237);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2918,6 +2919,45 @@ test('234 korban jurang tetap mati setelah player respawn', () => {
   G.restart(); // level fresh: semua hidup lagi
   eq(G.getEnemies().length, 3, 'restart pulihkan semua');
   eq(G.getPitDead().length, 0, 'catatan dibersihkan');
+});
+
+// ---------- 3 TEST AUDIT PROFESIONAL (behavior) ----------
+test('235 pile kill mid-air tetap napak tanah', () => {
+  G.forceStartLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  sw.x = 980; sw.y = 200; sw.vx = 0; sw.vy = 0; // melayang, hanya tanah 480 di bawah x=1000
+  for (let k = 0; k < 10 && sw.state !== 'death'; k++) {
+    sw.iframes = 0;
+    G.hurtEnemy(sw.id, 12, sw.x - 100);
+  }
+  eq(sw.state, 'death');
+  eq(G.getBonePiles().length, 1);
+  eq(G.getBonePiles()[0].y, 480, 'snap ke pijakan, bukan melayang');
+  G.forceStartLevel(1);
+});
+test('236 counter coin/death clamp di batas atas', () => {
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 3, totalCoins: 1e9, totalDeaths: 1e9 }));
+  G.reloadSave();
+  eq(G.getSave().totalCoins, 1e9); eq(G.getSave().totalDeaths, 1e9);
+  G.forceStartLevel(1);
+  const at = G.getCoins().at, pl = G.getPlayer();
+  pl.x = at.x - 20; pl.y = at.y;
+  G.step(1 / 60);
+  eq(G.getSave().totalCoins, 1e9, 'tanpa overflow');
+  G.hurtPlayer(999, 9999);
+  for (let i = 0; i < 70; i++) G.step(1 / 60);
+  eq(G.getState(), 'gameover');
+  eq(G.getSave().totalDeaths, 1e9, 'tanpa overflow');
+  G.resetSave();
+});
+test('237 pitDead key unik per spawn L1-L5', () => {
+  srcHas('function pitKey');
+  [1, 2, 3, 4, 5].forEach((lv) => {
+    G.forceStartLevel(lv);
+    const keys = G.getEnemies().map((e) => e.spawnX + ':' + e.spawnY);
+    eq(new Set(keys).size, keys.length, 'L' + lv + ' spawn unik: ' + keys);
+  });
+  G.forceStartLevel(1);
 });
 
 // ---------- Ringkasan ----------

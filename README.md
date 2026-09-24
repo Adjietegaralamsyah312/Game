@@ -124,7 +124,7 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 234 automated test headless (node test.js)
+├── test.js             # 237 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
@@ -185,7 +185,7 @@ node test.js
 git diff --check
 ```
 
-234 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish + 4 skeleton crumble/pit + 3 skeleton walk + 3 bone pile + 1 pit persisten) —
+237 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish + 4 skeleton crumble/pit + 3 skeleton walk + 3 bone pile + 1 pit persisten + 3 audit) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 

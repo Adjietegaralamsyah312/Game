@@ -1477,7 +1477,16 @@
 
   function dropBonePile(s) {
     if (s.y > WORLD_H) return; // mati di jurang: tak ada pile
-    var pile = { x: Math.round(s.x + s.w / 2), y: Math.round(s.y + s.h),
+    // Snap ke tanah: kill mid-air (mis. tebasan lompat) tetap berpile
+    // di pijakan terdekat di bawah, bukan melayang. Event-only (murah).
+    var gx = s.x + s.w / 2, gy = s.y + s.h, groundY = 0;
+    for (var i = 0; i < Level.platforms.length; i++) {
+      var p = Level.platforms[i];
+      if (gx >= p.x && gx <= p.x + p.w && p.y >= gy - 8 && (groundY === 0 || p.y < groundY)) {
+        groundY = p.y;
+      }
+    }
+    var pile = { x: Math.round(gx), y: Math.round(groundY || gy),
       dir: s.dir, a: Math.random(), b: Math.random() };
     if (bonePiles.length < BONE_PILE_MAX) bonePiles.push(pile);
     else { bonePiles[bonePileIdx] = pile; bonePileIdx = (bonePileIdx + 1) % BONE_PILE_MAX; }
@@ -2256,8 +2265,9 @@
     gameState = 'gameover';
     gameOverT = 0;
     deaths++;
-    // Persistent: total kematian lintas sesi (event-driven, bukan per-frame).
-    save.totalDeaths++;
+    // Persistent: total kematian lintas sesi (event-driven, bukan per-frame;
+    // clamp agar simetri dengan sanitasi save dan tak pernah overflow).
+    save.totalDeaths = Math.min(1e9, Math.floor(saveNum(save.totalDeaths, 0, 0, 1e9)) + 1);
     persistSave();
     AudioManager.play('gameover');
     AudioManager.updateMusicState(); // BGM gameplay fade-out
@@ -3077,8 +3087,9 @@
         s.taken = true;
         runStats.coins++;
         levelStats.coins++;
-        // Persistent: total coin lintas sesi (event, bukan per-frame).
-        save.totalCoins = Math.floor(saveNum(save.totalCoins, 0, 0, 1e9)) + 1;
+        // Persistent: total coin lintas sesi (event, bukan per-frame; clamp
+        // konsisten dengan reward treasure agar tak pernah overflow/NaN).
+        save.totalCoins = Math.min(1e9, Math.floor(saveNum(save.totalCoins, 0, 0, 1e9)) + 1);
         persistSave();
         burst(s.x, s.y, 8, '#ffd23f', 140, 0.5, 3, 250);
         AudioManager.play('coin');
