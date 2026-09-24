@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 240 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 244 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -17,6 +17,7 @@
  * + 1 pit kill persisten respawn.
  * + 3 audit profesional (pile snap, clamp, pit key).
  * + 3 boss pit gugur normal.
+ * + 4 boss gate arena.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -212,7 +213,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 240; // total test (237 + 3 boss pit)
+const EXPECTED_TOTAL = 244; // total test (240 + 4 boss gate)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1001,12 +1002,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('240 automated test'), 'README harus sebut 240 test, cek jumlah');
+  ok(readme.includes('244 automated test'), 'README harus sebut 244 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 240);
+  eq(EXPECTED_TOTAL, 244);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2997,6 +2998,73 @@ test('240 raja lich jatuh jurang = victory L4', () => {
   for (let i = 0; i < 200; i++) G.step(1 / 60);
   eq(b.dead, true, 'gugur tuntas');
   eq(G.getState(), 'levelcomplete', 'victory tetap jalan');
+  G.forceStartLevel(1);
+});
+
+// ---------- 4 TEST BOSS GATE (behavior) ----------
+test('241 gerbang menutup + kunci player saat raja muncul', () => {
+  G.forceStartLevel(2);
+  eq(G.getGate().locked, false); eq(G.getGate().anim, 0);
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = 2000; pl.y = 402; pl.vx = 0; pl.vy = 0; // zona intro raja
+  G.step(1 / 60);
+  ok(G.getBoss().introduced, 'raja diperkenalkan');
+  ok(G.getGate().locked, 'terkunci');
+  eq(G.getGate().bounds.minX, 1930); eq(G.getGate().bounds.maxX, 2360);
+  for (let i = 0; i < 40; i++) G.step(1 / 60); // animasi 0.6 dtk
+  eq(G.getGate().anim, 1, 'tertutup penuh');
+  // Kabur ke kiri: tertahan di gerbang.
+  G.input.left = true;
+  for (let i = 0; i < 60; i++) G.step(1 / 60);
+  G.input.left = false;
+  ok(pl.x >= 1930, 'tak bisa keluar, x=' + Math.round(pl.x));
+  noThrow(() => G.drawOnce(), 'draw gerbang');
+  pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+test('242 player di luar ikut tersnap masuk saat gerbang tutup', () => {
+  G.forceStartLevel(2);
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = 1850; pl.y = 402; pl.vx = 0; pl.vy = 0; // luar arena, dalam zona intro
+  G.step(1 / 60);
+  ok(G.getBoss().introduced, 'intro jalan');
+  ok(pl.x >= 1930 && pl.x + pl.w <= 2360, 'snap masuk arena, x=' + Math.round(pl.x));
+  pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+test('243 gerbang terbuka lagi setelah raja gugur', () => {
+  G.forceStartLevel(2);
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = 2000; pl.y = 402;
+  G.step(1 / 60);
+  ok(G.getGate().locked, 'pra-kondisi terkunci');
+  const b = G.getBoss();
+  for (let k = 0; k < 10 && b.state !== 'death'; k++) { b.iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 200; i++) G.step(1 / 60); // death + victory
+  eq(G.getState(), 'levelcomplete');
+  eq(G.getGate().locked, false, 'terbuka saat victory');
+  eq(G.getGate().anim, 0, 'animasi kembali');
+  pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+test('244 L5 interlude tetap terkunci, respawn reset terbuka', () => {
+  G.forceStartLevel(5);
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = 2000; pl.y = 402; pl.vx = 0; pl.vy = 0;
+  G.step(1 / 60);
+  ok(G.getGate().locked, 'pra-kondisi terkunci L5');
+  const b0 = G.getBoss();
+  for (let k = 0; k < 10 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(30, 0); }
+  for (let i = 0; i < 200; i++) G.step(1 / 60); // death slime + interlude -> lich
+  ok(G.getGate().locked, 'tetap terkunci antar raja');
+  G.respawn();
+  eq(G.getGate().locked, false, 'respawn reset terbuka');
+  eq(G.getGate().anim, 0);
+  pl.iframes = 0;
   G.forceStartLevel(1);
 });
 

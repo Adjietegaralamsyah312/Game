@@ -3433,6 +3433,7 @@
     pitDead.length = 0; // level baru = semua musuh hidup lagi
     resetShake();
     hitStopT = 0; // tanpa freeze basi antar level
+    gateTarget = 0; gateAnim = 0; gateBounds = null; // gerbang terbuka
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
@@ -3958,6 +3959,7 @@
     clearBonePiles(); // retry fresh: pile ikut reset dengan musuh
     resetShake();
     hitStopT = 0; // tanpa freeze basi setelah respawn
+    gateTarget = 0; gateAnim = 0; gateBounds = null; // boss fresh = terbuka
     clearInput();
     gameState = 'playing';
     gameOverT = 0;
@@ -4722,6 +4724,32 @@
     }
   }
 
+  // Gerbang arena boss: jeruji besi turun dari atas (animasi gateAnim
+  // 0 = terbuka/hilang, 1 = tertutup penuh). Tanpa alokasi per-frame.
+  function drawGates() {
+    if (!gateBounds || gateAnim <= 0.01) return;
+    var g = GROUND_TOP;
+    var drop = Math.round((1 - gateAnim) * GATE_H);
+    for (var i = 0; i < 2; i++) {
+      var x = Math.round(i === 0 ? gateBounds.minX - GATE_W : gateBounds.maxX);
+      var top = g - GATE_H + drop;
+      var hgt = GATE_H - drop;
+      if (hgt <= 0) continue;
+      // Batang vertikal + 2 sabuk + ujung runcing emas.
+      ctx.fillStyle = '#2c3145';
+      for (var b = 0; b < 4; b++) ctx.fillRect(x + 1 + b * 4, top, 3, hgt);
+      ctx.fillStyle = '#4a5578';
+      ctx.fillRect(x, top + 10, GATE_W, 6);
+      ctx.fillRect(x, g - 16, GATE_W, 6);
+      ctx.fillStyle = '#c9a227';
+      for (var s = 0; s < 4; s++) ctx.fillRect(x + 1 + s * 4, top - 6, 3, 6);
+      // Rune kunci saat tertutup penuh.
+      if (gateAnim >= 1) {
+        ctx.fillStyle = '#b46ae0';
+        ctx.fillRect(x + GATE_W / 2 - 2, g - 60, 4, 8);
+      }
+    }
+  }
   // Dekorasi subtil arena boss (L2/L4/L5): pilar + panji + obor.
   // Warna mengikuti mood level; miniboss arena (L4) dapat penanda tulang.
   function drawArenaDecor() {
@@ -4969,6 +4997,53 @@
     ctx.textAlign = 'left';
   }
 
+  /* Boss arena gates: saat raja (slime king / lich) diperkenalkan,
+   * gerbang menutup (animasi turun) dan mengunci player + raja di arena.
+   * Terbuka lagi saat raja gugur. L5 tetap terkunci selama interlude.
+   * Miniboss tidak dikunci (hanya raja). Kunci = clamp-x logis (visual
+   * jeruji menyusul); boss sudah di-clamp arena oleh AI-nya sendiri. */
+  var GATE_H = 150, GATE_W = 16, GATE_T = 0.6;
+  var gateTarget = 0, gateAnim = 0, gateBounds = null;
+
+  // Arena raja aktif (null = terbuka). Hanya boss + introduced.
+  function arenaLock() {
+    if (gameState !== 'playing' || !Level.bossArena) return null;
+    if (boss && !boss.dead && boss.introduced) return Level.bossArena;
+    // L5 gauntlet: tetap terkunci saat jeda antar raja.
+    if (currentLevel === 5 && finalPhase === 'inter') return Level.bossArena;
+    return null;
+  }
+
+  function updateGates(dt) {
+    var lock = arenaLock();
+    if ((lock && !gateTarget) || (!lock && gateTarget)) {
+      gateTarget = lock ? 1 : 0;
+      if (lock) {
+        gateBounds = { minX: lock.minX, maxX: lock.maxX };
+        // Snap masuk bila player di luar (tak ada jebakan di luar gerbang).
+        var pcx = player.x + player.w / 2;
+        if (pcx < lock.minX) player.x = lock.minX + 2;
+        else if (pcx > lock.maxX) player.x = lock.maxX - player.w - 2;
+        player.vx = 0;
+        // FX bantingan: debu + denting metal + shake (cap existing).
+        // Tanpa toast agar judul nama raja tetap terbaca.
+        burst(lock.minX, GROUND_TOP - 40, 8, '#8a8fa8', 140, 0.5, 3, 250);
+        burst(lock.maxX, GROUND_TOP - 40, 8, '#8a8fa8', 140, 0.5, 3, 250);
+        AudioManager.play('shieldBlock');
+        triggerScreenShake(SHAKE_HURT, 0.3);
+      }
+    }
+    // Animasi menuju target (reduced-motion: snap instan).
+    if (reducedMotion) gateAnim = gateTarget;
+    else if (gateAnim < gateTarget) gateAnim = Math.min(gateTarget, gateAnim + dt / GATE_T);
+    else if (gateAnim > gateTarget) gateAnim = Math.max(gateTarget, gateAnim - dt / GATE_T);
+    // Kunci logis: player tak bisa keluar selagi terkunci (walau animasi jalan).
+    if (lock) {
+      if (player.x < lock.minX) { player.x = lock.minX; if (player.vx < 0) player.vx = 0; }
+      if (player.x + player.w > lock.maxX) { player.x = lock.maxX - player.w; if (player.vx > 0) player.vx = 0; }
+    }
+  }
+
   /* Stage 5: satu langkah simulasi gameplay. Dipakai frame() dan
    * diekspos sebagai step() untuk testing deterministik headless. */
   function updatePlaying(dt) {
@@ -5012,6 +5087,7 @@
       else updateBoss(boss, dt);
     }
     if (miniboss && !miniboss.dead) updateMiniboss(miniboss, dt);
+    updateGates(dt);
     updateShocks(dt);
     updateShots(dt);
     Combat.resolveEnemyAttacks();
@@ -5068,6 +5144,7 @@
     drawShocks();
     drawShots();
     drawParticles();
+    drawGates(); // jeruji di depan semua (tak bisa dilewati visual)
     if (DEBUG) drawDebugBoxes();
     ctx.restore();
   }
@@ -5606,6 +5683,11 @@
     getChests: function () { return chests; },
     getBonePiles: function () { return bonePiles; },
     getPitDead: function () { return pitDead.slice(); },
+    // Stage boss gate (test): kunci logis + progres animasi + bounds.
+    getGate: function () {
+      return { locked: !!arenaLock(), anim: gateAnim,
+        bounds: gateBounds ? { minX: gateBounds.minX, maxX: gateBounds.maxX } : null };
+    },
     pickReward: pickTreasureReward,
     getRewards: function () { return TREASURE_REWARDS; },
     debugReward: function (type) {

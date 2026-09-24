@@ -41,6 +41,9 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
   (sprite PNG dark-fantasy di `assets/sprites/`; walk + windup/strike,
   guard, aim/release; miniboss slash/dash; lich cast/strike)
 - Boss RAJA SLIME: intro sekali, HP bar, strike/charge/shockwave, telegraph, enrage
+- Gerbang arena raja: menutup otomatis saat raja muncul (animasi jeruji +
+  denting metal), player & raja tak bisa keluar sampai menang; L5 tetap
+  terkunci antar raja; terbuka lagi saat victory/respawn
 - Collectible Coin (`got/total` di HUD, sprite `coin.png`) + suara coin
 - Stats per-level & total (musuh, coin, gold shard, waktu, mati) + best lokal
 - Level Complete (NEXT/REPLAY/MENU) & Game Complete (PLAY AGAIN/MENU)
@@ -124,7 +127,7 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 240 automated test headless (node test.js)
+├── test.js             # 244 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.0.0
@@ -185,7 +188,7 @@ node test.js
 git diff --check
 ```
 
-240 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish + 4 skeleton crumble/pit + 3 skeleton walk + 3 bone pile + 1 pit persisten + 3 audit + 3 boss pit) —
+244 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish + 4 skeleton crumble/pit + 3 skeleton walk + 3 bone pile + 1 pit persisten + 3 audit + 3 boss pit + 4 boss gate) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
