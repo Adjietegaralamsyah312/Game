@@ -193,6 +193,9 @@ FakeAudioContext.prototype.createBiquadFilter = function () {
 FakeAudioContext.prototype.createBuffer = function (ch, len) {
   return { getChannelData: () => new Float32Array(len) };
 };
+FakeAudioContext.prototype.createDynamicsCompressor = function () {
+  return { threshold: { value: 0 }, knee: { value: 0 }, ratio: { value: 1 }, attack: { value: 0 }, release: { value: 0 }, connect() {} };
+};
 FakeAudioContext.prototype.createBufferSource = function () {
   return { buffer: null, loop: false, connect() {}, start() {}, stop() {} };
 };
@@ -3199,7 +3202,8 @@ test('251 SFX volume regression mobile: 100% tidak diredam master 0.16', () => {
   eq(G.fx.audio.getCfg().muted, true);
 });
 test('252 BGM audio chain valid setelah BASE_GAIN 1.0', () => {
-  ok(src.includes('musicG.connect(master)'), 'musicG harus terhubung ke master');
+  ok(src.includes('musicG.connect(musicCompressor)'), 'musicG harus ke compressor');
+  ok(src.includes('musicCompressor.connect(master)'), 'compressor ke master');
   ok(src.includes('master.connect(ctx.destination)'), 'master harus ke destination');
   ok(src.includes('BASE_GAIN = 1.0'), 'BASE_GAIN harus 1.0');
   ok(src.includes('sfxG.connect(ctx.destination)'), 'SFX routing tetap destination');

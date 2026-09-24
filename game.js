@@ -126,7 +126,7 @@
     var ctx = null, master = null, noiseBuf = null;
     // Stage 7: jalur terpisah — sfxG (SFX) dan musicG (BGM) sejajar ke
     // master, sehingga volume keduanya tidak saling mengganggu.
-    var sfxG = null, musicG = null;
+    var sfxG = null, musicG = null, musicCompressor = null;
     // Stage 6: pengaturan audio (default = perilaku lama persis).
     var sfxOn = true, sfxVol = 1, musicOn = true, musicVol = 0.7;
     var BASE_GAIN = 1.0, MUSIC_LEVEL = 1.0;
@@ -162,7 +162,14 @@
         sfxG = ctx.createGain();
         sfxG.connect(ctx.destination);
         musicG = ctx.createGain();
-        musicG.connect(master);
+        musicCompressor = ctx.createDynamicsCompressor();
+        musicCompressor.threshold.value = -24;
+        musicCompressor.knee.value = 30;
+        musicCompressor.ratio.value = 4;
+        musicCompressor.attack.value = 0.003;
+        musicCompressor.release.value = 0.25;
+        musicG.connect(musicCompressor);
+        musicCompressor.connect(master);
         applyGain(); // hormati pengaturan (default = perilaku lama)
         // Buffer noise 0.5 dtk — dibuat sekali, dipakai ulang semua SFX.
         noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
