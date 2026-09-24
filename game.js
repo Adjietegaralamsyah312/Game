@@ -2704,7 +2704,7 @@
       burst(m.x + m.w / 2, m.y, 10, '#e05252', 190, 0.6, 4, 300);
       triggerScreenShake(SHAKE_HURT, 0.3);
       AudioManager.play('minibossCue');
-      showToast('PANGLIMA TULANG MURKA!');
+      showToast(currentLevel === 1 ? 'LIGHTNING SLIME MURKA!' : 'PANGLIMA TULANG MURKA!');
     }
     m.state = 'hurt';
     m.hurtT = 0;
@@ -2738,7 +2738,7 @@
         m.dead = true;
         runStats.kills++;
         levelStats.kills++;
-        showToast('PANGLIMA TULANG TUMBANG!');
+        showToast(currentLevel === 1 ? 'LIGHTNING SLIME TUMBANG!' : 'PANGLIMA TULANG TUMBANG!');
       }
       return;
     }
@@ -2877,7 +2877,7 @@
     if (slimeVis) {
       // Lightning Slime — polished midboss pixel-art procedural
       var bob = (currentLevel === 1) ? Math.sin(t * 3) * 3 : 0; // idle bob
-      var intensity = (m.state === 'attack' || m.enraged) ? 1.2 : 1.0;
+      var intensity = (m.state === 'slash' || m.state === 'dash' || m.enraged) ? 1.2 : 1.0;
       var cx = dx + dw / 2, cy = dy + dh / 2 - 6 + bob;
 
       // Shadow under body
@@ -2959,7 +2959,7 @@
       ctx.fillRect(cx - eyeOff - 1, cy - 7, 2, 1);
 
       // Attack / enrage aura boost (more sparks on attack)
-      if (m.state === 'attack' || m.enraged) {
+      if (m.state === 'slash' || m.state === 'dash' || m.enraged) {
         ctx.strokeStyle = 'rgba(255,215,0,0.7)';
         ctx.lineWidth = 1;
         for (var s = 0; s < 6; s++) {
