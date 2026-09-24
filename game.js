@@ -2656,7 +2656,7 @@
   function createMiniboss(spawn, arena) {
     var isSlimeMid = (currentLevel === 1);
     return {
-      id: ++slimeUid, kind: 'miniboss', name: isSlimeMid ? 'Panglima Slime' : 'PANGLIMA TULANG',
+      id: ++slimeUid, kind: 'miniboss', name: isSlimeMid ? 'Lightning Slime' : 'PANGLIMA TULANG',
       x: spawn.x, y: spawn.y, w: isSlimeMid ? 56 : 52, h: isSlimeMid ? 48 : 64,
       vx: 0, vy: 0, onGround: false, hitWall: false,
       spawnX: spawn.x, spawnY: spawn.y,
@@ -2756,7 +2756,7 @@
       // Intro sekali saat pemain memasuki arena.
       if (!m.introduced && player.x > m.arenaMin - 120) {
         m.introduced = true;
-        showToast(currentLevel === 1 ? 'PANGLIMA SLIME MUNCUL!' : 'PANGLIMA TULANG MUNCUL!');
+        showToast(currentLevel === 1 ? 'LIGHTNING SLIME MUNCUL!' : 'PANGLIMA TULANG MUNCUL!');
         AudioManager.play('minibossCue');
         triggerScreenShake(SHAKE_HURT, 0.3);
         // Stage 11: aura intro (visual saja, tanpa ubah pola/timing).
@@ -2874,9 +2874,25 @@
       }
     } else {
     var slimeVis = (currentLevel === 1);
-    // Armor berat + jubah (enrage = semburat merah) atau slime visual (L1).
-    ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? (slimeVis ? '#c0392b' : '#8a3a4a') : (slimeVis ? '#27ae60' : '#5a6478'));
-    ctx.fillRect(dx + 8, dy + 16, dw - 16, dh - 16);   // torso
+    if (slimeVis) {
+      // Lightning Slime midboss — visual petir/prosedural
+      ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? '#e74c3c' : '#f1c40f');
+      ctx.fillRect(dx + 6, dy + 10, dw - 12, dh - 10); // tubuh utama bulat
+      ctx.fillStyle = '#f39c12';
+      ctx.fillRect(dx + dw/2 - 10, dy + 4, 20, 14); // kepala/inti
+      ctx.fillStyle = '#3498db';
+      ctx.fillRect(dx + dw/2 - 4, dy + 2, 8, 8); // inti petir
+      // Efek petir mengelilingi
+      ctx.fillStyle = 'rgba(52,152,219,0.6)';
+      ctx.fillRect(dx - 4, dy + 6, 4, 6);
+      ctx.fillRect(dx + dw, dy + 8, 4, 6);
+      ctx.fillRect(dx + dw/2 - 2, dy - 6, 4, 4);
+      ctx.fillStyle = '#fdcb6e';
+      ctx.fillRect(dx + dw/2 - 3, dy + 2, 6, 6); // highlight petir
+    } else {
+    // Armor berat + jubah (enrage = semburat merah).
+    ctx.fillStyle = blink ? '#ffffff' : (m.enraged ? '#8a3a4a' : '#5a6478');
+    ctx.fillRect(dx + 8, dy + 16, dw - 16, dh - 16);   // torso armor
     ctx.fillRect(dx + 14, dy + 6, dw - 28, 12);        // helm tengkorak
     ctx.fillStyle = m.enraged ? '#5c1a26' : '#39404f';
     ctx.fillRect(dx + 8, dy + dh - 10, dw - 16, 10);   // kaki berat
@@ -2893,6 +2909,7 @@
     ctx.fillRect(swx, tele ? dy - 10 : dy + 10, 7, 34);
     ctx.fillStyle = '#c9a227';
     ctx.fillRect(swx - 3, tele ? dy + 22 : dy + 40, 13, 5);
+    } // end skeleton fallback
     } // end fallback prosedural
     if (tele) {
       ctx.fillStyle = '#ffd23f';
