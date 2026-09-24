@@ -3198,10 +3198,10 @@ test('251 SFX volume regression mobile: 100% tidak diredam master 0.16', () => {
   G.fx.audio.setSfx(false, 0);
   eq(G.fx.audio.getCfg().muted, true);
 });
-test('252 BGM audio chain valid setelah BASE_GAIN 0.5', () => {
+test('252 BGM audio chain valid setelah BASE_GAIN 1.0', () => {
   ok(src.includes('musicG.connect(master)'), 'musicG harus terhubung ke master');
   ok(src.includes('master.connect(ctx.destination)'), 'master harus ke destination');
-  ok(src.includes('BASE_GAIN = 0.5'), 'BASE_GAIN harus 0.5');
+  ok(src.includes('BASE_GAIN = 1.0'), 'BASE_GAIN harus 1.0');
   ok(src.includes('sfxG.connect(ctx.destination)'), 'SFX routing tetap destination');
   noThrow(() => G.fx.audio.updateMusicState());
   const cfg = G.fx.audio.getCfg();

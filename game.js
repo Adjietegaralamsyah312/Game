@@ -129,7 +129,7 @@
     var sfxG = null, musicG = null;
     // Stage 6: pengaturan audio (default = perilaku lama persis).
     var sfxOn = true, sfxVol = 1, musicOn = true, musicVol = 0.7;
-    var BASE_GAIN = 0.5, MUSIC_LEVEL = 0.5;
+    var BASE_GAIN = 1.0, MUSIC_LEVEL = 1.0;
 
     function applyGain() {
       try {
