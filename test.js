@@ -370,8 +370,8 @@ test('55 pixel-art tajam (smoothing OFF + pixelated CSS)', () => {
 
 // Audio & aset (56-57)
 test('56 AudioManager.play aman tanpa ctx', () => noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('tidak-ada'); }));
-test('57 50 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10)', () => {
-  eq(imageInstances.length, 50, 'Image instans harus 50, got ' + imageInstances.length);
+test('57 53 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10 + lightning slime 3)', () => {
+  eq(imageInstances.length, 53, 'Image instans harus 53, got ' + imageInstances.length);
   srcHas('Promise.all'); srcHas('assets/knight/idle_0.png'); srcHas('assets/knight/death_1.png');
   srcHas('assets/sprites/skeleton-sword.png'); srcHas('assets/sprites/raja-lich.png');
   srcHas('assets/sprites/treasure-chest.png'); srcHas('assets/sprites/coin.png');

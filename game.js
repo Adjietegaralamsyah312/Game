@@ -494,6 +494,9 @@
     skelKnight: ['assets/sprites/skeleton-knight.png',
                  'assets/sprites/skeleton-knight-slash.png',
                  'assets/sprites/skeleton-knight-dash.png'],
+    lightningSlime: ['assets/sprites/lightning-slime.png',
+                     'assets/sprites/lightning-slime-attack.png',
+                     'assets/sprites/lightning-slime-dash.png'],
     lich:    ['assets/sprites/raja-lich.png',
               'assets/sprites/raja-lich-cast.png',
               'assets/sprites/raja-lich-strike.png'],
@@ -520,12 +523,12 @@
               'assets/sprites/poison.png']
   };
   var ANIM_ORDER = ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'death',
-    'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lich', 'chest', 'coin', 'reward',
+    'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lightningSlime', 'lich', 'chest', 'coin', 'reward',
     'knightIdle', 'knightWalk', 'knightAttack', 'knightAttack2', 'knightJump',
     'knightFall', 'knightHurt', 'knightDeath', 'knightVictory'];
 
   var sprites = { idle: [], run: [], jump: [], fall: [], attack: [], hurt: [], death: [],
-    skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lich: [], chest: [], coin: [], reward: [],
+    skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lightningSlime: [], lich: [], chest: [], coin: [], reward: [],
     knightIdle: [], knightWalk: [], knightAttack: [], knightAttack2: [], knightJump: [],
     knightFall: [], knightHurt: [], knightDeath: [], knightVictory: [] };
   var assetsReady = false;
@@ -4576,7 +4579,7 @@
 
   function bossFrameFor(kind, state) {
     if (kind === 'miniboss') {
-      if (currentLevel === 1) return [null, 0];
+      if (currentLevel === 1) return ['lightningSlime', 0];
       if (state === 'slash') return ['skelKnight', 1];
       if (state === 'dash') return ['skelKnight', 2];
       return ['skelKnight', 0];
