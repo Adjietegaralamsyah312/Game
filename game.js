@@ -1079,6 +1079,14 @@
       player.attackBox = null;
       player.queued = false;
       player.didStrikeHit = {};
+      // Animasi mati: ledakan merah + arwah melayang (visual saja,
+      // pool bounded; ambruk + fade menyusul di drawPlayer).
+      burst(player.x + player.w / 2, player.y + player.h / 2, 10, '#e05252', 200, 0.6, 4, 350);
+      var wi;
+      for (wi = 0; wi < 5; wi++) {
+        spawnParticle(player.x + player.w / 2 + (Math.random() * 20 - 10), player.y + 20,
+          (Math.random() * 2 - 1) * 30, -80 - Math.random() * 40, 1.0, '#9fd8ff', 3, -60);
+      }
       return;
     }
     player.state = 'hurt';
@@ -1423,6 +1431,8 @@
         s.vy = -160;       // hop kecil sebelum ambruk
         s.onGround = false;
         dropBonePile(s); // badan berubah jadi tumpukan tulang di tanah
+      } else {
+        dropGooPile(s); // sisa lendir menetap seperti tumpukan tulang
       }
       triggerScreenShake(SHAKE_DIE, 0.2);
       AudioManager.play('slimeDie');
@@ -1493,6 +1503,50 @@
   }
 
   function clearBonePiles() { bonePiles.length = 0; bonePileIdx = 0; }
+
+  /* Sisa lendir slime: paralel dengan bone pile — slime (biasa/fast/
+   * heavy) yang tewas meninggalkan genangan warna variannya, menetap
+   * sampai ganti level/respawn. Maks 20 (ring). Mati di jurang: tak ada. */
+  var gooPiles = [];
+  var gooPileIdx = 0;
+  var GOO_PILE_MAX = 20;
+
+  function dropGooPile(s) {
+    if (s.y > WORLD_H) return; // mati di jurang: tak ada sisa
+    var gx = s.x + s.w / 2, gy = s.y + s.h, groundY = 0;
+    for (var i = 0; i < Level.platforms.length; i++) {
+      var p = Level.platforms[i];
+      if (gx >= p.x && gx <= p.x + p.w && p.y >= gy - 8 && (groundY === 0 || p.y < groundY)) {
+        groundY = p.y;
+      }
+    }
+    var pile = { x: Math.round(gx), y: Math.round(groundY || gy),
+      body: s.st.body, dark: s.st.dark, light: s.st.light,
+      a: Math.random(), b: Math.random() };
+    if (gooPiles.length < GOO_PILE_MAX) gooPiles.push(pile);
+    else { gooPiles[gooPileIdx] = pile; gooPileIdx = (gooPileIdx + 1) % GOO_PILE_MAX; }
+  }
+
+  function clearGooPiles() { gooPiles.length = 0; gooPileIdx = 0; }
+
+  function drawGooPiles() {
+    for (var i = 0; i < gooPiles.length; i++) {
+      var p = gooPiles[i];
+      if (p.x < camera.x - 60 || p.x > camera.x + VIEW_W + 60) continue;
+      var o1 = Math.round(p.a * 8), o2 = Math.round(p.b * 6);
+      ctx.fillStyle = 'rgba(0,0,0,0.30)';
+      ctx.fillRect(p.x - 16, p.y - 3, 32, 4); // bayangan
+      ctx.fillStyle = p.dark;
+      ctx.fillRect(p.x - 14 + o1, p.y - 5, 28, 5); // genangan dasar
+      ctx.fillRect(p.x - 20 + o2, p.y - 3, 10, 3); // ceceran kiri
+      ctx.fillRect(p.x + 12 - o1, p.y - 3, 9, 3);  // ceceran kanan
+      ctx.fillStyle = p.body;
+      ctx.fillRect(p.x - 10 + o2, p.y - 8, 20, 5); // gumpalan
+      ctx.fillStyle = p.light;
+      ctx.fillRect(p.x - 6 + o1, p.y - 7, 6, 2);   // kilau gelembung
+      ctx.fillRect(p.x + 4 - o2, p.y - 6, 4, 2);
+    }
+  }
 
   function drawBonePiles() {
     for (var i = 0; i < bonePiles.length; i++) {
@@ -3430,6 +3484,7 @@
     toast.t = 0;
     clearParticles();
     clearBonePiles(); // pile lama tak terbawa ke level baru
+    clearGooPiles(); // genangan lama tak terbawa ke level baru
     pitDead.length = 0; // level baru = semua musuh hidup lagi
     resetShake();
     hitStopT = 0; // tanpa freeze basi antar level
@@ -3957,6 +4012,7 @@
     finalT = 0;
     clearParticles();
     clearBonePiles(); // retry fresh: pile ikut reset dengan musuh
+    clearGooPiles(); // genangan ikut reset dengan musuh
     resetShake();
     hitStopT = 0; // tanpa freeze basi setelah respawn
     gateTarget = 0; gateAnim = 0; gateBounds = null; // boss fresh = terbuka
@@ -4174,6 +4230,12 @@
     if (player.state !== 'death' && player.iframes > 0) {
       if (Math.floor(player.animTime * 14) % 2 === 0) return;
     }
+    // Animasi mati: kedip awal 0.3 dtk (impak), lalu ambruk + fade.
+    // Timing game-over (deathT > 1.0) tidak berubah.
+    var dying = player.state === 'death';
+    if (dying && player.deathT < 0.3) {
+      if (Math.floor(player.animTime * 14) % 2 === 0) return;
+    }
     // Stage 11: pose victory heroik di layar menang (tanpa ubah FSM).
     var victoryPose = (gameState === 'levelcomplete' || gameState === 'gamecomplete') &&
       player.state !== 'death' && sprites.knightVictory && sprites.knightVictory[0];
@@ -4190,7 +4252,16 @@
     // bawah dipin di tanah agar gepeng melebar, bukan tenggelam.
     var dy = Math.round(player.y + player.h - dh + (squashing ? 0 : KNIGHT_FEET_DY));
     if (player.state === 'idle') dy += Math.round(Math.sin(player.animTime * 9));
+    // Ambruk: badan tenggelam perlahan selama death (maks 10px).
+    if (dying) dy += Math.min(10, Math.round(player.deathT * 12));
     var cx = dx + dw / 2;
+    // Fade akhir death (0.7 -> 1.0 dtk), seimbang save/restore.
+    var dFade = 1;
+    if (dying && player.deathT > 0.7) {
+      dFade = clamp((1.0 - player.deathT) / 0.3, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = dFade;
+    }
     drawFacing(function () {
       ctx.drawImage(img, dx, dy, dw, dh);
       // Hit flash singkat saat hurt.
@@ -4199,6 +4270,7 @@
         ctx.fillRect(dx, dy, dw, dh);
       }
     }, dx, cx, player.facing);
+    if (dFade < 1) ctx.restore();
   }
 
   // Efek tebasan: busur slash + 3 garis energi mengikuti arah serangan,
@@ -5136,6 +5208,7 @@
     drawCoins();
     drawChests();
     drawBonePiles();
+    drawGooPiles();
     drawEnemies();
     drawBoss();
     drawMiniboss();
@@ -5682,6 +5755,7 @@
     // Treasure (behavior tests).
     getChests: function () { return chests; },
     getBonePiles: function () { return bonePiles; },
+    getGooPiles: function () { return gooPiles; },
     getPitDead: function () { return pitDead.slice(); },
     // Stage boss gate (test): kunci logis + progres animasi + bounds.
     getGate: function () {

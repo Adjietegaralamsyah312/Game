@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 244 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 247 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -18,6 +18,7 @@
  * + 3 audit profesional (pile snap, clamp, pit key).
  * + 3 boss pit gugur normal.
  * + 4 boss gate arena.
+ * + 3 player death + goo pile.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -213,7 +214,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 244; // total test (240 + 4 boss gate)
+const EXPECTED_TOTAL = 247; // total test (244 + 3 death anim + goo)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1002,12 +1003,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('244 automated test'), 'README harus sebut 244 test, cek jumlah');
+  ok(readme.includes('247 automated test'), 'README harus sebut 247 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 244);
+  eq(EXPECTED_TOTAL, 247);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3066,6 +3067,69 @@ test('244 L5 interlude tetap terkunci, respawn reset terbuka', () => {
   eq(G.getGate().anim, 0);
   pl.iframes = 0;
   G.forceStartLevel(1);
+});
+
+// ---------- 3 TEST PLAYER DEATH + GOO PILE (behavior) ----------
+test('245 animasi mati player: burst, ambruk, fade, gameover tetap', () => {
+  G.restart();
+  const c0 = G.fx.count();
+  G.hurtPlayer(999, 9999);
+  const pl = G.getPlayer();
+  eq(pl.state, 'death', 'masuk death');
+  eq(pl.hp, 0);
+  ok(G.fx.count() > c0, 'burst + wisp muncul');
+  srcHas('arwah melayang');
+  for (let i = 0; i < 15; i++) G.step(1 / 60); // fase kedip
+  noThrow(() => G.drawOnce(), 'draw death fase kedip');
+  for (let i = 0; i < 30; i++) G.step(1 / 60); // fase ambruk + fade
+  noThrow(() => G.drawOnce(), 'draw death fase fade');
+  for (let i = 0; i < 30; i++) G.step(1 / 60); // total > 1.0 dtk
+  eq(G.getState(), 'gameover', 'timing gameover tetap');
+  G.respawn();
+});
+test('246 slime tewas tinggalkan genangan menetap', () => {
+  G.forceStartLevel(1);
+  eq(G.getGooPiles().length, 0, 'awal bersih');
+  const sl = G.getEnemies()[0];
+  const killX = sl.x + sl.w / 2;
+  for (let k = 0; k < 10 && sl.state !== 'death'; k++) {
+    sl.iframes = 0;
+    G.hurtEnemy(sl.id, 12, sl.x - 100);
+  }
+  eq(sl.state, 'death');
+  eq(G.getGooPiles().length, 1, 'genangan langsung ada');
+  const p = G.getGooPiles()[0];
+  ok(Math.abs(p.x - killX) < 30, 'di lokasi tewas');
+  eq(p.body, sl.st.body, 'warna ikut varian');
+  for (let i = 0; i < 40; i++) G.step(1 / 60);
+  eq(G.getGooPiles().length, 1, 'tetap menetap');
+  noThrow(() => G.drawOnce(), 'draw goo');
+  // Skeleton tidak ber-goo (ber-tulang), slime jurang tanpa goo.
+  G.forceStartLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  for (let k = 0; k < 10 && sw.state !== 'death'; k++) {
+    sw.iframes = 0;
+    G.hurtEnemy(sw.id, 12, sw.x - 100);
+  }
+  eq(G.getGooPiles().length, 0, 'skeleton tanpa goo');
+  G.forceStartLevel(1);
+});
+test('247 goo ikut reset + jurang tanpa goo', () => {
+  G.forceStartLevel(1);
+  const sl = G.getEnemies()[0];
+  for (let k = 0; k < 10 && sl.state !== 'death'; k++) {
+    sl.iframes = 0;
+    G.hurtEnemy(sl.id, 12, sl.x - 100);
+  }
+  eq(G.getGooPiles().length, 1);
+  G.respawn();
+  eq(G.getGooPiles().length, 0, 'respawn bersihkan goo');
+  const sl2 = G.getEnemies()[0];
+  sl2.x = 565; sl2.y = 650; sl2.vx = 0; sl2.vy = 0;
+  G.step(1 / 60);
+  ok(sl2.dead, 'mati di jurang');
+  eq(G.getGooPiles().length, 0, 'jurang tanpa goo');
+  G.restart();
 });
 
 // ---------- Ringkasan ----------
