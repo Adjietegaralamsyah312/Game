@@ -1422,6 +1422,7 @@
         s.vx = s.dir * 50; // terhuyung ke arah hadap
         s.vy = -160;       // hop kecil sebelum ambruk
         s.onGround = false;
+        dropBonePile(s); // badan berubah jadi tumpukan tulang di tanah
       }
       triggerScreenShake(SHAKE_DIE, 0.2);
       AudioManager.play('slimeDie');
@@ -1456,6 +1457,43 @@
         spawnParticle(s.x + (s.dir === 1 ? s.w - 2 : 2), s.y + s.h - 2,
           -s.dir * 20, -30, 0.3, '#8a8fa8', 2, 150);
       }
+    }
+  }
+
+  /* Tumpukan tulang persisten: skeleton yang ambruk berubah jadi pile
+   * di tanah (tetap sampai ganti level/respawn). Maks 20 (ring, tanpa
+   * alokasi berlebih). Slime/miniboss/boss tidak berpile. */
+  var bonePiles = [];
+  var bonePileIdx = 0;
+  var BONE_PILE_MAX = 20;
+
+  function dropBonePile(s) {
+    if (s.y > WORLD_H) return; // mati di jurang: tak ada pile
+    var pile = { x: Math.round(s.x + s.w / 2), y: Math.round(s.y + s.h),
+      dir: s.dir, a: Math.random(), b: Math.random() };
+    if (bonePiles.length < BONE_PILE_MAX) bonePiles.push(pile);
+    else { bonePiles[bonePileIdx] = pile; bonePileIdx = (bonePileIdx + 1) % BONE_PILE_MAX; }
+  }
+
+  function clearBonePiles() { bonePiles.length = 0; bonePileIdx = 0; }
+
+  function drawBonePiles() {
+    for (var i = 0; i < bonePiles.length; i++) {
+      var p = bonePiles[i];
+      if (p.x < camera.x - 60 || p.x > camera.x + VIEW_W + 60) continue;
+      var o1 = Math.round(p.a * 6), o2 = Math.round(p.b * 6);
+      ctx.fillStyle = 'rgba(0,0,0,0.30)';
+      ctx.fillRect(p.x - 14, p.y - 3, 28, 4); // bayangan
+      ctx.fillStyle = '#a8a49a';
+      ctx.fillRect(p.x - 12 + o1, p.y - 6, 20, 4); // alas gelap
+      ctx.fillRect(p.x - 8, p.y - 10 + o2, 12, 3);
+      ctx.fillStyle = '#e8e4d8';
+      ctx.fillRect(p.x - 10 + o2, p.y - 9, 16, 4); // rusuk
+      ctx.fillRect(p.x - 4, p.y - 14, 8, 6);       // tengkorak
+      ctx.fillRect(p.x + (p.dir === 1 ? 6 : -13) + o1 - 2, p.y - 7, 7, 3); // anggota
+      ctx.fillStyle = '#14142b';
+      ctx.fillRect(p.x - 2, p.y - 13, 3, 3); // rongga mata
+      ctx.fillRect(p.x + 3, p.y - 13, 2, 2);
     }
   }
 
@@ -3343,6 +3381,7 @@
     respawnPoint = { x: Level.playerSpawn.x, y: Level.playerSpawn.y };
     toast.t = 0;
     clearParticles();
+    clearBonePiles(); // pile lama tak terbawa ke level baru
     resetShake();
     hitStopT = 0; // tanpa freeze basi antar level
     player = createPlayer();
@@ -3863,6 +3902,7 @@
     finalPhase = 'slime'; // L5 respawn = ulangi gauntlet dari slime
     finalT = 0;
     clearParticles();
+    clearBonePiles(); // retry fresh: pile ikut reset dengan musuh
     resetShake();
     hitStopT = 0; // tanpa freeze basi setelah respawn
     clearInput();
@@ -4966,6 +5006,7 @@
     drawGoal();
     drawCoins();
     drawChests();
+    drawBonePiles();
     drawEnemies();
     drawBoss();
     drawMiniboss();
@@ -5510,6 +5551,7 @@
     fireArrow: fireArrow,
     // Treasure (behavior tests).
     getChests: function () { return chests; },
+    getBonePiles: function () { return bonePiles; },
     pickReward: pickTreasureReward,
     getRewards: function () { return TREASURE_REWARDS; },
     debugReward: function (type) {

@@ -1,5 +1,5 @@
 /* Knight Platformer — Skeleton Campaign hardening tests.
- * 230 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
+ * 233 tests: 57 dasar (config/fisika/combat/AI/kamera/level/input/render/audio/asset)
  * + 8 Tahap 4 (pause, visibility, dt-clamp, DPR fallback, touch anti double,
  * restart-setelah-pause, resume GameOver, resume Win)
  * + 12 Stage 5 (menu/level/boss/coin/stats/transisi) + 7 responsif
@@ -12,7 +12,8 @@
  * + 12 swap Coin↔Gold Shard (collectible Coin, treasure Gold Shard, save v3)
  * + 14 stage 11 polish (knight art, hit-stop, shake cap, decor, boss, victory)
  * + 4 skeleton crumble + pit permanen
- * + 3 skeleton walk realistis.
+ * + 3 skeleton walk realistis
+ * + 3 bone pile persisten.
  * Jalan headless: node test.js (tanpa dependency, mock DOM minimal).
  * Target: semua PASS, 0 JS error.
  */
@@ -208,7 +209,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 230; // total test (227 + 3 skeleton walk)
+const EXPECTED_TOTAL = 233; // total test (230 + 3 bone pile)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -997,12 +998,12 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('230 automated test'), 'README harus sebut 230 test, cek jumlah');
+  ok(readme.includes('233 automated test'), 'README harus sebut 233 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
-  eq(EXPECTED_TOTAL, 230);
+  eq(EXPECTED_TOTAL, 233);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2846,6 +2847,58 @@ test('230 archer ikut melangkah (tak lagi statis)', () => {
   noThrow(() => G.drawOnce(), 'draw archer fallback melangkah');
   srcHas('aStepping'); srcHas('skeletonFootstep');
   pl.iframes = 0;
+  G.forceStartLevel(1);
+});
+
+// ---------- 3 TEST BONE PILE (behavior) ----------
+test('231 skeleton ambruk jadi tumpukan tulang menetap', () => {
+  G.forceStartLevel(3);
+  eq(G.getBonePiles().length, 0, 'awal bersih');
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  const killX = sw.x + sw.w / 2;
+  for (let k = 0; k < 10 && sw.state !== 'death'; k++) {
+    sw.iframes = 0;
+    G.hurtEnemy(sw.id, 12, sw.x - 100);
+  }
+  eq(sw.state, 'death');
+  eq(G.getBonePiles().length, 1, 'pile langsung jatuh di lokasi');
+  const p = G.getBonePiles()[0];
+  ok(Math.abs(p.x - killX) < 30, 'pile di lokasi tewas, x=' + p.x);
+  for (let i = 0; i < 40; i++) G.step(1 / 60); // mayat selesai + dihapus
+  ok(!G.getEnemies().some((e) => e.id === sw.id), 'mayat dihapus');
+  eq(G.getBonePiles().length, 1, 'pile tetap menetap');
+  noThrow(() => G.drawOnce(), 'draw pile');
+  // Slime tidak berpile.
+  G.forceStartLevel(1);
+  eq(G.getBonePiles().length, 0, 'ganti level bersihkan pile');
+  const sl = G.getEnemies()[0];
+  for (let k = 0; k < 10 && sl.state !== 'death'; k++) {
+    sl.iframes = 0;
+    G.hurtEnemy(sl.id, 12, sl.x - 100);
+  }
+  eq(G.getBonePiles().length, 0, 'slime tanpa pile');
+  G.forceStartLevel(1);
+});
+test('232 pile ikut reset saat respawn', () => {
+  G.forceStartLevel(3);
+  const sw = G.getEnemies().find((e) => e.kind === 'skeletonSword');
+  for (let k = 0; k < 10 && sw.state !== 'death'; k++) {
+    sw.iframes = 0;
+    G.hurtEnemy(sw.id, 12, sw.x - 100);
+  }
+  eq(G.getBonePiles().length, 1);
+  G.respawn();
+  eq(G.getBonePiles().length, 0, 'respawn bersihkan pile + musuh fresh');
+  eq(G.getEnemies().length, 6, 'musuh kembali');
+  G.forceStartLevel(1);
+});
+test('233 mati di jurang tanpa pile', () => {
+  G.forceStartLevel(3);
+  const ar = G.getEnemies().find((e) => e.kind === 'skeletonArcher');
+  ar.x = 565; ar.y = 650; ar.vx = 0; ar.vy = 0;
+  G.step(1 / 60);
+  ok(ar.dead, 'archer mati di jurang');
+  eq(G.getBonePiles().length, 0, 'jurang tak berpile');
   G.forceStartLevel(1);
 });
 
