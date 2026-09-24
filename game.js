@@ -662,6 +662,7 @@
     goal: { x: 2280, baseY: 480, w: 70, h: 120 },
     bossSpawn: null,
     bossArena: null,
+    treasures: [{ x: 300, y: 444 }],
     // Gold Shard: mudah = eksplorasi, menengah = traversal,
     // sulit = risk/reward (HARD di atas celah — diambil sambil melompat).
     shards: [
@@ -716,6 +717,7 @@
     goal: null, // boss sebagai final encounter
     bossSpawn: { x: 2150, y: 380 },
     bossArena: { minX: 1930, maxX: 2360 },
+    treasures: [{ x: 300, y: 444 }],
     shards: [
       { x: 250, y: 430 },   // start
       { x: 465, y: 380 },   // bibir celah 1 (risiko kecil)

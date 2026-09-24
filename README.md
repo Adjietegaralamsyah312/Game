@@ -33,7 +33,7 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
   (by design, reset hanya untuk run berjalan)
 - Skeleton Knight miniboss (sprite full-armor + pedang besar + cape)
 - Raja Lich final boss (sprite crown + robe + staff + orb, aura phase)
-- Treasure Chest (L3/L4/L5): serang dengan pedang untuk membuka
+- Treasure Chest (L1/L2/L3/L4/L5): serang dengan pedang untuk membuka
   (closed→opening→opened, sekali saja, aman dari duplikat & persist respawn); reward random
   Coin (+5, HUD & total persist) / Health (+30, clamp max) / Poison (−HP, min 1)
 - 6 enemy archetype: Slime, Fast Slime, Heavy Slime,

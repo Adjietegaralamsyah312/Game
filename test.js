@@ -2074,8 +2074,8 @@ test('182 miniboss + lich render sprite path valid', () => {
   noThrow(() => G.drawOnce(), 'draw lich sprite');
   G.forceStartLevel(1);
 });
-test('183 treasure spawn valid L3-L5', () => {
-  [[3, 300], [4, 1770], [5, 1150]].forEach(([lv, x]) => {
+test('183 treasure spawn valid L1-L5', () => {
+  [[1, 300], [2, 300], [3, 300], [4, 1770], [5, 1150]].forEach(([lv, x]) => {
     G.forceStartLevel(lv);
     const cs = G.getChests();
     eq(cs.length, 1, 'L' + lv + ' tepat 1 chest');
@@ -2084,7 +2084,6 @@ test('183 treasure spawn valid L3-L5', () => {
     eq(cs[0].y + cs[0].h, 480, 'kaki chest napak tanah L' + lv);
   });
   G.forceStartLevel(1);
-  eq(G.getChests().length, 0, 'L1 tanpa chest');
 });
 test('184 overlap tanpa serang TIDAK membuka; serangan membuka sekali', () => {
   G.forceStartLevel(3);
