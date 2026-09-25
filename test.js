@@ -107,7 +107,7 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'shop-prev-tier', 'shop-prev-price', 'shop-prev-desc', 'shop-prev-stats',
   'shop-prev-special', 'shop-prev-action',
   'shop-mode-sword', 'shop-mode-guardian', 'shop-mode-archer',
-  'shop-msg', 'shop-back', 'btn-block'];
+  'shop-msg', 'shop-back', 'btn-block', 'shop-prev-weapon'];
 const elements = {};
 elementIds.forEach((id) => { elements[id] = makeElement(id, mockCtx); });
 
@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 282; // total test (252 + 30 weapon shop)
+const EXPECTED_TOTAL = 302; // total test (282 + 20 weapon visual & scroll)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -378,8 +378,8 @@ test('55 pixel-art tajam (smoothing OFF + pixelated CSS)', () => {
 
 // Audio & aset (56-57)
 test('56 AudioManager.play aman tanpa ctx', () => noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('tidak-ada'); }));
-test('57 71 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10 + lightning slime 3 + guardian 9 + archer 9)', () => {
-  eq(imageInstances.length, 71, 'Image instans harus 71, got ' + imageInstances.length);
+test('57 111 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10 + lightning slime 3 + guardian 9 + archer 9 + weapon overlay 40)', () => {
+  eq(imageInstances.length, 111, 'Image instans harus 111, got ' + imageInstances.length);
   srcHas('Promise.all'); srcHas('assets/knight/idle_0.png'); srcHas('assets/knight/death_1.png');
   srcHas('assets/sprites/skeleton-sword.png'); srcHas('assets/sprites/raja-lich.png');
   srcHas('assets/sprites/treasure-chest.png'); srcHas('assets/sprites/coin.png');
@@ -388,6 +388,8 @@ test('57 71 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/rew
   srcHas('assets/sprites/skeleton-sword-strike.png'); srcHas('assets/sprites/raja-lich-cast.png');
   srcHas('assets/sprites/guardian-idle.png'); srcHas('assets/sprites/guardian-block.png');
   srcHas('assets/sprites/archer-idle.png'); srcHas('assets/sprites/archer-aim.png');
+  srcHas('assets/sprites/weapon-rusty-down.png'); srcHas('assets/sprites/weapon-bastion-front.png');
+  srcHas('assets/sprites/weapon-storm-drawn.png'); srcHas('assets/sprites/weapon-dragon-side.png');
 });
 
 // ---------- 8 TEST BARU TAHAP 4 ----------
@@ -1021,13 +1023,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('282 automated test'), 'README harus sebut 282 test, cek jumlah');
+  ok(readme.includes('302 automated test'), 'README harus sebut 302 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 282);
+  eq(EXPECTED_TOTAL, 302);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3615,6 +3617,296 @@ test('282 semua L playable tiap mode + HUD mode', () => {
     });
   });
   G.resetSave(); G.forceStartLevel(1);
+});
+
+// ---------- 20 TEST WEAPON VISUAL & SCROLL ----------
+test('283 40 weapon overlay PNG valid (fs)', () => {
+  const ids = ['rusty', 'steel', 'silver', 'shadowfang', 'sunfire',
+    'buckler', 'kite', 'tower', 'aegis', 'bastion',
+    'makeshift', 'hunter', 'elven', 'storm', 'dragon'];
+  const variants = { sword: ['down', 'horiz', 'up', 'back'], shield: ['side', 'front'], bow: ['side', 'drawn'] };
+  let n = 0;
+  ids.forEach((id) => {
+    const it = G.shopItemById(id);
+    const vs = variants[it.category];
+    vs.forEach((v) => {
+      const p = path.join(__dirname, 'assets', 'sprites', 'weapon-' + id + '-' + v + '.png');
+      ok(fs.existsSync(p), 'hilang: weapon-' + id + '-' + v);
+      const d = fs.readFileSync(p);
+      eq(d[0], 137); eq(d[1], 80);
+      eq(d.readUInt32BE(16), 32, 'w ' + id + '-' + v);
+      eq(d.readUInt32BE(20), 32, 'h ' + id + '-' + v);
+      ok(d.length > 100, 'kosong: ' + id + '-' + v);
+      n++;
+    });
+  });
+  eq(n, 40);
+  srcHas('weapon-rusty-down.png'); srcHas('weapon-bastion-front.png'); srcHas('weapon-storm-drawn.png');
+});
+test('284 item ID ke weapon asset benar (kategori tak tertukar)', () => {
+  eq(G.weaponKey('rusty', 'Down'), 'wRustyDown');
+  eq(G.weaponKey('shadowfang', 'Back'), 'wShadowfangBack');
+  eq(G.weaponKey('buckler', 'Side'), 'wBucklerSide');
+  eq(G.weaponKey('bastion', 'Front'), 'wBastionFront');
+  eq(G.weaponKey('makeshift', 'Side'), 'wMakeshiftSide');
+  eq(G.weaponKey('storm', 'Drawn'), 'wStormDrawn');
+  srcHas('function weaponFile');
+  G.shopItems.forEach((it) => {
+    const f = G.weaponFile(it.id);
+    ok(f && f.includes('weapon-' + it.id + '-'), 'file ' + it.id + ': ' + f);
+  });
+});
+test('285 equip item memilih overlay benar di renderer', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.state = 'idle'; pl.animTime = 0;
+  G.equipItem('rusty');
+  eq(G.getWeaponOverlay('sword').key, 'wRustyDown');
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 30000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.buyItem('shadowfang'); G.equipItem('shadowfang');
+  G.forceStartLevel(1);
+  G.getPlayer().state = 'idle';
+  eq(G.getWeaponOverlay('sword').key, 'wShadowfangDown');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('286 varian overlay ikut state (attack/jump/block/aim)', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 30000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.buyItem('silver'); G.equipItem('silver');
+  G.buyItem('tower'); G.equipItem('tower');
+  G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.state = 'idle'; pl.animTime = 0;
+  eq(G.getWeaponOverlay('sword').key, 'wSilverDown');
+  eq(G.getWeaponOverlay('shield').key, 'wTowerSide');
+  pl.state = 'block';
+  eq(G.getWeaponOverlay('shield').key, 'wTowerFront', 'block -> front');
+  pl.state = 'attack'; pl.attackT = 0.3; pl.combo = false;
+  eq(G.getWeaponOverlay('sword').key, 'wSilverHoriz', 'guardian attack -> horiz');
+  pl.state = 'jump';
+  eq(G.getWeaponOverlay('sword').key, 'wSilverUp', 'jump -> up');
+  pl.state = 'death';
+  eq(G.getWeaponOverlay('sword').key, null, 'death sembunyi');
+  eq(G.getWeaponOverlay('shield').key, null, 'death sembunyi');
+  G.resetSave();
+  const raw2 = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw2.totalCoins = 30000; testStorage._map.set('knightSaveV1', JSON.stringify(raw2)); G.reloadSave();
+  G.buyItem('storm'); G.equipItem('storm');
+  G.forceStartLevel(1);
+  const pl2 = G.getPlayer();
+  pl2.state = 'aim';
+  eq(G.getWeaponOverlay('bow').key, 'wStormDrawn', 'aim -> drawn');
+  pl2.state = 'idle';
+  eq(G.getWeaponOverlay('bow').key, 'wStormSide');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('287 sword/shield/bow tidak tertukar antar mode', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.state = 'idle';
+  eq(G.getMode(), 'SWORD');
+  eq(G.getWeaponOverlay('shield').key, null, 'sword tak ada shield');
+  eq(G.getWeaponOverlay('bow').key, null, 'sword tak ada bow');
+  ok(G.getWeaponOverlay('sword').key, 'sword ada pedang');
+  G.setMode('ARCHER');
+  eq(G.getWeaponOverlay('sword').key, null, 'archer tak ada pedang');
+  eq(G.getWeaponOverlay('shield').key, null, 'archer tak ada shield');
+  ok(G.getWeaponOverlay('bow').key, 'archer ada bow');
+  G.setMode('GUARDIAN');
+  ok(G.getWeaponOverlay('sword').key && G.getWeaponOverlay('shield').key, 'guardian pedang+shield');
+  eq(G.getWeaponOverlay('bow').key, null, 'guardian tak ada bow');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('288 default equipment overlay benar', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  G.getPlayer().state = 'idle';
+  eq(G.getWeaponOverlay('sword').key, 'wRustyDown');
+  G.setMode('GUARDIAN');
+  eq(G.getWeaponOverlay('shield').key, 'wBucklerSide');
+  G.setMode('ARCHER');
+  eq(G.getWeaponOverlay('bow').key, 'wMakeshiftSide');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('289 offset attachment bounded (tak floating jauh)', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  const states = ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'block', 'aim'];
+  states.forEach((s) => {
+    G.getPlayer().state = s;
+    ['sword', 'shield', 'bow'].forEach((c) => {
+      const o = G.getWeaponOverlay(c);
+      ok(Math.abs(o.ox) <= 3 && Math.abs(o.oy) <= 3, 'offset ' + c + '/' + s + ': ' + o.ox + ',' + o.oy);
+    });
+  });
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('290 drawOnce dengan overlay di semua mode/state tanpa error', () => {
+  G.resetSave();
+  const sp = G.getSprites();
+  sp.wRustyDown[0] = {}; sp.wBucklerSide[0] = {}; sp.wMakeshiftSide[0] = {};
+  sp.wSilverHoriz[0] = {}; sp.wTowerFront[0] = {}; sp.wStormDrawn[0] = {};
+  ['SWORD', 'GUARDIAN', 'ARCHER'].forEach((m) => {
+    G.setMode(m); G.forceStartLevel(1);
+    ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'block', 'aim', 'death'].forEach((s) => {
+      G.getPlayer().state = s;
+      noThrow(() => G.drawOnce(), 'draw ' + m + '/' + s);
+    });
+  });
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('291 epic FX: slash tint + block flash + bastion aura tanpa error', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 30000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.buyItem('shadowfang'); G.equipItem('shadowfang');
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 1150; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1; pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  for (let i = 0; i < 15; i++) G.step(1 / 60);
+  noThrow(() => G.drawOnce(), 'slash poison tint');
+  G.buyItem('sunfire'); G.equipItem('sunfire');
+  pl.attackCooldown = 0; G.input.attackPressed = true;
+  for (let i = 0; i < 15; i++) G.step(1 / 60);
+  noThrow(() => G.drawOnce(), 'slash burn tint');
+  G.buyItem('bastion'); G.equipItem('bastion');
+  G.forceStartLevel(1);
+  const pl2 = G.getPlayer();
+  pl2.bastionOn = 1.5; pl2.state = 'block';
+  noThrow(() => G.drawOnce(), 'bastion aura + block flash');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('292 shop preview menunjukkan weapon per item.id', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  G.setShopSel('shadowfang');
+  let ren = G.getShopRender();
+  eq(ren.preview.id, 'shadowfang');
+  ok(ren.preview.weapon.includes('weapon-shadowfang-'), 'weapon file: ' + ren.preview.weapon);
+  G.setShopTab('shield');
+  G.setShopSel('bastion');
+  ren = G.getShopRender();
+  ok(ren.preview.weapon.includes('weapon-bastion-'), 'weapon file: ' + ren.preview.weapon);
+  G.setShopTab('bow');
+  G.setShopSel('storm');
+  ren = G.getShopRender();
+  ok(ren.preview.weapon.includes('weapon-storm-'), 'weapon file: ' + ren.preview.weapon);
+  ok(elements['shop-prev-weapon'], 'img weapon ada di DOM');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('293 shop bisa dibuka + 15 item + filter kategori', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.shopItems.length, 15);
+  G.setShopTab('sword');
+  eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('shield');
+  eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('bow');
+  eq(G.getShopRender().cards.length, 5);
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('294 scroll container benar (CSS + struktur)', () => {
+  ok(css.includes('#shop-body') && css.includes('overflow-y: auto'), 'body scrollable');
+  ok(css.includes('touch-action: pan-y'), 'touch vertical');
+  ok(css.includes('-webkit-overflow-scrolling: touch'), 'momentum iOS');
+  ok(css.includes('min-height: 0'), 'flex shrink fix');
+  ok(css.includes('overscroll-behavior: contain'), 'scroll terkunci di shop');
+  ok(css.includes('#shop') && css.includes('overflow: hidden'), 'overlay tak bocor');
+  ok(html.includes('id="shop-body"') && html.includes('id="shop-list"'), 'struktur body>list');
+  ok(html.includes('id="shop-coin"') && html.includes('id="shop-tab-sword"'), 'header+tabs');
+  srcHas("closest('#shop-body')", 'touchmove guard');
+});
+test('295 tab switch reset scroll + buka ulang konsisten', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  elements['shop-list'].scrollTop = 999;
+  elements['shop-tab-shield'].dispatch('click', {});
+  eq(elements['shop-list'].scrollTop, 0, 'pindah tab reset ke awal');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('296 buy/equip + insufficient tetap bekerja', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 500; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  eq(G.buyItem('steel').ok, true);
+  eq(G.shopBalance(), 250);
+  ok(G.equipItem('steel'));
+  eq(G.getEquipment().sword, 'steel');
+  eq(G.buyItem('sunfire').ok, false, 'mahal ditolak');
+  eq(G.shopBalance(), 250, 'saldo utuh');
+  G.resetSave();
+});
+test('297 save persist reload + schema tetap v4', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 20000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.buyItem('silver'); G.equipItem('silver');
+  G.buyItem('elven'); G.equipItem('elven');
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.version, 4, 'schema tak berubah');
+  ok(s.owned.silver && s.owned.elven, 'owned lestari');
+  eq(s.eqSword, 'silver'); eq(s.eqBow, 'elven');
+  eq(s.mode, 'ARCHER');
+  G.resetSave();
+});
+test('298 keyboard shop utuh (tab/item/Enter/Esc)', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.getState(), 'shop');
+  const t0 = G.getShopTab();
+  fireWin('keydown', { code: 'ArrowRight', preventDefault() {} });
+  ok(G.getShopTab() !== t0, 'tab pindah');
+  fireWin('keydown', { code: 'ArrowDown', preventDefault() {} });
+  ok(G.getShopSel(), 'item terpilih');
+  fireWin('keydown', { code: 'Enter', preventDefault() {} });
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu');
+  G.resetSave();
+});
+test('299 performa overlay: rAF tunggal + tanpa setInterval + preload sekali', () => {
+  const raf = (src.match(/requestAnimationFrame/g) || []).length;
+  ok(raf <= 3, 'rAF tunggal, got ' + raf);
+  ok(!/setInterval\s*\(/.test(src), 'tanpa pemanggilan setInterval');
+  srcHas('Promise.all');
+  srcHas('drawImage(sprites[sho.key][0]', 'overlay via drawImage cache');
+  G.resetSave(); G.forceStartLevel(1);
+  noThrow(() => { for (let i = 0; i < 30; i++) G.step(1 / 60); });
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('300 mobile CSS: 44px + tanpa overflow horizontal + safe-area', () => {
+  ok(/\.touch-btn\s*{[^}]*clamp\(64px/.test(css) || css.includes('min-height: 44px'), 'target sentuh lega');
+  ok(css.includes('env(safe-area-inset-'), 'safe-area');
+  ok(css.includes('overflow-x: hidden'), 'tanpa page overflow');
+  ['btn-shop', 'shop-back', 'shop-prev-action', 'btn-block'].forEach((id) => {
+    ok(new RegExp('id="' + id + '"').test(html), 'id ada: ' + id);
+  });
+  ok(/id="shop-prev-action"[^>]*>([^<]*)/.test(html), 'action berlabel');
+});
+test('301 gameplay/balance tak berubah oleh visual', () => {
+  srcHas('ATTACK_DAMAGE = 12');
+  G.resetSave();
+  eq(G.swordStats().damage, 12);
+  eq(G.shieldStats().defense, 0.25);
+  eq(G.bowStats().damage, 10);
+  const it = {};
+  G.shopItems.forEach((x) => { it[x.id] = x.price; });
+  eq(it.rusty, 50); eq(it.sunfire, 5500); eq(it.buckler, 40);
+  eq(it.bastion, 4800); eq(it.makeshift, 45); eq(it.dragon, 5000);
+  G.resetSave();
+});
+test('302 tier badge accessible + dialog roles', () => {
+  ok((html.match(/role="dialog"/g) || []).length >= 6, 'dialog roles');
+  ok(html.includes('id="shop"') && /id="shop"[^>]*role="dialog"/.test(html), 'shop dialog');
+  ok(css.includes('.shop-card.tier-Epic'), 'tier css');
+  const tm = G.tierMeta;
+  ok(tm.Common.symbol && tm.Epic.label, 'simbol+label tier');
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

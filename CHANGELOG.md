@@ -1,5 +1,19 @@
 # Changelog — Knight Platformer
 
+## [1.2.0] — Weapon Visuals + Scrollable Shop
+
+- 40 weapon overlay PNG 32x32: pedang (down/horiz/up/back) × 5,
+  perisai (side/front) × 5, bow (side/drawn) × 5 — equipped item terlihat beda
+- Render: CHARACTER BASE + WEAPON OVERLAY + FX, attachment per-(mode,state),
+  draw order base → shield → sword/bow → FX, tanpa alokasi per-frame
+- Epic FX visual: slash tint Shadowfang/Sunfire, block flash Aegis/Bastion,
+  aura Bastion (stats/mekanik tak berubah)
+- Shop scrollable: overflow-y auto + momentum, touch-action pan-y,
+  guard touchmove, wheel desktop, keyboard utuh, reset scroll per tab,
+  layout kolom layar kecil, safe-area
+- Preview [karakter + senjata] per item.id via weaponFile()
+- Save tetap v4; 302 automated test PASS
+
 ## [1.1.0] — Weapon Shop
 
 - Weapon Shop di Main Menu: PEDANG / PERISAI / PEMANAH, 15 item data-driven

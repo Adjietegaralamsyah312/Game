@@ -586,14 +586,37 @@ canvas#game {
   font-weight: 700;
   font-family: monospace;
 }
+#shop {
+  overflow: hidden;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
+  overscroll-behavior: contain;
+}
+#shop > h2,
+#shop > #shop-coin,
+#shop > .btn-row,
+#shop > #shop-msg,
+#shop > .tiny {
+  flex-shrink: 0;
+}
 #shop-body {
   display: flex;
   gap: 12px;
   align-items: flex-start;
   justify-content: center;
-  width: min(640px, 92vw);
-  max-height: 46vh;
+  width: min(680px, 94vw);
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  padding: 2px;
 }
 #shop-list {
   display: flex;
@@ -601,6 +624,7 @@ canvas#game {
   gap: 8px;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 .shop-card {
   background: #1c2247;
@@ -640,13 +664,32 @@ canvas#game {
   font-size: clamp(13px, 3vw, 16px);
   color: #fff;
 }
+/* Preview tumpuk: karakter + overlay senjata item terpilih. */
+#shop-prev-stack {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+#shop-prev-img,
+#shop-prev-weapon {
+  position: absolute;
+  inset: 0;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  background: transparent;
+  border: 0;
+}
+#shop-prev-stack {
+  background: #0f1226;
+  border: 1px solid #39406e;
+  border-radius: 8px;
+}
 #shop-prev-img {
   width: 64px;
   height: 64px;
   image-rendering: pixelated;
-  background: #0f1226;
-  border: 1px solid #39406e;
-  border-radius: 8px;
+  background: transparent;
 }
 #shop-tab-sword.active,
 #shop-tab-shield.active,
@@ -659,6 +702,18 @@ canvas#game {
   min-height: 20px;
   font-weight: 700;
   color: #ffd23f;
+}
+/* Layar kecil: daftar + preview menumpuk vertikal agar tak terpotong
+   dan tak ada scroll horizontal halaman. */
+@media (max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  #shop-body {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+  #shop-preview {
+    flex-shrink: 0;
+  }
 }
 /* Tombol block sentuh: di grup kanan, gaya defensif biru. */
 .touch-btn.block {

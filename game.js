@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.1.0 — Weapon Shop + Classes (vanilla JS + Canvas)
+ * Knight Platformer v1.2.0 — Weapon Visuals + Scrollable Shop (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.1.0';
+  var GAME_VERSION = '1.2.0';
   const DEBUG = false;
 
   var VIEW_W = 960;
@@ -543,6 +543,49 @@
     archerHurt:   ['assets/sprites/archer-hurt.png'],
     archerDeath:  ['assets/sprites/archer-death.png'],
     archerVictory: ['assets/sprites/archer-victory.png'],
+    // Weapon overlay per item (CHARACTER BASE + WEAPON OVERLAY + FX).
+    // Overlay hanya berisi senjata pada anchor canon generator base;
+    // offset per-(mode,state) di WEAPON_ANCHOR menyerap beda 1px class/lean.
+    wRustyDown: ['assets/sprites/weapon-rusty-down.png'],
+    wRustyHoriz: ['assets/sprites/weapon-rusty-horiz.png'],
+    wRustyUp: ['assets/sprites/weapon-rusty-up.png'],
+    wRustyBack: ['assets/sprites/weapon-rusty-back.png'],
+    wSteelDown: ['assets/sprites/weapon-steel-down.png'],
+    wSteelHoriz: ['assets/sprites/weapon-steel-horiz.png'],
+    wSteelUp: ['assets/sprites/weapon-steel-up.png'],
+    wSteelBack: ['assets/sprites/weapon-steel-back.png'],
+    wSilverDown: ['assets/sprites/weapon-silver-down.png'],
+    wSilverHoriz: ['assets/sprites/weapon-silver-horiz.png'],
+    wSilverUp: ['assets/sprites/weapon-silver-up.png'],
+    wSilverBack: ['assets/sprites/weapon-silver-back.png'],
+    wShadowfangDown: ['assets/sprites/weapon-shadowfang-down.png'],
+    wShadowfangHoriz: ['assets/sprites/weapon-shadowfang-horiz.png'],
+    wShadowfangUp: ['assets/sprites/weapon-shadowfang-up.png'],
+    wShadowfangBack: ['assets/sprites/weapon-shadowfang-back.png'],
+    wSunfireDown: ['assets/sprites/weapon-sunfire-down.png'],
+    wSunfireHoriz: ['assets/sprites/weapon-sunfire-horiz.png'],
+    wSunfireUp: ['assets/sprites/weapon-sunfire-up.png'],
+    wSunfireBack: ['assets/sprites/weapon-sunfire-back.png'],
+    wBucklerSide: ['assets/sprites/weapon-buckler-side.png'],
+    wBucklerFront: ['assets/sprites/weapon-buckler-front.png'],
+    wKiteSide: ['assets/sprites/weapon-kite-side.png'],
+    wKiteFront: ['assets/sprites/weapon-kite-front.png'],
+    wTowerSide: ['assets/sprites/weapon-tower-side.png'],
+    wTowerFront: ['assets/sprites/weapon-tower-front.png'],
+    wAegisSide: ['assets/sprites/weapon-aegis-side.png'],
+    wAegisFront: ['assets/sprites/weapon-aegis-front.png'],
+    wBastionSide: ['assets/sprites/weapon-bastion-side.png'],
+    wBastionFront: ['assets/sprites/weapon-bastion-front.png'],
+    wMakeshiftSide: ['assets/sprites/weapon-makeshift-side.png'],
+    wMakeshiftDrawn: ['assets/sprites/weapon-makeshift-drawn.png'],
+    wHunterSide: ['assets/sprites/weapon-hunter-side.png'],
+    wHunterDrawn: ['assets/sprites/weapon-hunter-drawn.png'],
+    wElvenSide: ['assets/sprites/weapon-elven-side.png'],
+    wElvenDrawn: ['assets/sprites/weapon-elven-drawn.png'],
+    wStormSide: ['assets/sprites/weapon-storm-side.png'],
+    wStormDrawn: ['assets/sprites/weapon-storm-drawn.png'],
+    wDragonSide: ['assets/sprites/weapon-dragon-side.png'],
+    wDragonDrawn: ['assets/sprites/weapon-dragon-drawn.png'],
     // Coin level (collectible): coin.png. Treasure Gold Shard: gold-shard.png
     // (berlian emas — jelas beda dari koin bulat).
     coin:    ['assets/sprites/coin.png'],
@@ -557,7 +600,18 @@
     'guardianIdle', 'guardianWalk', 'guardianBlock', 'guardianAttack', 'guardianJump',
     'guardianFall', 'guardianHurt', 'guardianDeath', 'guardianVictory',
     'archerIdle', 'archerWalk', 'archerAim', 'archerShoot', 'archerJump',
-    'archerFall', 'archerHurt', 'archerDeath', 'archerVictory'];
+    'archerFall', 'archerHurt', 'archerDeath', 'archerVictory',
+    'wRustyDown', 'wRustyHoriz', 'wRustyUp', 'wRustyBack',
+    'wSteelDown', 'wSteelHoriz', 'wSteelUp', 'wSteelBack',
+    'wSilverDown', 'wSilverHoriz', 'wSilverUp', 'wSilverBack',
+    'wShadowfangDown', 'wShadowfangHoriz', 'wShadowfangUp', 'wShadowfangBack',
+    'wSunfireDown', 'wSunfireHoriz', 'wSunfireUp', 'wSunfireBack',
+    'wBucklerSide', 'wBucklerFront', 'wKiteSide', 'wKiteFront',
+    'wTowerSide', 'wTowerFront', 'wAegisSide', 'wAegisFront',
+    'wBastionSide', 'wBastionFront',
+    'wMakeshiftSide', 'wMakeshiftDrawn', 'wHunterSide', 'wHunterDrawn',
+    'wElvenSide', 'wElvenDrawn', 'wStormSide', 'wStormDrawn',
+    'wDragonSide', 'wDragonDrawn'];
 
   var sprites = { idle: [], run: [], jump: [], fall: [], attack: [], hurt: [], death: [],
     skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lightningSlime: [], lich: [], chest: [], coin: [], reward: [],
@@ -566,7 +620,18 @@
     guardianIdle: [], guardianWalk: [], guardianBlock: [], guardianAttack: [], guardianJump: [],
     guardianFall: [], guardianHurt: [], guardianDeath: [], guardianVictory: [],
     archerIdle: [], archerWalk: [], archerAim: [], archerShoot: [], archerJump: [],
-    archerFall: [], archerHurt: [], archerDeath: [], archerVictory: [] };
+    archerFall: [], archerHurt: [], archerDeath: [], archerVictory: [],
+    wRustyDown: [], wRustyHoriz: [], wRustyUp: [], wRustyBack: [],
+    wSteelDown: [], wSteelHoriz: [], wSteelUp: [], wSteelBack: [],
+    wSilverDown: [], wSilverHoriz: [], wSilverUp: [], wSilverBack: [],
+    wShadowfangDown: [], wShadowfangHoriz: [], wShadowfangUp: [], wShadowfangBack: [],
+    wSunfireDown: [], wSunfireHoriz: [], wSunfireUp: [], wSunfireBack: [],
+    wBucklerSide: [], wBucklerFront: [], wKiteSide: [], wKiteFront: [],
+    wTowerSide: [], wTowerFront: [], wAegisSide: [], wAegisFront: [],
+    wBastionSide: [], wBastionFront: [],
+    wMakeshiftSide: [], wMakeshiftDrawn: [], wHunterSide: [], wHunterDrawn: [],
+    wElvenSide: [], wElvenDrawn: [], wStormSide: [], wStormDrawn: [],
+    wDragonSide: [], wDragonDrawn: [] };
   var assetsReady = false;
   var assetErrors = [];
 
@@ -690,6 +755,128 @@
   }
   function playerMode() {
     return (save.mode === 'GUARDIAN' || save.mode === 'ARCHER') ? save.mode : 'SWORD';
+  }
+
+  /* WEAPON OVERLAY LOOKUP (item.id -> sprite key per varian + file preview).
+   * Kunci kapitalisasi: 'w' + Id + Varian. Preview memakai representatif
+   * (down/side) agar bentuk item terbaca jelas di Shop. */
+  function wKey(id, variant) {
+    return 'w' + id.charAt(0).toUpperCase() + id.slice(1) + variant;
+  }
+  var WEAPON_VARIANT = {
+    rusty: ['Down', 'Horiz', 'Up', 'Back'], steel: ['Down', 'Horiz', 'Up', 'Back'],
+    silver: ['Down', 'Horiz', 'Up', 'Back'], shadowfang: ['Down', 'Horiz', 'Up', 'Back'],
+    sunfire: ['Down', 'Horiz', 'Up', 'Back'],
+    buckler: ['Side', 'Front'], kite: ['Side', 'Front'], tower: ['Side', 'Front'],
+    aegis: ['Side', 'Front'], bastion: ['Side', 'Front'],
+    makeshift: ['Side', 'Drawn'], hunter: ['Side', 'Drawn'], elven: ['Side', 'Drawn'],
+    storm: ['Side', 'Drawn'], dragon: ['Side', 'Drawn']
+  };
+  var WEAPON_PREV_VARIANT = {
+    rusty: 'Down', steel: 'Down', silver: 'Down', shadowfang: 'Down', sunfire: 'Down',
+    buckler: 'Side', kite: 'Side', tower: 'Side', aegis: 'Side', bastion: 'Side',
+    makeshift: 'Side', hunter: 'Side', elven: 'Side', storm: 'Side', dragon: 'Side'
+  };
+  function weaponFile(id) {
+    var v = WEAPON_PREV_VARIANT[id];
+    if (!v) return null;
+    return 'assets/sprites/weapon-' + id + '-' + v.toLowerCase() + '.png';
+  }
+  /* Attachment per-(mode,state): varian + offset sprite-px yang menyerap
+   * beda 1px antar class/lean (kalibrasi terhadap generator base).
+   * Death -> null (senjata jatuh bersama badan; base corpse yang tampil). */
+  var _wov = { key: null, ox: 0, oy: 0 }; // scratch reuse (tanpa alokasi/frame)
+  function pickWeaponOverlay(cat, forceUp) {
+    _wov.key = null; _wov.ox = 0; _wov.oy = 0;
+    var mode = 'SWORD';
+    try { mode = playerMode(); } catch (e) { mode = 'SWORD'; }
+    var st = player.state;
+    if (st === 'death') return _wov;
+    if (cat === 'sword') {
+      if (mode === 'ARCHER') return _wov;
+      var id = 'rusty';
+      try { id = save.eqSword || 'rusty'; } catch (e) { id = 'rusty'; }
+      var knight = (mode !== 'GUARDIAN');
+      var wf = 0;
+      try { wf = Math.floor(player.animTime * 10) % 2; } catch (e2) { wf = 0; }
+      // Layar menang: base memakai pose victory (pedang ke atas).
+      if (forceUp) {
+        _wov.key = wKey(id, 'Up');
+        _wov.ox = knight ? 0 : 1; _wov.oy = 1;
+        return _wov;
+      }
+      if (st === 'attack') {
+        if (!knight) {
+          // Guardian: base selalu horizontal saat attack.
+          _wov.key = wKey(id, 'Horiz');
+          _wov.ox = 2; _wov.oy = 2;
+          return _wov;
+        }
+        // Knight: cerminkan playerAttackFrame: windup->Back, strike->Horiz,
+        // recovery->Back (non-kombo) / Horiz (kombo).
+        var spd = 1;
+        try { var _s = swordStats(); spd = (_s && _s.attackSpeed > 0) ? _s.attackSpeed : 1; } catch (e3) { spd = 1; }
+        var wu = ATTACK_WINDUP / spd, sst = ATTACK_STRIKE / spd;
+        var combo = !!player.combo;
+        var phase = (player.attackT < wu) ? 'windup' : ((player.attackT < wu + sst) ? 'strike' : 'recovery');
+        var wantHoriz = combo ? (phase !== 'strike') : (phase === 'strike');
+        if (wantHoriz) {
+          _wov.key = wKey(id, 'Horiz');
+          _wov.ox = 2; _wov.oy = 1;
+        } else {
+          _wov.key = wKey(id, 'Back');
+          _wov.ox = 1; _wov.oy = 0;
+        }
+        return _wov;
+      }
+      if (st === 'jump') {
+        _wov.key = wKey(id, 'Up');
+        _wov.ox = knight ? 1 : 2; _wov.oy = 0;
+        return _wov;
+      }
+      _wov.key = wKey(id, 'Down');
+      if (knight) {
+        if (st === 'run') _wov.ox = (wf === 0) ? 1 : 0;
+        else if (st === 'hurt') _wov.ox = -2;
+      } else {
+        _wov.ox = 1;
+        if (st === 'run') _wov.ox = 2;
+        else if (st === 'hurt') _wov.ox = -1;
+        else if (st === 'block') { _wov.ox = 0; _wov.oy = -1; }
+      }
+      return _wov;
+    }
+    if (cat === 'shield') {
+      if (mode !== 'GUARDIAN') return _wov;
+      var sid = 'buckler';
+      try { sid = save.eqShield || 'buckler'; } catch (e4) { sid = 'buckler'; }
+      if (st === 'block') {
+        _wov.key = wKey(sid, 'Front');
+        _wov.ox = -1; _wov.oy = 0;
+      } else {
+        _wov.key = wKey(sid, 'Side');
+        _wov.ox = 0;
+        if (st === 'run' || st === 'attack' || st === 'jump') _wov.ox = 1;
+        else if (st === 'hurt') _wov.ox = -2;
+      }
+      return _wov;
+    }
+    if (cat === 'bow') {
+      if (mode !== 'ARCHER') return _wov;
+      var bid = 'makeshift';
+      try { bid = save.eqBow || 'makeshift'; } catch (e5) { bid = 'makeshift'; }
+      if (st === 'aim' || st === 'attack') {
+        _wov.key = wKey(bid, 'Drawn');
+        _wov.ox = 1; _wov.oy = 0;
+      } else {
+        _wov.key = wKey(bid, 'Side');
+        _wov.ox = 0;
+        if (st === 'run' || st === 'jump') _wov.ox = 1;
+        else if (st === 'hurt') _wov.ox = -2;
+      }
+      return _wov;
+    }
+    return _wov;
   }
 
   /* ============================ 5. INPUT ============================ */
@@ -4509,8 +4696,7 @@
    * di shopRender untuk QA tanpa crash. */
   var shopEl = null, shopCoinEl = null, shopListEl = null, shopMsgEl = null;
   var shopTabBtns = { sword: null, shield: null, bow: null };
-  var shopPrevImg = null, shopPrevName = null, shopPrevTier = null;
-  var shopPrevPrice = null, shopPrevDesc = null, shopPrevStats = null;
+  var shopPrevImg = null, shopPrevWeapon = null, shopPrevName = null, shopPrevTier = null;  var shopPrevPrice = null, shopPrevDesc = null, shopPrevStats = null;
   var shopPrevSpecial = null, shopPrevAction = null;
   var shopModeBtns = { SWORD: null, GUARDIAN: null, ARCHER: null };
   var btnShop = null, shopBackBtn = null;
@@ -4545,6 +4731,16 @@
     if (btnShop && btnShop.focus) {
       try { btnShop.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
     }
+  }
+
+  // Ganti tab: scroll kembali ke awal (posisi kategori sebelumnya tak terbawa).
+  // Buka ulang Shop: posisi dipertahankan (tak diubah di sini).
+  function shopSetTab(t) {
+    if (t !== 'sword' && t !== 'shield' && t !== 'bow') return false;
+    shopTab = t;
+    try { if (shopListEl) shopListEl.scrollTop = 0; } catch (e) { /* abaikan */ }
+    refreshShopUI();
+    return true;
   }
 
   function isShopOpen() {
@@ -4632,7 +4828,8 @@
         }),
         preview: (function () {
           var p = shopItemById(shopSel);
-          return p ? { id: p.id, stats: shopStatBars(p), special: p.special } : null;
+          return p ? { id: p.id, stats: shopStatBars(p), special: p.special,
+                       weapon: weaponFile(p.id), klass: SHOP_CLASS_IMG[p.category] } : null;
         })()
       };
     } catch (e) { /* abaikan */ }
@@ -4667,6 +4864,8 @@
       if (prev) {
         var tm = TIER_META[prev.tier] || TIER_META.Common;
         if (shopPrevImg) { try { shopPrevImg.src = SHOP_CLASS_IMG[prev.category]; } catch (e4) { /* abaikan */ } }
+        // Preview senjata per item.id (bukan gambar karakter generik saja).
+        if (shopPrevWeapon) { try { shopPrevWeapon.src = weaponFile(prev.id); } catch (e42) { /* abaikan */ } }
         if (shopPrevName) shopPrevName.textContent = prev.name;
         if (shopPrevTier) {
           shopPrevTier.textContent = tm.symbol + ' ' + tm.label;
@@ -5319,9 +5518,42 @@
     }
     drawFacing(function () {
       ctx.drawImage(img, dx, dy, dw, dh);
+      // WEAPON OVERLAY (CHARACTER BASE + WEAPON OVERLAY + FX):
+      // perisai di bawah pedang; overlay memakai rect/offset sama sehingga
+      // flip arah hadap otomatis selaras. Tanpa alokasi (scratch + drawImage).
+      var sc = dw / 32, sc2 = dh / 32;
+      var sho = pickWeaponOverlay('shield', victoryPose);
+      if (sho.key && sprites[sho.key] && sprites[sho.key][0]) {
+        ctx.drawImage(sprites[sho.key][0], dx + sho.ox * sc, dy + sho.oy * sc2, dw, dh);
+      }
+      var swo = pickWeaponOverlay('sword', victoryPose);
+      if (swo.key && sprites[swo.key] && sprites[swo.key][0]) {
+        ctx.drawImage(sprites[swo.key][0], dx + swo.ox * sc, dy + swo.oy * sc2, dw, dh);
+      }
+      var bwo = pickWeaponOverlay('bow', victoryPose);
+      if (bwo.key && sprites[bwo.key] && sprites[bwo.key][0]) {
+        ctx.drawImage(sprites[bwo.key][0], dx + bwo.ox * sc, dy + bwo.oy * sc2, dw, dh);
+      }
+      // Epic Bastion: aura ringan saat passive aktif (visual saja).
+      try {
+        if (player.bastionOn > 0) {
+          ctx.fillStyle = 'rgba(192,123,255,0.18)';
+          ctx.fillRect(dx - 6, dy + 6, dw + 12, dh - 12);
+        }
+      } catch (e) { /* abaikan */ }
       // Hit flash singkat saat hurt.
       if (player.state === 'hurt') {
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillRect(dx, dy, dw, dh);
+      }
+      // Epic Aegis: flash magis saat block (visual saja).
+      if (player.state === 'block') {
+        var shb = null;
+        try { shb = shieldStats(); } catch (e2) { shb = null; }
+        var bcol = 'rgba(207,227,255,0.35)';
+        if (shb && shb.special && shb.special.kind === 'magicGuard') bcol = 'rgba(125,249,255,0.4)';
+        else if (shb && shb.id === 'bastion') bcol = 'rgba(192,123,255,0.4)';
+        ctx.fillStyle = bcol;
         ctx.fillRect(dx, dy, dw, dh);
       }
     }, dx, cx, player.facing);
@@ -5335,10 +5567,17 @@
     if (!player.attackBox) return;
     var ab = player.attackBox;
     var fx = player.facing;
+    // Epic sword tint (data-driven dari special.kind; visual saja).
+    var arcCol = '160,200,255', dotCol = 'rgba(255,210,63,0.9)';
+    try {
+      var _ss = swordStats();
+      if (_ss && _ss.special && _ss.special.kind === 'poison') { arcCol = '150,110,230'; dotCol = 'rgba(150,100,220,0.9)'; }
+      else if (_ss && _ss.special && _ss.special.kind === 'burn') { arcCol = '255,170,80'; dotCol = 'rgba(255,150,60,0.95)'; }
+    } catch (e) { /* abaikan */ }
     // Busur ayunan: bara lebar memudar seiring attackT (anticipation->strike).
     var prog = clamp(player.attackT / (ATTACK_WINDUP + ATTACK_STRIKE), 0, 1);
     var arcA = 0.30 * (1 - prog) + 0.10;
-    ctx.fillStyle = 'rgba(160,200,255,' + arcA.toFixed(2) + ')';
+    ctx.fillStyle = 'rgba(' + arcCol + ',' + arcA.toFixed(2) + ')';
     var aw = Math.round(ab.w * (0.6 + 0.4 * prog));
     var ax = fx === 1 ? ab.x + ab.w - aw : ab.x;
     ctx.fillRect(Math.round(ax), Math.round(ab.y + 4), aw, Math.round(ab.h - 8));
@@ -5351,7 +5590,7 @@
       ctx.fillRect(Math.round(x0), Math.round(ab.y + 8 + i * 6), 5, h);
     }
     // Titik impact kuning di ujung ayunan.
-    ctx.fillStyle = 'rgba(255,210,63,0.9)';
+    ctx.fillStyle = dotCol;
     var ex = fx === 1 ? ab.x + ab.w - 8 : ab.x + 2;
     ctx.fillRect(Math.round(ex), Math.round(ab.y + ab.h / 2 - 3), 6, 6);
   }
@@ -6475,6 +6714,7 @@
   shopTabBtns.shield = document.getElementById('shop-tab-shield');
   shopTabBtns.bow = document.getElementById('shop-tab-bow');
   shopPrevImg = document.getElementById('shop-prev-img');
+  shopPrevWeapon = document.getElementById('shop-prev-weapon');
   shopPrevName = document.getElementById('shop-prev-name');
   shopPrevTier = document.getElementById('shop-prev-tier');
   shopPrevPrice = document.getElementById('shop-prev-price');
@@ -6535,9 +6775,9 @@
   onClick(btnCampaign, function () { openCampaign(); });
   onClick(btnShop, function () { openShop(); });
   onClick(shopBackBtn, function () { shopBack(); });
-  onClick(shopTabBtns.sword, function () { shopTab = 'sword'; refreshShopUI(); });
-  onClick(shopTabBtns.shield, function () { shopTab = 'shield'; refreshShopUI(); });
-  onClick(shopTabBtns.bow, function () { shopTab = 'bow'; refreshShopUI(); });
+  onClick(shopTabBtns.sword, function () { shopSetTab('sword'); });
+  onClick(shopTabBtns.shield, function () { shopSetTab('shield'); });
+  onClick(shopTabBtns.bow, function () { shopSetTab('bow'); });
   onClick(shopPrevAction, function () { if (shopSel) shopCardAction(shopSel); });
   onClick(shopModeBtns.SWORD, function () { setMode('SWORD'); });
   onClick(shopModeBtns.GUARDIAN, function () { setMode('GUARDIAN'); });
@@ -6691,8 +6931,7 @@
         var ix = 0;
         for (var ti = 0; ti < order.length; ti++) { if (order[ti] === shopTab) ix = ti; }
         ix = (ix + (e.code === 'ArrowRight' ? 1 : order.length - 1)) % order.length;
-        shopTab = order[ix];
-        refreshShopUI();
+        shopSetTab(order[ix]);
         if (e.preventDefault) e.preventDefault();
         return;
       }
@@ -6808,9 +7047,15 @@
   });
 
   // Cegah scroll/zoom halaman saat sentuh area game (Android).
+  // Pengecualian: area scroll Shop (#shop-body) harus bisa swipe satu jari —
+  // jangan preventDefault di sana agar touch scroll + mouse wheel normal.
   var container = document.getElementById('canvas-container');
   if (container) {
     container.addEventListener('touchmove', function (e) {
+      try {
+        var t = e.target;
+        if (t && t.closest && t.closest('#shop-body')) return;
+      } catch (err) { /* abaikan, fallback preventDefault */ }
       if (e.cancelable) e.preventDefault();
     }, { passive: false });
   }
@@ -6945,14 +7190,19 @@
     shopStatBars: shopStatBars,
     getShopRender: function () { return JSON.parse(JSON.stringify(shopRender)); },
     getShopTab: function () { return shopTab; },
-    setShopTab: function (t) {
-      if (t === 'sword' || t === 'shield' || t === 'bow') { shopTab = t; refreshShopUI(); return true; }
-      return false;
-    },
+    setShopTab: function (t) { return shopSetTab(t); },
     getShopSel: function () { return shopSel; },
     setShopSel: function (id) { if (shopItemById(id)) { shopSel = id; refreshShopUI(); return true; } return false; },
     getPlayerShots: function () { return playerShots; },
     firePlayerArrow: firePlayerArrow,
+    // Weapon overlay (test hooks).
+    weaponKey: wKey,
+    weaponVariants: WEAPON_VARIANT,
+    weaponFile: weaponFile,
+    getWeaponOverlay: function (cat, forceUp) {
+      var o = pickWeaponOverlay(cat, forceUp);
+      return { key: o.key, ox: o.ox, oy: o.oy };
+    },
     swordStats: function () { return JSON.parse(JSON.stringify(swordStats())); },
     shieldStats: function () { return JSON.parse(JSON.stringify(shieldStats())); },
     bowStats: function () { return JSON.parse(JSON.stringify(bowStats())); },

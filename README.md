@@ -1,4 +1,4 @@
-# Knight Platformer — 5-Level Campaign (v1.1.0)
+# Knight Platformer — 5-Level Campaign (v1.2.0)
 
 ![Preview](assets/og/knight-platformer-og.png)
 
@@ -15,7 +15,27 @@ berurutan, GAME COMPLETE).
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
 cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
-**Status: v1.1.0 Weapon Shop** — playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: v1.2.0 Weapon Visuals** — playable: https://adjietegaralamsyah312.github.io/Game/
+
+## Fitur v1.2
+
+- **Weapon overlay per item**: 40 PNG overlay 32x32 (5 pedang × down/horiz/up/back,
+  5 perisai × side/front, 5 bow × side/drawn), arsitektur
+  CHARACTER BASE + WEAPON OVERLAY + FX — equipped item terlihat berbeda
+  (Rusty berkarat, Steel highlight, Silver lebar + ornamen, Shadowfang gelap
+  + ungu, Sunfire besar menyala; Buckler bulat, Kite, Tower besar, Aegis rune,
+  Bastion motif; Makeshift, Recurve, Elven, Stormpiercer, Dragonbone besar).
+  Attachment per-(mode,state) + offset kalibrasi 1px, draw order
+  base → shield → sword/bow → FX, death menyembunyikan overlay
+- **Epic FX visual saja**: slash ungu Shadowfang / oranye Sunfire, flash block
+  Aegis/Bastion, aura Bastion saat aktif (tanpa ubah damage/stat/cooldown)
+- **Shop scrollable**: content `overflow-y: auto` + momentum touch,
+  `touch-action: pan-y`, overscroll contain, `min-height: 0` flex fix,
+  guard `touchmove` agar swipe Shop tak dianggap input game, wheel desktop,
+  keyboard utuh, reset scroll saat ganti tab, layout kolom di layar kecil,
+  safe-area, tombol ≥44px
+- Preview Shop per item: [karakter + senjata] via `weaponFile(item.id)`
+- Save schema tetap v4 (tanpa migrasi baru)
 
 ## Fitur v1.1
 
@@ -151,10 +171,10 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 282 automated test headless (node test.js)
+├── test.js             # 302 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
-├── VERSION             # 1.1.0
+├── VERSION             # 1.2.0
 └── assets/
     ├── knight/         # 18 sprite PNG ksatria
     ├── sprites/        # undead + chest + coin + reward + heroik + guardian (9) + archer (9)
@@ -217,7 +237,7 @@ node test.js
 git diff --check
 ```
 
-282 automated test (252 campaign/hardening + 30 weapon shop) —
+302 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
@@ -236,7 +256,7 @@ target semua PASS, 0 FAIL.
 
 ## Project status & Development History
 
-- Status: **v1.1.0 Weapon Shop**, live di GitHub Pages.
+- Status: **v1.2.0 Weapon Visuals**, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
 - History singkat: Tahap 4 Release Candidate → Content Expansion (Stage 5:
   2 level + RAJA SLIME) → Settings & Persistence (Stage 6) → BGM prosedural

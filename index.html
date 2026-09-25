@@ -60,7 +60,7 @@
       <!-- Menu utama (Stage 5): PLAY / CAMPAIGN / CONTROLS / ABOUT -->
       <div id="mainmenu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mainmenu-title" aria-label="Menu Utama">
         <h2 id="mainmenu-title" class="game-title">KNIGHT<br />PLATFORMER</h2>
-        <p class="build-tag">v1.1.0 Weapon Shop</p>
+        <p class="build-tag">v1.2.0 Weapon Visuals</p>
         <div id="menu-main" class="btn-col">
           <button id="btn-play" class="btn-primary">▶ PLAY</button>
           <button id="btn-campaign" class="btn-secondary">🗺 CAMPAIGN</button>
@@ -198,7 +198,10 @@
           <div id="shop-list" aria-label="Daftar item shop"></div>
           <div id="shop-preview" aria-label="Pratinjau karakter">
             <h3 id="shop-prev-name">[ CHARACTER PREVIEW ]</h3>
-            <img id="shop-prev-img" src="assets/sprites/knight-attack.png" alt="Pratinjau karakter" width="64" height="64" />
+            <div id="shop-prev-stack">
+              <img id="shop-prev-img" src="assets/sprites/knight-attack.png" alt="Pratinjau karakter" width="64" height="64" />
+              <img id="shop-prev-weapon" src="assets/sprites/weapon-rusty-down.png" alt="Pratinjau senjata" width="64" height="64" />
+            </div>
             <p id="shop-prev-tier" class="menu-lines">● COMMON</p>
             <p id="shop-prev-price" class="menu-lines">0 Coin</p>
             <p id="shop-prev-desc" class="menu-lines">-</p>
@@ -245,6 +248,6 @@
   </div>
 
   <!-- Query v= samakan VERSION agar browser tak pakai game.js basi setelah update -->
-  <script src="game.js?v=1.1.0"></script>
+  <script src="game.js?v=1.2.0"></script>
 </body>
 </html>
