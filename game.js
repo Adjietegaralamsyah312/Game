@@ -1389,7 +1389,7 @@
       queued: false, // buffer serangan beruntun (responsif, Tahap 3)
       combo: false,  // Stage 11: ayunan rantai memakai pose attack-2
       blockT: 0, aimT: 0, shotFired: false, // shop: block hold & bow aim
-      blockStam: 2, blockCd: 0, bashSfx: false, // guardian: stamina block + shield bash
+      blockStam: 2, blockCd: 0, bashSfx: false, blockBreak: false, // guardian: stamina + shield bash
       bastionHits: 0, bastionWin: 0, bastionOn: 0, bastionCd: 0, // bastion aura (bounded)
       sunfireCd: 0 // sunfire burn cooldown global (bounded)
     };
@@ -1445,6 +1445,25 @@
       var pcx0 = player.x + player.w / 2;
       var front = (player.facing === 1 && fromX >= pcx0) || (player.facing === -1 && fromX < pcx0);
       if (front) {
+        // Skeleton defender (heavy) menyerang -> perisai hancur lebih cepat.
+        // Deteksi sederhana: jika serangan dari depan pada jarak dekat (< 80px)
+        // dalam state block sementara stamina rendah, anggap serangan berat.
+        var distToHit = Math.abs((player.x + player.w / 2) - fromX);
+        var isDefenderHit = (distToHit < 80 && player.blockStam < 1.0);
+        if (isDefenderHit) {
+          player.blockStam = Math.max(0, player.blockStam - 0.7); // serangan berat
+          player.blockBreak = true;
+          player.blockBreakT = 1.2; // crack visual lebih lama
+        } else {
+          player.blockStam = Math.max(0, player.blockStam - 0.2); // serangan biasa
+        }
+        if (isDefenderHit) {
+          player.blockStam = Math.max(0, player.blockStam - 0.7); // serangan berat
+          player.blockBreak = true;
+          player.blockBreakT = 1.0; // crack visual lebih lama
+        } else {
+          player.blockStam = Math.max(0, player.blockStam - 0.15); // serangan biasa
+        }
         var sh = shieldStats();
         player.iframes = 0.1;
         AudioManager.play('block');
@@ -1623,9 +1642,11 @@
       if (wantAttack) wantAttack = false;
       player.vx = move * PLAYER_SPEED * 0.4;
       player.blockStam -= dt;
-      if (player.blockStam <= 0) {
+        if (player.blockStam <= 0) {
         player.blockStam = 0;
-        player.blockCd = 1.0;
+        player.blockCd = 1.2;
+        player.blockBreak = true;
+        player.blockBreakT = 0.8;
         player.state = player.onGround ? (move !== 0 ? 'run' : 'idle') : 'fall';
         player.animTime = 0;
         player.blockT = 0;
