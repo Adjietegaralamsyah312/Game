@@ -575,6 +575,14 @@ canvas#game {
     border-radius: 0;
   }
 }
+/* Shop pengecualian: SATU scroller saja (#shop-body). Outer #shop harus
+ * hidden — bila outer ikut auto, swipe terperangkap di inner yang tak
+ * terbatas tingginya (apalagi dengan overscroll contain), sehingga
+ * landscape terasa "tidak bisa scroll". Spesifisitas disamakan (2 ID)
+ * dan diletakkan setelah aturan dialog agar menang. */
+#canvas-container #shop {
+  overflow: hidden;
+}
 
 /* --- Weapon Shop: tab + cards + tier badge + preview --- */
 #shop h2 {
@@ -818,6 +826,14 @@ canvas#game {
     font-size: clamp(16px, 4vh, 22px);
   }
   #shop-coin {
+    font-size: 12px;
+  }
+  /* Hemat ~30px vertikal agar content dapat jatah tinggi. */
+  #shop .tiny {
+    display: none;
+  }
+  #shop-msg {
+    min-height: 0;
     font-size: 12px;
   }
   #shop-body {

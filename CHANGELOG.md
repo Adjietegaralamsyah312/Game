@@ -1,5 +1,12 @@
 # Changelog — Knight Platformer
 
+## [1.3.1] — Shop Scroll Fix
+
+- Landscape HP: satu scroller (`#shop-body`), override `overflow: hidden`
+  atas aturan dialog fullscreen; header ramping (tiny off, msg ramping)
+- Swipe satu jari + wheel + keyboard utuh; tanpa ubah harga/stat/gameplay
+- 322 automated test PASS
+
 ## [1.3.0] — Mobile Shop Layout
 
 - Shop mobile rapi: portrait fullscreen + header compact + preview compact +

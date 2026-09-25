@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.3.0 — Mobile Shop Layout (vanilla JS + Canvas)
+ * Knight Platformer v1.3.1 — Mobile Shop Scroll Fix (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.3.0';
+  var GAME_VERSION = '1.3.1';
   const DEBUG = false;
 
   var VIEW_W = 960;

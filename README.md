@@ -1,4 +1,4 @@
-# Knight Platformer — 5-Level Campaign (v1.3.0)
+# Knight Platformer — 5-Level Campaign (v1.3.1)
 
 ![Preview](assets/og/knight-platformer-og.png)
 
@@ -15,7 +15,14 @@ berurutan, GAME COMPLETE).
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
 cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
-**Status: v1.3.0 Mobile Shop** — playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: v1.3.1 Shop Scroll Fix** — playable: https://adjietegaralamsyah312.github.io/Game/
+
+## Fitur v1.3.1
+
+- **Fix scroll Shop landscape**: satu scroller (`#shop-body`), override
+  `overflow: hidden` atas aturan dialog fullscreen (spesifisitas setara,
+  urutan menang); landscape hemat ruang (tiny disembunyikan, msg ramping);
+  swipe satu jari + wheel + keyboard utuh; tanpa ubah harga/stat/gameplay
 
 ## Fitur v1.3
 
@@ -181,10 +188,10 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 314 automated test headless (node test.js)
+├── test.js             # 322 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
-├── VERSION             # 1.3.0
+├── VERSION             # 1.3.1
 └── assets/
     ├── knight/         # 18 sprite PNG ksatria
     ├── sprites/        # undead + chest + coin + reward + heroik + guardian (9) + archer (9)
@@ -247,7 +254,7 @@ node test.js
 git diff --check
 ```
 
-314 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop) —
+322 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
@@ -266,7 +273,7 @@ target semua PASS, 0 FAIL.
 
 ## Project status & Development History
 
-- Status: **v1.3.0 Mobile Shop**, live di GitHub Pages.
+- Status: **v1.3.1 Shop Scroll Fix**, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
 - History singkat: Tahap 4 Release Candidate → Content Expansion (Stage 5:
   2 level + RAJA SLIME) → Settings & Persistence (Stage 6) → BGM prosedural

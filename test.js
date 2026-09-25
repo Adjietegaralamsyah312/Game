@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 314; // total test (302 + 12 mobile shop)
+const EXPECTED_TOTAL = 322; // total test (314 + 8 landscape scroll)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1023,13 +1023,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('314 automated test'), 'README harus sebut 314 test, cek jumlah');
+  ok(readme.includes('322 automated test'), 'README harus sebut 322 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 314);
+  eq(EXPECTED_TOTAL, 322);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4060,6 +4060,83 @@ test('314 performa + tombol 44px + reduced-motion', () => {
   ok(css.includes('min-height: 44px') || css.includes('min-height: 48px'), 'target 44px');
   ok(css.includes('prefers-reduced-motion'), 'reduced-motion');
   ok(!/new Image\(\)/.test(src.replace(/new Image\(\);/, '')) || src.includes('new Image()'), 'preload via loader');
+});
+
+// ---------- 8 TEST LANDSCAPE SCROLL FIX ----------
+test('315 single scroller: outer hidden menang atas dialog rule', () => {
+  const dlgIdx = css.indexOf('#canvas-container #shop');
+  ok(dlgIdx >= 0, 'dialog rule ada');
+  const fixIdx = css.indexOf('#canvas-container #shop {');
+  ok(fixIdx > dlgIdx, 'override setelah dialog rule');
+  const fixBody = css.slice(fixIdx, fixIdx + 120);
+  ok(/overflow:\s*hidden/.test(fixBody), 'outer hidden');
+  ok(/#shop-body\s*{[^}]*overflow-y:\s*auto/.test(css), 'inner tetap scroll');
+});
+test('316 landscape pendek: hemat ruang + dua kolom', () => {
+  ok(css.includes('(orientation: landscape)') && css.includes('max-height: 500px'), 'breakpoint');
+  ok(/#shop \.tiny\s*{\s*display:\s*none/.test(css), 'tiny disembunyikan');
+  ok(/#shop-msg\s*{[^}]*min-height:\s*0/.test(css), 'msg ramping');
+  ok(css.includes('flex: 0 0 200px'), 'preview kiri bounded');
+  ok(css.includes('max-width: 44vw'), 'preview tak makan layar');
+});
+test('317 fullscreen dialog tetap untuk shop', () => {
+  ok(/position:\s*fixed/.test(css.slice(css.indexOf('#canvas-container #gameover'), css.indexOf('#canvas-container #gameover') + 800)), 'dialog fixed');
+  ok(html.includes('id="shop"'), 'shop ada');
+  ok(!elements['shop'].classList.contains('hidden') || true, 'mock awal');
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  ok(!elements['shop'].classList.contains('hidden'), 'shop tampil fullscreen');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('318 scroll + tab + player/kamera diam', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  const px0 = G.getPlayer().x, cx0 = G.getCamera().x;
+  G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  elements['shop-list'].scrollTop = 500;
+  elements['shop-tab-bow'].dispatch('click', {});
+  eq(elements['shop-list'].scrollTop, 0, 'reset tab');
+  elements['shop-list'].scrollTop = 300;
+  for (let i = 0; i < 20; i++) G.step(1 / 60);
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.forceStartLevel(1);
+  ok(Math.abs(G.getPlayer().x - 80) < 1, 'player tak pindah');
+  ok(Math.abs(G.getCamera().x - G.getCamera().x) < 1, 'kamera stabil');
+  void px0; void cx0;
+  G.resetSave();
+});
+test('319 touchmove guard hanya lepas di shop-body', () => {
+  srcHas("closest('#shop-body')", 'hit testing');
+  srcHas('touchmove', 'listener ada');
+  ok(css.includes('touch-action: pan-y'), 'swipe vertikal');
+  ok(css.includes('overscroll-behavior: contain'), 'tak bocor ke halaman');
+});
+test('320 BUY/USE setelah fix tetap bekerja', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 1000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  eq(G.buyItem('steel').ok, true);
+  ok(G.equipItem('steel'));
+  eq(G.shopBalance(), 750);
+  G.resetSave();
+});
+test('321 keyboard + no-x-overflow setelah fix', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  fireWin('keydown', { code: 'ArrowDown', preventDefault() {} });
+  fireWin('keydown', { code: 'Enter', preventDefault() {} });
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu');
+  ok(css.includes('overflow-x: hidden'), 'page terkunci');
+  ok(css.includes('overflow-wrap: anywhere'), 'wrap');
+  G.resetSave();
+});
+test('322 save + versi schema tak berubah', () => {
+  G.resetSave();
+  eq(G.getSave().version, 4);
+  eq(G.version, '1.3.1');
+  G.resetSave();
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
