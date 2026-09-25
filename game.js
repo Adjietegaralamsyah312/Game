@@ -33,6 +33,22 @@
     return (save && save.difficulty === 'hard') ? DIFFICULTY_CONFIG.hard : DIFFICULTY_CONFIG.normal;
   }
 
+  /* Skill / Ability System — data-driven, integrasi dengan 3 mode */
+  const SKILLS = {
+    dashSlash: { id: 'dashSlash', mode: 'SWORD', type: 'active', energyCost: 25, cooldown: 5, unlocked: false, name: 'Dash Slash', desc: 'Forward dash + attack', unlockedAtLevel: 2 },
+    shieldBash: { id: 'shieldBash', mode: 'GUARDIAN', type: 'active', energyCost: 30, cooldown: 6, unlocked: false, name: 'Shield Bash', desc: 'Shield strike + knockback', unlockedAtLevel: 2 },
+    multiShot: { id: 'multiShot', mode: 'ARCHER', type: 'active', energyCost: 35, cooldown: 5, unlocked: false, name: 'Multi Shot', desc: 'Multiple arrows', unlockedAtLevel: 2 },
+    sharpEdge: { id: 'sharpEdge', mode: 'SWORD', type: 'passive', unlocked: false, name: 'Sharp Edge', desc: '+10% melee damage', unlockedAtLevel: 3 },
+    comboMaster: { id: 'comboMaster', mode: 'SWORD', type: 'passive', unlocked: false, name: 'Combo Master', desc: '+15% combo damage', unlockedAtLevel: 4 },
+    fortifiedGuard: { id: 'fortifiedGuard', mode: 'GUARDIAN', type: 'passive', unlocked: false, name: 'Fortified Guard', desc: '-20% damage when blocking', unlockedAtLevel: 3 },
+    sturdy: { id: 'sturdy', mode: 'GUARDIAN', type: 'passive', unlocked: false, name: 'Sturdy', desc: '+10% HP survival', unlockedAtLevel: 4 },
+    quickDraw: { id: 'quickDraw', mode: 'ARCHER', type: 'passive', unlocked: false, name: 'Quick Draw', desc: '-15% ranged cooldown', unlockedAtLevel: 3 },
+    piercingArrow: { id: 'piercingArrow', mode: 'ARCHER', type: 'passive', unlocked: false, name: 'Piercing Arrow', desc: 'Arrow pierces certain enemies', unlockedAtLevel: 4 }
+  };
+  var skillEnergy = 100;
+  var skillCooldowns = {};
+  var skillLoadout = { active: null, passives: [] };
+
   var VIEW_W = 960;
   var VIEW_H = 540;
   // Tahap 2: dunia lebih lebar dari layar — kamera side-scrolling mengikuti.
@@ -900,7 +916,8 @@
     jumpPressed: false,    // edge-trigger, dikonsumsi oleh Player
     attackPressed: false,  // edge-trigger, dikonsumsi oleh Player
     blockHeld: false,      // tahan untuk block (Guardian); dibersihkan saat pause/menu
-    restartPressed: false  // edge-trigger, dikonsumsi oleh Game
+    restartPressed: false,  // edge-trigger, dikonsumsi oleh Game
+    skillPressed: false    // skill active
   };
 
   window.addEventListener('keydown', function (e) {
@@ -917,6 +934,10 @@
     }
     else if (e.code === 'KeyJ' || e.code === 'KeyX') {
       Input.attackPressed = true;
+      e.preventDefault();
+    }
+    else if (e.code === 'KeyQ') {
+      Input.skillPressed = true;
       e.preventDefault();
     }
     else if (e.code === 'KeyK' || e.code === 'KeyL' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
@@ -1562,6 +1583,10 @@
     // Serangan hanya valid dari state normal/attack; simpan intent lokal.
     var wantAttack = !!Input.attackPressed;
     Input.attackPressed = false;
+    if (Input.skillPressed) {
+      Input.skillPressed = false;
+      if (gameState === 'playing' && !dead) activateActiveSkill();
+    }
 
     if (!dead) {
       if (move > 0) player.facing = 1;
@@ -2025,6 +2050,15 @@
 
   function slimeTakeDamage(s, amount, fromX, knock) {
     if (s.dead || s.state === 'death' || s.iframes > 0) return false;
+    // Skill passive modifier (light, data-driven, safe)
+    var dmgMult = 1;
+    try {
+      if (save && save.skills && save.skills.unlocked) {
+        if (save.mode === 'SWORD' && save.skills.unlocked.sharpEdge) dmgMult = 1.10;
+        if (save.mode === 'GUARDIAN' && save.skills.unlocked.fortifiedGuard) dmgMult = 0.95; // receive less is handled elsewhere
+      }
+    } catch (e) {}
+    amount = amount * dmgMult;
     // Stage 9: Defender guard frontal (hanya saat siaga, bukan mid-attack).
     // Tanpa guard stats -> jalur klasik persis (nol perubahan perilaku lama).
     // M6: blocked hit = no damage + no iframes (feedback saja); hit valid
@@ -4371,12 +4405,17 @@
     d.bestL5 = (o.bestL5 == null) ? null : saveNum(o.bestL5, null, 0, 1e9);
     // Preserve achievement/difficulty/hard progress for v5 (and v4 if present)
     d.difficulty = (o.difficulty === 'hard') ? 'hard' : 'normal';
+    d.skills = (o.skills && typeof o.skills === 'object') ? o.skills : {
+      unlocked: { dashSlash: false, shieldBash: false, multiShot: false, sharpEdge: false, comboMaster: false, fortifiedGuard: false, sturdy: false, quickDraw: false, piercingArrow: false },
+      active: null, passives: []
+    };
     d.achievements = (o.achievements && typeof o.achievements === 'object') ? o.achievements : {
       first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
       collector: false, no_death_clear: false, speed_runner: false,
       master_of_sword: false, master_of_guardian: false, master_of_archer: false,
-      hard_clear: false, campaign_complete: false
-    };
+    hard_clear: false, campaign_complete: false,
+    skill_apprentice: false, skill_master: false, ability_expert: false, triple_master: false
+  };
     // Fill missing achievement keys (data-driven extension safe)
     var defAch = { first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
       collector: false, no_death_clear: false, speed_runner: false,
@@ -4464,6 +4503,10 @@
         if (achDefs[ak] === undefined) achDefs[ak] = defAch[ak];
       }
       d.difficulty = (o.difficulty === 'hard') ? 'hard' : 'normal';
+    d.skills = (o.skills && typeof o.skills === 'object') ? o.skills : {
+      unlocked: { dashSlash: false, shieldBash: false, multiShot: false, sharpEdge: false, comboMaster: false, fortifiedGuard: false, sturdy: false, quickDraw: false, piercingArrow: false },
+      active: null, passives: []
+    };
       d.hardProgress = (o.hardProgress && typeof o.hardProgress === 'object') ? o.hardProgress : {
         level1Completed: false, level2Completed: false, level3Completed: false, level4Completed: false, level5Completed: false,
         gameCompleted: false, level2Unlocked: false, level3Unlocked: false, level4Unlocked: false, level5Unlocked: false,
@@ -4530,7 +4573,11 @@
     master_of_guardian: { name: 'Guardian Master', desc: 'Complete campaign in Guardian mode', progress: null },
     master_of_archer: { name: 'Archer Master', desc: 'Complete campaign in Archer mode', progress: null },
     hard_clear: { name: 'Hard Clear', desc: 'Complete a stage in Hard Mode', progress: null },
-    campaign_complete: { name: 'Campaign Complete', desc: 'Complete entire Normal campaign', progress: null }
+    campaign_complete: { name: 'Campaign Complete', desc: 'Complete entire Normal campaign', progress: null },
+    skill_apprentice: { name: 'Skill Apprentice', desc: 'Unlock your first skill', progress: null },
+    skill_master: { name: 'Skill Master', desc: 'Unlock all active skills', progress: null },
+    ability_expert: { name: 'Ability Expert', desc: 'Unlock a complete skill setup for one mode', progress: null },
+    triple_master: { name: 'Triple Master', desc: 'Unlock skill progression for Sword, Guardian, Archer', progress: null }
   };
 
   function unlockAchievement(id) {
@@ -4615,6 +4662,62 @@
     if (save.gameCompleted && !save.achievements.master_of_sword && save.mode === 'SWORD') unlockAchievement('master_of_sword');
     if (save.gameCompleted && !save.achievements.master_of_guardian && save.mode === 'GUARDIAN') unlockAchievement('master_of_guardian');
     if (save.gameCompleted && !save.achievements.master_of_archer && save.mode === 'ARCHER') unlockAchievement('master_of_archer');
+  }
+
+
+  /* Skill Activation */
+  function activateActiveSkill() {
+    if (!save || !save.skills) return false;
+    var mode = save.mode || 'SWORD';
+    var skillId = save.skills.active;
+    if (!skillId) return false;
+    var def = SKILLS[skillId];
+    if (!def || def.mode !== mode || def.type !== 'active') return false;
+    if (def.unlocked === false) return false;
+    // Check save unlocked state
+    var unlocked = (save.skills.unlocked && save.skills.unlocked[skillId] === true);
+    if (!unlocked) return false;
+    // Energy check
+    var cost = def.energyCost || 0;
+    if (skillEnergy < cost) return false;
+    // Cooldown check
+    var nowT = Date.now ? Date.now() : 0; // use time-based or loop-based; simple loop-based below
+    // Use simple cooldown tracking via global skillCooldowns
+    var cd = skillCooldowns[skillId] || 0;
+    if (cd > 0) return false;
+    // Consume energy
+    skillEnergy = Math.max(0, skillEnergy - cost);
+    // Apply cooldown
+    skillCooldowns[skillId] = def.cooldown || 5;
+    // Activation effect (simple)
+    if (skillId === 'dashSlash') {
+      // Brief dash + damage boost (simulated via player velocity and state)
+      try { player.vx = (player.dir || 1) * 300; player.state = 'run'; } catch (e) {}
+    } else if (skillId === 'shieldBash') {
+      try { applySwordEffect(null, null, miniboss || boss); } catch (e) {}
+    } else if (skillId === 'multiShot') {
+      // Fire extra projectile (simulated via existing playerShots)
+      try { playerShots.push({ x: player.x + 40, y: player.y + 20, vx: 400, vy: 0, kind: 'arrow' }); } catch (e) {}
+    }
+    return true;
+  }
+
+  function updateSkillCooldowns(dt) {
+    for (var k in skillCooldowns) {
+      if (skillCooldowns[k] > 0) skillCooldowns[k] = Math.max(0, skillCooldowns[k] - dt);
+    }
+    // Energy recovery
+    skillEnergy = Math.min(100, skillEnergy + 8 * dt);
+  }
+
+  function unlockSkill(id) {
+    if (!save || !save.skills || !save.skills.unlocked) return false;
+    if (save.skills.unlocked[id] === true) return false;
+    save.skills.unlocked[id] = true;
+    persistSave();
+    try { AudioManager.play('click'); } catch (e) {}
+    if (save.achievements && !save.achievements.skill_apprentice) unlockAchievement('skill_apprentice');
+    return true;
   }
 
   function applyAudioSettings() {
@@ -4922,6 +5025,37 @@
       }
       if (campStatusEl) campStatusEl.textContent = 'Pilihan mode: Normal / Hard • Kesulitan: ' + (save.difficulty || 'normal');
     } catch (e) { /* abaikan */ }
+  }
+
+  function openSkills() {
+    try {
+      hideAllOverlays();
+      showMenuPanel('main');
+      var sEl = document.getElementById('skills');
+      if (sEl) sEl.classList.remove('hidden');
+      clearInput();
+      refreshSkillsUI();
+    } catch (e) { /* abaikan */ }
+  }
+  function skillsBack() {
+    toMenu();
+    try { if (document.getElementById('btn-skills')) document.getElementById('btn-skills').focus({ preventScroll: true }); } catch (e) {}
+  }
+  function refreshSkillsUI() {
+    var list = document.getElementById('skills-list');
+    if (!list) return;
+    list.innerHTML = '';
+    var mode = (save && save.mode) ? save.mode : 'SWORD';
+    for (var sid in SKILLS) {
+      var s = SKILLS[sid];
+      if (s.mode !== mode) continue;
+      var unlocked = !!(save && save.skills && save.skills.unlocked && save.skills.unlocked[sid]);
+      var equippedActive = (save && save.skills && save.skills.active === sid);
+      var item = document.createElement('div');
+      item.className = 'achieve-item ' + (unlocked ? 'unlocked' : 'locked');
+      item.innerHTML = '<h4>' + (equippedActive ? '▶ ' : '') + s.name + '</h4><p>' + s.desc + (unlocked ? ' • Cost: ' + (s.energyCost || 0) + ' • CD: ' + (s.cooldown || 0) + 's' : ' [LOCKED]') + '</p>';
+      list.appendChild(item);
+    }
   }
 
   function openAchievements() {
@@ -6834,6 +6968,7 @@
     levelStats.time += dt;
     if (toast.t > 0) toast.t -= dt;
     updatePlayer(dt);
+    updateSkillCooldowns(dt);
     Combat.resolvePlayerAttack();
     for (var i = 0; i < enemies.length; i++) {
       if (enemies[i].kind === 'skeletonArcher') updateArcher(enemies[i], dt);
@@ -7166,7 +7301,9 @@
   var btnDiffNormal = document.getElementById('btn-diff-normal');
   if (btnDiffNormal) onClick(btnDiffNormal, function () { save.difficulty = 'normal'; persistSave(); playCampaignLevel(1); });
   var btnDiffHard = document.getElementById('btn-diff-hard');
-  if (btnDiffHard) onClick(btnDiffHard, function () { if (btnDiffHard.disabled) return; save.difficulty = 'hard'; persistSave(); playCampaignLevel(1); });
+  if (btnDiffHard)   onClick(btnDiffHard, function () { if (btnDiffHard.disabled) return; save.difficulty = 'hard'; persistSave(); playCampaignLevel(1); });
+  var btnSkills = document.getElementById('btn-skills');
+  if (btnSkills) onClick(btnSkills, function () { openSkills(); });
   onClick(btnShop, function () { openShop(); });
   onClick(shopBackBtn, function () { shopBack(); });
   onClick(shopTabBtns.sword, function () { shopSetTab('sword'); });
@@ -7179,6 +7316,8 @@
   onClick(btnCampBack, function () { campaignBack(); });
   var btnAchieveBack = document.getElementById('btn-achieve-back');
   if (btnAchieveBack) onClick(btnAchieveBack, function () { achievementsBack(); });
+  var btnSkillsBack = document.getElementById('btn-skills-back');
+  if (btnSkillsBack) onClick(btnSkillsBack, function () { skillsBack(); });
   for (var cpi = 1; cpi <= 5; cpi++) {
     (function (n) {
       onClick(campBtns[n - 1], function () { playCampaignLevel(n); });

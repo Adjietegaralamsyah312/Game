@@ -65,6 +65,7 @@
           <button id="btn-play" class="btn-primary">▶ PLAY</button>
           <button id="btn-campaign" class="btn-secondary">🗺 CAMPAIGN</button>
           <button id="btn-achievements" class="btn-secondary">🏆 ACHIEVEMENTS</button>
+          <button id="btn-skills" class="btn-secondary">⚔ SKILLS</button>
           <button id="btn-shop" class="btn-secondary">🛒 SHOP</button>
           <button id="btn-controls" class="btn-secondary">🎮 CONTROLS</button>
           <button id="btn-settings" class="btn-secondary">⚙ SETTINGS</button>
@@ -111,6 +112,15 @@
         <div id="achieve-list" class="btn-col" aria-label="Achievement list"></div>
         <button id="btn-achieve-back" class="btn-secondary">← BACK</button>
         <p class="tiny">↑/↓ pilih • Esc kembali</p>
+      </div>
+
+      <!-- Skills Menu -->
+      <div id="skills" class="hidden" role="dialog" aria-modal="true" aria-labelledby="skills-title" aria-label="Skills">
+        <h2 id="skills-title" class="win">SKILLS</h2>
+        <p id="skills-status" class="menu-lines">Select active skill for current mode</p>
+        <div id="skills-list" class="btn-col" aria-label="Skill loadout"></div>
+        <button id="btn-skills-back" class="btn-secondary">← BACK</button>
+        <p class="tiny">↑/↓ pilih • Enter equip • Esc kembali</p>
       </div>
 
       <!-- Level Complete (Stage 5): NEXT / REPLAY / MENU -->

@@ -90,7 +90,7 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'btn-gameover-menu',
   // Stage 10: campaign select + explicit pause
   'btn-campaign', 'campaign', 'campaign-status',
-  'btn-diff-normal', 'btn-diff-hard', 'diff-hard-card', 'achieve-toast-text', 'btn-achieve-back', 'hard-lock-label',
+  'btn-diff-normal', 'btn-diff-hard', 'diff-hard-card', 'achieve-toast-text', 'btn-achieve-back',   'btn-skills', 'skills', 'skills-list', 'btn-skills-back', 'hard-lock-label',
   'btn-achievements', 'achievements', 'achieve-list', 'achieve-counter', 'achieve-toast',
   'btn-camp-back', 'btn-pause', 'pause',
   'btn-resume', 'btn-pause-respawn', 'btn-pause-menu',
