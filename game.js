@@ -5047,15 +5047,20 @@
   var btnResume = null, btnPauseRespawn = null, btnPauseMenu = null;
   var btnBlockEl = null;
 
-  /* Tombol block (🛡) hanya ada di mode GUARDIAN saat playing.
-     Di SWORD/ARCHER disembunyikan agar tak membingungkan. */
+  /* Tombol block (SHIELD): hanya Guardian saat playing. Jika tidak muncul,
+     pastikan buy + equip + setMode('GUARDIAN') sudah dilakukan sebelum main.
+     Refresh terus di loop agar tidak hilang saat switch mode. */
   function refreshBlockBtn() {
     try {
+      if (!btnBlockEl) {
+        btnBlockEl = document.getElementById('btn-block');
+      }
       if (!btnBlockEl) return;
       var show = false;
-      try { show = (gameState === 'playing' && playerMode() === 'GUARDIAN'); }
-      catch (e) { show = false; }
+      try { show = (gameState === 'playing' && playerMode() === 'GUARDIAN'); } catch (e) { show = false; }
       btnBlockEl.style.display = show ? '' : 'none';
+      btnBlockEl.style.visibility = show ? 'visible' : 'hidden';
+      btnBlockEl.style.opacity = show ? '1' : '0';
       if (!show) Input.blockHeld = false;
     } catch (e) { /* abaikan */ }
   }
