@@ -1,5 +1,19 @@
 # Changelog — Knight Platformer
 
+## [1.1.0] — Weapon Shop
+
+- Weapon Shop di Main Menu: PEDANG / PERISAI / PEMANAH, 15 item data-driven
+  (Common/Uncommon/Rare/Epic), BUY/EQUIP/EQUIPPED, NOT ENOUGH COINS guard,
+  pembelian atomik, preview karakter + stat bar dari data
+- 3 class: SWORD KNIGHT, GUARDIAN KNIGHT (block), ARCHER (aim/shoot ranged);
+  18 sprite PNG lokal 32x32 (guardian + archer, baseline 26)
+- Mekanik: sword damage/speed/reach + Shadow Poison + Sunfire burn (terkontrol);
+  shield block frontal + Tower/Aegis/Bastion (aura berbatas); bow projectile
+  pool bounded 8 (wind trail, lightning chain, dragon pierce)
+- Save schema v4 (migrasi v1/v2/v3 → v4, starter default, progres lestari)
+- SFX baru: shopOpen/buy/buyFail/equip/bowShot/block (hormat SFX setting)
+- Kontrol: `K`/`Shift`/🛡 block; 282 automated test PASS
+
 ## [1.0.0] — Final Release
 
 - 5-level campaign: Slime Grounds, Slime Dominion, Skeleton Fortress,

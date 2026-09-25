@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.0.0 — Final Release (vanilla JS + Canvas)
+ * Knight Platformer v1.1.0 — Weapon Shop + Classes (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.0.0';
+  var GAME_VERSION = '1.1.0';
   const DEBUG = false;
 
   var VIEW_W = 960;
@@ -264,7 +264,14 @@
       // Gold Shard treasure: shimmer permata (beda dari coin — sine cerah).
       shard:     function () { tone(1319, 0.10, 'sine', 0.35, 1760); tone(1760, 0.16, 'sine', 0.3, 2637, 0.08); },
       heal:      function () { tone(523, 0.12, 'sine', 0.4, 784); tone(784, 0.2, 'sine', 0.35, 1047, 0.1); },
-      poison:    function () { tone(330, 0.25, 'sawtooth', 0.4, 110); noise(0.15, 0.35, 500, 0.05); }
+      poison:    function () { tone(330, 0.25, 'sawtooth', 0.4, 110); noise(0.15, 0.35, 500, 0.05); },
+      // Weapon Shop (prosedural, hormat SFX ON/volume via play()).
+      shopOpen:  function () { tone(523, 0.09, 'square', 0.3, 784); tone(784, 0.1, 'square', 0.3, 1047, 0.07); },
+      buy:       function () { tone(784, 0.1, 'square', 0.35, 1047); tone(1047, 0.16, 'square', 0.35, 1568, 0.08); },
+      buyFail:   function () { tone(220, 0.15, 'square', 0.4, 147); },
+      equip:     function () { tone(440, 0.09, 'square', 0.35, 660); tone(660, 0.12, 'square', 0.3, 880, 0.07); },
+      bowShot:   function () { noise(0.07, 0.35, 5000); tone(1200, 0.05, 'square', 0.25, 1800); },
+      block:     function () { tone(420, 0.08, 'square', 0.4, 380); noise(0.05, 0.3, 3500); }
     };
 
     /* ---- BGM prosedural (Stage 7): dark fantasy loop, Web Audio native ----
@@ -515,6 +522,27 @@
     knightHurt:   ['assets/sprites/knight-hurt.png'],
     knightDeath:  ['assets/sprites/knight-death.png'],
     knightVictory: ['assets/sprites/knight-victory.png'],
+    // Shop classes (lokal, 32px, bottom row 26 — kompatibel KNIGHT_FEET_DY).
+    // Guardian: heavy armor + shield besar, silhouette lebar defensif.
+    guardianIdle:   ['assets/sprites/guardian-idle.png'],
+    guardianWalk:   ['assets/sprites/guardian-walk.png'],
+    guardianBlock:  ['assets/sprites/guardian-block.png'],
+    guardianAttack: ['assets/sprites/guardian-attack.png'],
+    guardianJump:   ['assets/sprites/guardian-jump.png'],
+    guardianFall:   ['assets/sprites/guardian-fall.png'],
+    guardianHurt:   ['assets/sprites/guardian-hurt.png'],
+    guardianDeath:  ['assets/sprites/guardian-death.png'],
+    guardianVictory: ['assets/sprites/guardian-victory.png'],
+    // Archer: ranger ringan + bow + quiver, silhouette ramping.
+    archerIdle:   ['assets/sprites/archer-idle.png'],
+    archerWalk:   ['assets/sprites/archer-walk.png'],
+    archerAim:    ['assets/sprites/archer-aim.png'],
+    archerShoot:  ['assets/sprites/archer-shoot.png'],
+    archerJump:   ['assets/sprites/archer-jump.png'],
+    archerFall:   ['assets/sprites/archer-fall.png'],
+    archerHurt:   ['assets/sprites/archer-hurt.png'],
+    archerDeath:  ['assets/sprites/archer-death.png'],
+    archerVictory: ['assets/sprites/archer-victory.png'],
     // Coin level (collectible): coin.png. Treasure Gold Shard: gold-shard.png
     // (berlian emas — jelas beda dari koin bulat).
     coin:    ['assets/sprites/coin.png'],
@@ -525,12 +553,20 @@
   var ANIM_ORDER = ['idle', 'run', 'jump', 'fall', 'attack', 'hurt', 'death',
     'skelSword', 'skelDef', 'skelArch', 'skelKnight', 'lightningSlime', 'lich', 'chest', 'coin', 'reward',
     'knightIdle', 'knightWalk', 'knightAttack', 'knightAttack2', 'knightJump',
-    'knightFall', 'knightHurt', 'knightDeath', 'knightVictory'];
+    'knightFall', 'knightHurt', 'knightDeath', 'knightVictory',
+    'guardianIdle', 'guardianWalk', 'guardianBlock', 'guardianAttack', 'guardianJump',
+    'guardianFall', 'guardianHurt', 'guardianDeath', 'guardianVictory',
+    'archerIdle', 'archerWalk', 'archerAim', 'archerShoot', 'archerJump',
+    'archerFall', 'archerHurt', 'archerDeath', 'archerVictory'];
 
   var sprites = { idle: [], run: [], jump: [], fall: [], attack: [], hurt: [], death: [],
     skelSword: [], skelDef: [], skelArch: [], skelKnight: [], lightningSlime: [], lich: [], chest: [], coin: [], reward: [],
     knightIdle: [], knightWalk: [], knightAttack: [], knightAttack2: [], knightJump: [],
-    knightFall: [], knightHurt: [], knightDeath: [], knightVictory: [] };
+    knightFall: [], knightHurt: [], knightDeath: [], knightVictory: [],
+    guardianIdle: [], guardianWalk: [], guardianBlock: [], guardianAttack: [], guardianJump: [],
+    guardianFall: [], guardianHurt: [], guardianDeath: [], guardianVictory: [],
+    archerIdle: [], archerWalk: [], archerAim: [], archerShoot: [], archerJump: [],
+    archerFall: [], archerHurt: [], archerDeath: [], archerVictory: [] };
   var assetsReady = false;
   var assetErrors = [];
 
@@ -560,11 +596,108 @@
     });
   }
 
+  /* ================== 4b. WEAPON SHOP (data-driven) ==================
+   * 15 item, 3 kategori x 5. Harga persis spesifikasi. Engine membaca stats
+   * via lookup (shopItemById/swordStats/shieldStats/bowStats) — tanpa
+   * branching per-ID senjata yang tersebar di logic combat.
+   * Tier: Common < Uncommon < Rare < Epic. Baseline game = Rusty Iron Sword
+   * (dmg 12, speed 1.0, reach baseline) sehingga default 100% kompatibel. */
+  var TIER_META = {
+    Common:   { color: '#9aa3c7', bg: '#2a2f45', symbol: '●', label: 'COMMON' },
+    Uncommon: { color: '#5ec46f', bg: '#1d3a26', symbol: '◆', label: 'UNCOMMON' },
+    Rare:     { color: '#5aa9ff', bg: '#1c2c4d', symbol: '★', label: 'RARE' },
+    Epic:     { color: '#c07bff', bg: '#35224d', symbol: '⬥', label: 'EPIC' }
+  };
+  var SHOP_ITEMS = [
+    // ---- PEDANG ----
+    { id: 'rusty', category: 'sword', name: 'Rusty Iron Sword', tier: 'Common', price: 50,
+      desc: 'Pedang besi berkarat standar yang biasa dipakai pemula.',
+      damage: 12, attackSpeed: 1.0, range: 0, defense: 0, projectileSpeed: 0, passive: null, special: null },
+    { id: 'steel', category: 'sword', name: 'Sharpened Steel Blade', tier: 'Uncommon', price: 250,
+      desc: 'Pedang baja yang sudah diasah tajam, cocok untuk petualang tingkat awal.',
+      damage: 14, attackSpeed: 1.1, range: 0, defense: 0, projectileSpeed: 0, passive: null, special: null },
+    { id: 'silver', category: 'sword', name: "Silver Knight's Broadsword", tier: 'Rare', price: 1200,
+      desc: 'Pedang kebanggaan ksatria dengan ukiran perak murni.',
+      damage: 17, attackSpeed: 1.15, range: 12, defense: 0, projectileSpeed: 0, passive: null, special: null },
+    { id: 'shadowfang', category: 'sword', name: 'Shadowfang Saber', tier: 'Epic', price: 5500,
+      desc: 'Pedang berbilah gelap yang bisa memberikan efek racun bayangan pada musuh.',
+      damage: 20, attackSpeed: 1.2, range: 6, defense: 0, projectileSpeed: 0, passive: null,
+      special: { kind: 'poison', dps: 3, duration: 3 } },
+    { id: 'sunfire', category: 'sword', name: 'Sunfire Greatsword', tier: 'Epic', price: 5500,
+      desc: 'Pedang pusaka besar yang memancarkan hawa panas matahari.',
+      damage: 20, attackSpeed: 1.05, range: 8, defense: 0, projectileSpeed: 0, passive: null,
+      special: { kind: 'burn', dps: 2, duration: 2, cooldown: 5 } },
+    // ---- PERISAI ----
+    { id: 'buckler', category: 'shield', name: 'Wooden Buckler', tier: 'Common', price: 40,
+      desc: 'Perisai bundar kecil berbahan kayu tipis untuk menangkis serangan ringan.',
+      damage: 0, attackSpeed: 1.0, range: 0, defense: 0.25, projectileSpeed: 0, passive: null, special: null },
+    { id: 'kite', category: 'shield', name: 'Iron Kite Shield', tier: 'Uncommon', price: 200,
+      desc: 'Perisai berbentuk layang-layang dari plat besi, memberikan perlindungan tubuh yang lebih baik.',
+      damage: 0, attackSpeed: 1.0, range: 0, defense: 0.4, projectileSpeed: 0, passive: null, special: null },
+    { id: 'tower', category: 'shield', name: 'Tower Guard Shield', tier: 'Rare', price: 1000,
+      desc: 'Perisai badan besar yang kokoh, sangat handal untuk menahan serangan jarak jauh.',
+      damage: 0, attackSpeed: 1.0, range: 0, defense: 0.55, projectileSpeed: 0, passive: null,
+      special: { kind: 'projGuard', projExtra: 0.2 } },
+    { id: 'aegis', category: 'shield', name: 'Mithril Aegis', tier: 'Epic', price: 4800,
+      desc: 'Perisai ringan berbahan mithril yang memiliki daya tahan luar biasa terhadap sihir.',
+      damage: 0, attackSpeed: 1.0, range: 0, defense: 0.65, projectileSpeed: 0, passive: null,
+      special: { kind: 'magicGuard', magicExtra: 0.15 } },
+    { id: 'bastion', category: 'shield', name: 'Bastion of the Immortal', tier: 'Epic', price: 4800,
+      desc: 'Perisai legendaris dengan aura pelindung magis yang memperkuat pertahanan penggunanya.',
+      damage: 0, attackSpeed: 1.0, range: 0, defense: 0.75, projectileSpeed: 0, passive: null,
+      special: { kind: 'aura', hits: 3, window: 10, activeTime: 2, activeRed: 0.9, cooldown: 12 } },
+    // ---- PEMANAH ----
+    { id: 'makeshift', category: 'bow', name: 'Makeshift Wooden Bow', tier: 'Common', price: 45,
+      desc: 'Busur kayu sederhana yang dibuat sendiri menggunakan tali biasa.',
+      damage: 10, attackSpeed: 1.0, range: 420, defense: 0, projectileSpeed: 380, passive: null, special: null },
+    { id: 'hunter', category: 'bow', name: "Hunter's Recurve Bow", tier: 'Uncommon', price: 220,
+      desc: 'Busur lentur buatan pemburu profesional untuk tembakan yang lebih jauh dan akurat.',
+      damage: 12, attackSpeed: 1.1, range: 460, defense: 0, projectileSpeed: 440, passive: null, special: null },
+    { id: 'elven', category: 'bow', name: 'Elven Wind Bow', tier: 'Rare', price: 1150,
+      desc: 'Busur buatan bangsa peri yang membuat anak panah melesat lebih cepat seperti angin.',
+      damage: 14, attackSpeed: 1.2, range: 500, defense: 0, projectileSpeed: 520, passive: null,
+      special: { kind: 'windTrail' } },
+    { id: 'storm', category: 'bow', name: 'Stormpiercer Longbow', tier: 'Epic', price: 5000,
+      desc: 'Busur panjang yang setiap anak panahnya dialiri oleh listrik statis.',
+      damage: 16, attackSpeed: 1.1, range: 520, defense: 0, projectileSpeed: 520, passive: null,
+      special: { kind: 'lightning', chain: 4, chainRange: 60 } },
+    { id: 'dragon', category: 'bow', name: 'Dragonbone Greatbow', tier: 'Epic', price: 5000,
+      desc: 'Busur raksasa yang terbuat dari tulang naga, menghasilkan daya tembus panah yang mematikan.',
+      damage: 22, attackSpeed: 0.9, range: 540, defense: 0, projectileSpeed: 480, passive: null,
+      special: { kind: 'pierce', pierce: 2 } }
+  ];
+  function shopItemById(id) {
+    for (var _si = 0; _si < SHOP_ITEMS.length; _si++) {
+      if (SHOP_ITEMS[_si].id === id) return SHOP_ITEMS[_si];
+    }
+    return null;
+  }
+  function shopItemsByCategory(cat) {
+    var out = [];
+    for (var _sj = 0; _sj < SHOP_ITEMS.length; _sj++) {
+      if (SHOP_ITEMS[_sj].category === cat) out.push(SHOP_ITEMS[_sj]);
+    }
+    return out;
+  }
+  function swordStats() {
+    return shopItemById(save.eqSword) || shopItemById('rusty');
+  }
+  function shieldStats() {
+    return shopItemById(save.eqShield) || shopItemById('buckler');
+  }
+  function bowStats() {
+    return shopItemById(save.eqBow) || shopItemById('makeshift');
+  }
+  function playerMode() {
+    return (save.mode === 'GUARDIAN' || save.mode === 'ARCHER') ? save.mode : 'SWORD';
+  }
+
   /* ============================ 5. INPUT ============================ */
   var Input = {
     left: false, right: false, jumpHeld: false,
     jumpPressed: false,    // edge-trigger, dikonsumsi oleh Player
     attackPressed: false,  // edge-trigger, dikonsumsi oleh Player
+    blockHeld: false,      // tahan untuk block (Guardian); dibersihkan saat pause/menu
     restartPressed: false  // edge-trigger, dikonsumsi oleh Game
   };
 
@@ -580,12 +713,17 @@
       Input.attackPressed = true;
       e.preventDefault();
     }
+    else if (e.code === 'KeyK' || e.code === 'KeyL' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      Input.blockHeld = true;
+      e.preventDefault();
+    }
     else if (e.code === 'KeyR' || e.code === 'Enter') { Input.restartPressed = true; }
   });
   window.addEventListener('keyup', function (e) {
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') Input.left = false;
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') Input.right = false;
     else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') Input.jumpHeld = false;
+    else if (e.code === 'KeyK' || e.code === 'KeyL' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') Input.blockHeld = false;
   });
 
   /* Stage 10: satu jalur Pointer Events (pointerdown/up/cancel/leave).
@@ -621,6 +759,7 @@
         if (id === 'btn-left') Input.left = false;
         else if (id === 'btn-right') Input.right = false;
         else if (id === 'btn-jump') Input.jumpHeld = false;
+        else if (id === 'btn-block') Input.blockHeld = false;
       } catch (err) { /* abaikan */ }
     };
     if (typeof window !== 'undefined' && window.PointerEvent) {
@@ -1042,7 +1181,7 @@
       w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0,
       facing: 1, onGround: false, hitWall: false,
       hp: PLAYER_MAX_HP,
-      state: 'idle',      // idle|run|jump|fall|attack|hurt|death
+      state: 'idle',      // idle|run|jump|fall|attack|hurt|death|block|aim
       animTime: 0,
       coyote: 0, jumpBuf: 0,
       attackT: 0, attackCooldown: 0, didStrikeHit: {},
@@ -1050,12 +1189,26 @@
       deathT: 0, attackBox: null,
       landT: 0,      // squash pendaratan (polish Tahap 3)
       queued: false, // buffer serangan beruntun (responsif, Tahap 3)
-      combo: false   // Stage 11: ayunan rantai memakai pose attack-2
+      combo: false,  // Stage 11: ayunan rantai memakai pose attack-2
+      blockT: 0, aimT: 0, shotFired: false, // shop: block hold & bow aim
+      bastionHits: 0, bastionWin: 0, bastionOn: 0, bastionCd: 0, // bastion aura (bounded)
+      sunfireCd: 0 // sunfire burn cooldown global (bounded)
     };
   }
   var player = createPlayer();
 
   function playerStartAttack(combo) {
+    // Shop Archer: serangan utama = ranged (aim), bukan melee.
+    if (playerMode() === 'ARCHER') {
+      player.state = 'aim';
+      player.animTime = 0;
+      player.aimT = 0;
+      player.shotFired = false;
+      player.attackBox = null;
+      player.queued = false;
+      player.combo = false;
+      return;
+    }
     player.state = 'attack';
     player.animTime = 0;
     player.attackT = 0;
@@ -1070,11 +1223,56 @@
     AudioManager.play('attack');
   }
 
-  function playerTakeDamage(amount, fromX) {
+  function playerTakeDamage(amount, fromX, dmgType) {
     // C2: setelah kemenangan boss (victoryArmed), player kebal —
     // sisa hazard tidak boleh membatalkan victory selama delay.
     if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
     if (player.state === 'death' || player.iframes > 0) return;
+    var dtype = dmgType || 'melee';
+    // Shop Guardian: block frontal mengurangi damage (tidak pernah immune).
+    // Syarat: mode GUARDIAN + sedang block + penyerang di depan arah hadap.
+    if (playerMode() === 'GUARDIAN' && player.state === 'block') {
+      var pcx0 = player.x + player.w / 2;
+      var front = (player.facing === 1 && fromX >= pcx0) || (player.facing === -1 && fromX < pcx0);
+      if (front) {
+        var sh = shieldStats();
+        var red = sh.defense || 0;
+        if (dtype === 'arrow' && sh.special && sh.special.kind === 'projGuard') red += sh.special.projExtra || 0;
+        if ((dtype === 'bolt' || dtype === 'shock' || dtype === 'magic') && sh.special && sh.special.kind === 'magicGuard') red += sh.special.magicExtra || 0;
+        if (sh.id === 'bastion' && player.bastionOn > 0) red = sh.special.activeRed || red;
+        if (red > 0.9) red = 0.9; // tidak pernah immune
+        if (red < 0) red = 0;
+        var reduced = Math.max(1, Math.round(amount * (1 - red)));
+        player.hp -= reduced;
+        player.iframes = 0.25;
+        AudioManager.play('block');
+        burst(pcx0 + player.facing * 24, player.y + player.h / 2, 5, '#cfe3ff', 120, 0.3, 3, 250);
+        triggerScreenShake(SHAKE_HIT, 0.1);
+        // Bastion aura: 3 block dalam 10 dtk -> 2 dtk 0.9, cooldown 12 dtk.
+        if (sh.id === 'bastion' && player.bastionCd <= 0) {
+          if (player.bastionWin <= 0) { player.bastionHits = 0; player.bastionWin = 10; }
+          player.bastionHits++;
+          if (player.bastionHits >= 3) {
+            player.bastionHits = 0; player.bastionWin = 0;
+            player.bastionOn = 2; player.bastionCd = 12;
+            burst(pcx0, player.y + 10, 8, '#c07bff', 130, 0.5, 3, 200);
+          }
+        }
+        if (player.hp <= 0) {
+          player.hp = 0;
+          player.state = 'death';
+          player.animTime = 0;
+          player.deathT = 0;
+          player.vx = 0;
+          player.attackBox = null;
+          player.queued = false;
+          player.didStrikeHit = {};
+          burst(player.x + player.w / 2, player.y + player.h / 2, 10, '#e05252', 200, 0.6, 4, 350);
+          return;
+        }
+        return; // block menahan interrupt (tetap di state block)
+      }
+    }
     // Serangan sendiri tidak bisa di-interrupt oleh hurt yang baru? tetap bisa — prioritaskan hurt.
     player.hp -= amount;
     AudioManager.play('hurt');
@@ -1122,6 +1320,11 @@
     if (player.iframes > 0) player.iframes = Math.max(0, player.iframes - dt);
     if (player.attackCooldown > 0) player.attackCooldown -= dt;
     if (player.landT > 0) player.landT = Math.max(0, player.landT - dt);
+    // Shop timers (bounded, visual/gameplay aman).
+    if (player.bastionWin > 0) player.bastionWin = Math.max(0, player.bastionWin - dt);
+    if (player.bastionOn > 0) player.bastionOn = Math.max(0, player.bastionOn - dt);
+    if (player.bastionCd > 0) player.bastionCd = Math.max(0, player.bastionCd - dt);
+    if (player.sunfireCd > 0) player.sunfireCd = Math.max(0, player.sunfireCd - dt);
 
     // Konsumsi buffer lompat
     if (Input.jumpPressed) { player.jumpBuf = JUMP_BUFFER; Input.jumpPressed = false; }
@@ -1161,7 +1364,11 @@
 
     if (player.state === 'attack') {
       player.attackT += dt;
-      var total = ATTACK_WINDUP + ATTACK_STRIKE + ATTACK_RECOVERY;
+      // Shop: kecepatan serangan dari stats pedang (baseline 1.0 = timing utuh).
+      var _sw = swordStats();
+      var _spd = (_sw && _sw.attackSpeed > 0) ? _sw.attackSpeed : 1;
+      var _wu = ATTACK_WINDUP / _spd, _st = ATTACK_STRIKE / _spd, _rc = ATTACK_RECOVERY / _spd;
+      var total = _wu + _st + _rc;
       // Buffer: serangan ditekan saat recovery => rantai kombo responsif.
       if (wantAttack) { player.queued = true; wantAttack = false; }
       // Movement dikunci saat grounded; di udara boleh drift 40%.
@@ -1169,15 +1376,18 @@
       player.vx = move * PLAYER_SPEED * lockFactor;
 
       // Hitbox serangan aktif hanya pada fase STRIKE, di depan player.
-      if (player.attackT >= ATTACK_WINDUP &&
-          player.attackT < ATTACK_WINDUP + ATTACK_STRIKE) {
+      // Shop: Silver reach (+range) memperpanjang hitbox.
+      // Shop Archer: recovery tembakan tanpa melee hitbox.
+      if (playerMode() !== 'ARCHER' && player.attackT >= _wu &&
+          player.attackT < _wu + _st) {
+        var _rw = ATTACK_W + ((_sw && _sw.range) || 0);
         var bx = player.facing === 1
           ? player.x + player.w
-          : player.x - ATTACK_W;
+          : player.x - _rw;
         player.attackBox = {
           x: bx,
           y: player.y + player.h / 2 - ATTACK_H / 2,
-          w: ATTACK_W, h: ATTACK_H
+          w: _rw, h: ATTACK_H
         };
       } else {
         player.attackBox = null;
@@ -1196,7 +1406,7 @@
         } else {
           player.state = player.onGround ? (move !== 0 ? 'run' : 'idle') : 'fall';
           player.animTime = 0;
-          player.attackCooldown = ATTACK_COOLDOWN;
+          player.attackCooldown = ATTACK_COOLDOWN / _spd;
         }
       } else {
         player.animTime += dt;
@@ -1204,10 +1414,72 @@
       return;
     }
 
+    // Shop Guardian: tahan block -> state block (defensif, gerak lambat).
+    // Attack tidak aktif bersamaan secara tidak masuk akal: intent dibuang.
+    if (player.state === 'block') {
+      player.blockT += dt;
+      player.attackBox = null;
+      if (wantAttack) wantAttack = false;
+      player.vx = move * PLAYER_SPEED * 0.4;
+      if (!Input.blockHeld || playerMode() !== 'GUARDIAN') {
+        player.state = player.onGround ? (move !== 0 ? 'run' : 'idle') : 'fall';
+        player.animTime = 0;
+        player.blockT = 0;
+      } else {
+        player.animTime += dt;
+      }
+      applyGravity(player, dt);
+      moveAndCollide(player, dt, Level.platforms);
+      return;
+    }
+
+    // Shop Archer: aim (0.25s) -> tembak -> recovery. Tanpa melee hitbox.
+    if (player.state === 'aim') {
+      player.aimT += dt;
+      player.attackBox = null;
+      player.vx = move * PLAYER_SPEED * 0.5;
+      var _bw0 = bowStats();
+      var _aimDur = 0.25 / ((_bw0 && _bw0.attackSpeed > 0) ? _bw0.attackSpeed : 1);
+      if (!player.shotFired && player.aimT >= _aimDur) {
+        player.shotFired = true;
+        firePlayerArrow();
+        AudioManager.play('bowShot');
+        player.state = 'attack';
+        player.animTime = 0;
+        player.attackT = 0;
+        player.didStrikeHit = {};
+        player.queued = false;
+        player.combo = false;
+        return;
+      }
+      applyGravity(player, dt);
+      moveAndCollide(player, dt, Level.platforms);
+      player.animTime += dt;
+      return;
+    }
+
     // Serangan baru? (tidak bisa saat death/hurt — sudah di-return di atas,
     // dan wantAttack sudah dikonsumsi di awal sehingga tidak bocor.)
+    // Shop: Guardian + tahan block -> block (attack dibuang); Archer -> aim.
+    if (playerMode() === 'GUARDIAN' && Input.blockHeld && player.attackCooldown <= 0) {
+      wantAttack = false;
+      player.state = 'block';
+      player.animTime = 0;
+      player.blockT = 0;
+      player.attackBox = null;
+      AudioManager.play('block');
+      return;
+    }
     if (wantAttack && player.attackCooldown <= 0) {
       wantAttack = false;
+      if (playerMode() === 'ARCHER') {
+        player.state = 'aim';
+        player.animTime = 0;
+        player.aimT = 0;
+        player.shotFired = false;
+        player.attackBox = null;
+        return;
+      }
       playerStartAttack();
       return;
     }
@@ -1292,22 +1564,43 @@
   }
 
   function playerCurrentSprite() {
+    var mode = 'SWORD';
+    try { mode = playerMode(); } catch (e) { mode = 'SWORD'; }
+    var P = '';
+    if (mode === 'GUARDIAN') P = 'guardian';
+    else if (mode === 'ARCHER') P = 'archer';
+    else P = 'knight';
+    function cls(key, fb) {
+      var list = sprites[P + key];
+      if (list && list[0]) return list[0];
+      return fb;
+    }
     switch (player.state) {
       case 'run':
-        if (sprites.knightWalk && sprites.knightWalk.length >= 2) {
+        if (P === 'knight' && sprites.knightWalk && sprites.knightWalk.length >= 2) {
           return sprites.knightWalk[Math.floor(player.animTime * 10) % 2];
         }
+        if ((P === 'guardian' || P === 'archer') && sprites[P + 'Walk'] && sprites[P + 'Walk'][0]) {
+          return sprites[P + 'Walk'][0];
+        }
         return sprites.run[Math.floor(player.animTime * 10) % sprites.run.length];
-      case 'jump': return knightImg(sprites.knightJump, 0, sprites.jump[0]);
-      case 'fall': return knightImg(sprites.knightFall, 0, sprites.fall[0]);
-      case 'attack': return playerAttackFrame() || sprites.attack[0];
-      case 'hurt': return knightImg(sprites.knightHurt, 0, sprites.hurt[0]);
+      case 'jump': return knightImg(sprites[P + 'Jump'], 0, sprites.jump[0]);
+      case 'fall': return knightImg(sprites[P + 'Fall'], 0, sprites.fall[0]);
+      case 'attack':
+        if (P === 'guardian') return knightImg(sprites.guardianAttack, 0, playerAttackFrame() || sprites.attack[0]);
+        if (P === 'archer') return knightImg(sprites.archerShoot, 0, sprites.attack[0]);
+        return playerAttackFrame() || sprites.attack[0];
+      case 'block': return knightImg(sprites.guardianBlock, 0, sprites.knightHurt ? sprites.knightHurt[0] : sprites.hurt[0]);
+      case 'aim': return knightImg(sprites.archerAim, 0, sprites.knightAttack ? sprites.knightAttack[0] : sprites.attack[0]);
+      case 'hurt': return knightImg(sprites[P + 'Hurt'], 0, sprites.hurt[0]);
       case 'death':
-        if (sprites.knightDeath && sprites.knightDeath[0]) return sprites.knightDeath[0];
+        if (sprites[P + 'Death'] && sprites[P + 'Death'][0]) return sprites[P + 'Death'][0];
+        if (P === 'knight' && sprites.knightDeath && sprites.knightDeath[0]) return sprites.knightDeath[0];
         // death_0 lalu death_1 (tahan).
         return (player.deathT < 0.3 ? sprites.death[0] : sprites.death[1]) || sprites.death[0];
       default:
-        if (sprites.knightIdle && sprites.knightIdle[0]) return sprites.knightIdle[0];
+        if (sprites[P + 'Idle'] && sprites[P + 'Idle'][0]) return sprites[P + 'Idle'][0];
+        if (P === 'knight' && sprites.knightIdle && sprites.knightIdle[0]) return sprites.knightIdle[0];
         return sprites.idle[Math.floor(player.animTime * 6) % sprites.idle.length];
     }
   }
@@ -1390,10 +1683,89 @@
       atkT: 0, cooldown: 0, hurtT: 0, deathT: 0,
       iframes: 0, struckPlayer: false, guardFlash: 0, relT: 0, // relT: follow-through lepas panah
       stepPhase: 0, // fase langkah kaki (debu stride, visual saja)
+      poisonT: 0, poisonDps: 0, burnT: 0, burnDps: 0, dotFxT: 0, // shop DoT (terkontrol, refresh tanpa stack)
       dead: false
     };
   }
   var enemies = [];
+
+  /* Shop: efek khusus pedang (data-driven dari SHOP_ITEMS.special).
+   * - poison (Shadowfang): refresh duration, tidak stack tanpa batas.
+   * - burn (Sunfire): durasi singkat + cooldown global aman.
+   * Berlaku untuk musuh biasa + miniboss. Boss utama (slime king/lich)
+   * kebal DoT agar FSM/victory tidak rusak (direct hit tetap masuk). */
+  function applySwordEffect(s, b, m) {
+    var sw = null;
+    try { sw = swordStats(); } catch (e) { return; }
+    if (!sw || !sw.special) return;
+    var sp = sw.special;
+    if (sp.kind === 'poison') {
+      var t = s || m || null;
+      if (!t || t.dead || t.state === 'death') return;
+      t.poisonT = sp.duration; // refresh, bukan tambah (anti stack)
+      t.poisonDps = sp.dps;
+      t.dotFxT = 0;
+      burst(t.x + t.w / 2, t.y + t.h / 2, 4, '#7a3fc9', 90, 0.4, 3, 200);
+      AudioManager.play('poison');
+    } else if (sp.kind === 'burn') {
+      if (player.sunfireCd > 0) return;
+      player.sunfireCd = sp.cooldown;
+      var t2 = s || m || null;
+      if (!t2 || t2.dead || t2.state === 'death') return;
+      t2.burnT = sp.duration;
+      t2.burnDps = sp.dps;
+      t2.dotFxT = 0;
+      burst(t2.x + t2.w / 2, t2.y + t2.h / 2, 6, '#ff9a3c', 130, 0.4, 3, 200);
+      AudioManager.play('shock');
+    }
+  }
+  // Tick DoT musuh + miniboss (dipanggil tiap frame playing; tanpa alokasi).
+  function tickDots(dt) {
+    var i, e;
+    for (i = 0; i < enemies.length; i++) {
+      e = enemies[i];
+      if (e.dead || e.state === 'death') continue;
+      var dps = 0;
+      if (e.poisonT > 0) { e.poisonT -= dt; dps += e.poisonDps || 0; }
+      if (e.burnT > 0) { e.burnT -= dt; dps += e.burnDps || 0; }
+      if (dps > 0) {
+        e.hp -= dps * dt;
+        e.dotFxT -= dt;
+        if (e.dotFxT <= 0) {
+          e.dotFxT = 0.25;
+          burst(e.x + e.w / 2, e.y + e.h / 2, 2, e.burnT > 0 ? '#ff9a3c' : '#7a3fc9', 70, 0.3, 2, 150);
+        }
+        if (e.hp <= 0) {
+          e.hp = 0;
+          e.iframes = 0;
+          // Kematian via jalur normal (sekali, tanpa iframe block).
+          var keepIf = e.iframes;
+          e.iframes = 0;
+          slimeTakeDamage(e, 0.5, e.x + e.w / 2 + 100);
+          if (e.state !== 'death' && e.hp <= 0) {
+            e.state = 'death'; e.deathT = 0; e.vx = 0;
+          }
+          e.iframes = keepIf;
+        }
+      } else { e.poisonDps = 0; e.burnDps = 0; }
+    }
+    var mb = null;
+    try { mb = miniboss; } catch (e2) { mb = null; }
+    if (mb && !mb.dead && mb.state !== 'death') {
+      var mdps = 0;
+      if (mb.poisonT > 0) { mb.poisonT -= dt; mdps += mb.poisonDps || 0; }
+      if (mb.burnT > 0) { mb.burnT -= dt; mdps += mb.burnDps || 0; }
+      if (mdps > 0) {
+        mb.hp -= mdps * dt;
+        if (mb.hp <= 0) {
+          mb.hp = 0;
+          mb.iframes = 0;
+          hurtMiniboss(0.5, mb.x + mb.w / 2 + 100);
+          if (mb.state !== 'death') { mb.state = 'death'; mb.deathT = 0; mb.vx = 0; }
+        }
+      } else { mb.poisonDps = 0; mb.burnDps = 0; }
+    }
+  }
 
   function slimeTakeDamage(s, amount, fromX, knock) {
     if (s.dead || s.state === 'death' || s.iframes > 0) return false;
@@ -1860,7 +2232,7 @@
         setR(_r2, player.x, player.y, player.w, player.h);
         if (rectsOverlap(_r1, _r2)) {
           sh.hitDone = true;
-          playerTakeDamage(sh.dmg, sh.x + sh.w / 2);
+          playerTakeDamage(sh.dmg, sh.x + sh.w / 2, sh.kind === 'bolt' ? 'bolt' : 'arrow');
           burst(sh.x + sh.w / 2, sh.y + sh.h / 2, 4, '#c9a227', 100, 0.3, 3, 200);
           AudioManager.play('arrowImpact');
         }
@@ -1895,6 +2267,173 @@
     }
   }
 
+  /* Shop Archer: panah player (pool bounded 8, tanpa alokasi per-frame —
+   * spawn hanya saat menembak). Tabrakan swept-AABB vs platform, lalu
+   * musuh/boss/miniboss. Panah TIDAK membuka chest (melee only, by design).
+   * Boss utama kompatibel: direct hit via hurtBoss/hurtMiniboss. */
+  var playerShots = [];
+  var PLAYER_SHOTS_MAX = 8;
+
+  function firePlayerArrow() {
+    if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
+    if (playerShots.length >= PLAYER_SHOTS_MAX) return;
+    var bw = bowStats();
+    var dir = player.facing;
+    var big = !!(bw && bw.special && bw.special.kind === 'pierce');
+    playerShots.push({
+      x: dir === 1 ? player.x + player.w : player.x - (big ? 20 : 14),
+      y: player.y + player.h - 32, // setinggi badan musuh darat (slime/skeleton/boss)
+      w: big ? 20 : 14, h: big ? 8 : 6,
+      vx: dir * ((bw && bw.projectileSpeed) || 380), vy: 0,
+      life: ((bw && bw.range) || 420) / ((bw && bw.projectileSpeed) || 380),
+      dmg: (bw && bw.damage) || 10,
+      pierce: (bw && bw.special && bw.special.kind === 'pierce') ? bw.special.pierce : 0,
+      electric: !!(bw && bw.special && bw.special.kind === 'lightning'),
+      windy: !!(bw && bw.special && bw.special.kind === 'windTrail'),
+      hitIds: {},
+      bowId: bw ? bw.id : 'makeshift'
+    });
+    burst(player.x + player.w / 2 + dir * 24, player.y + player.h / 2, 3, '#e8dfc9', 90, 0.2, 2, 150);
+  }
+
+  function damageFromArrow(e, dmg, px) {
+    if (e.dead || e.state === 'death') return false;
+    if (player.didStrikeHit['a' + e.id]) return false;
+    return slimeTakeDamage(e, dmg, px, ATTACK_KNOCKBACK);
+  }
+
+  function updatePlayerShots(dt) {
+    for (var i = playerShots.length - 1; i >= 0; i--) {
+      var sh = playerShots[i];
+      var prevX = sh.x;
+      sh.x += sh.vx * dt;
+      sh.life -= dt;
+      var out = sh.life <= 0 || sh.x < -40 || sh.x > WORLD_W + 40;
+      if (!out) {
+        var swX0 = prevX < sh.x ? prevX : sh.x;
+        var swX1 = (prevX < sh.x ? sh.x : prevX) + sh.w;
+        for (var pi = 0; pi < Level.platforms.length; pi++) {
+          var pp = Level.platforms[pi];
+          if (swX1 > pp.x && swX0 < pp.x + pp.w &&
+              sh.y + sh.h > pp.y && sh.y < pp.y + pp.h) {
+            out = true;
+            burst(sh.x + sh.w / 2, sh.y + sh.h / 2, 3, '#9aa3c7', 80, 0.25, 2, 200);
+            break;
+          }
+        }
+      }
+      if (!out) {
+        var px = sh.vx > 0 ? sh.x - 10 : sh.x + sh.w + 10;
+        var k;
+        for (k = 0; k < enemies.length; k++) {
+          var e = enemies[k];
+          if (e.dead || e.state === 'death' || sh.hitIds['e' + e.id]) continue;
+          setR(_r1, Math.min(prevX, sh.x), sh.y, Math.abs(sh.x - prevX) + sh.w, sh.h);
+          setR(_r2, e.x, e.y, e.w, e.h);
+          if (rectsOverlap(_r1, _r2)) {
+            sh.hitIds['e' + e.id] = true;
+            if (slimeTakeDamage(e, sh.dmg, px, ATTACK_KNOCKBACK)) {
+              triggerScreenShake(SHAKE_HIT, 0.15);
+              if (sh.electric) {
+                burst(e.x + e.w / 2, e.y + e.h / 2, 4, '#7df9ff', 120, 0.3, 3, 200);
+                chainLightning(e);
+              }
+              if (sh.windy) burst(e.x + e.w / 2, e.y, 3, '#cfd8dc', 80, 0.3, 2, 150);
+            }
+            AudioManager.play('arrowImpact');
+            if (sh.pierce > 0) { sh.pierce--; }
+            else { out = true; }
+            break;
+          }
+        }
+        if (!out && boss && !boss.dead && boss.state !== 'death' && !sh.hitIds.boss) {
+          setR(_r1, Math.min(prevX, sh.x), sh.y, Math.abs(sh.x - prevX) + sh.w, sh.h);
+          setR(_r2, boss.x, boss.y, boss.w, boss.h);
+          if (rectsOverlap(_r1, _r2)) {
+            sh.hitIds.boss = true;
+            if (hurtBoss(sh.dmg, px)) {
+              triggerScreenShake(SHAKE_HIT, 0.15);
+              if (sh.electric) burst(boss.x + boss.w / 2, boss.y, 4, '#7df9ff', 120, 0.3, 3, 200);
+            }
+            AudioManager.play('arrowImpact');
+            if (sh.pierce > 0) { sh.pierce--; }
+            else { out = true; }
+          }
+        }
+        if (!out && miniboss && !miniboss.dead && miniboss.state !== 'death' && !sh.hitIds.mini) {
+          setR(_r1, Math.min(prevX, sh.x), sh.y, Math.abs(sh.x - prevX) + sh.w, sh.h);
+          setR(_r2, miniboss.x, miniboss.y, miniboss.w, miniboss.h);
+          if (rectsOverlap(_r1, _r2)) {
+            sh.hitIds.mini = true;
+            if (hurtMiniboss(sh.dmg, px)) {
+              triggerScreenShake(SHAKE_HIT, 0.15);
+              if (sh.electric) burst(miniboss.x + miniboss.w / 2, miniboss.y, 4, '#7df9ff', 120, 0.3, 3, 200);
+            }
+            AudioManager.play('arrowImpact');
+            if (sh.pierce > 0) { sh.pierce--; }
+            else { out = true; }
+          }
+        }
+      }
+      if (sh.windy && !out) {
+        // Trail angin ringan (pool bounded, visual saja).
+        burst(sh.x + sh.w / 2, sh.y + sh.h / 2, 1, '#cfd8dc', 20, 0.2, 2, 0);
+      }
+      if (out) {
+        playerShots[i] = playerShots[playerShots.length - 1];
+        playerShots.pop();
+      }
+    }
+  }
+
+  // Stormpiercer: rantai listrik ke 1 musuh terdekat (terkontrol, bounded).
+  function chainLightning(fromE) {
+    var bw = null;
+    try { bw = bowStats(); } catch (e) { return; }
+    if (!bw || !bw.special || bw.special.kind !== 'lightning') return;
+    var rng = bw.special.chainRange || 60;
+    var best = null, bd = rng;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (e === fromE || e.dead || e.state === 'death') continue;
+      var d = Math.abs((e.x + e.w / 2) - (fromE.x + fromE.w / 2));
+      if (d < bd) { bd = d; best = e; }
+    }
+    if (best) {
+      var keep = best.iframes;
+      best.iframes = 0;
+      slimeTakeDamage(best, bw.special.chain || 4, fromE.x + fromE.w / 2, ATTACK_KNOCKBACK);
+      best.iframes = Math.max(best.iframes, keep);
+      burst(best.x + best.w / 2, best.y + best.h / 2, 3, '#7df9ff', 110, 0.3, 2, 200);
+    }
+  }
+
+  function drawPlayerShots() {
+    for (var i = 0; i < playerShots.length; i++) {
+      var sh = playerShots[i];
+      var x0 = Math.round(sh.x), y0 = Math.round(sh.y);
+      if (sh.electric) {
+        ctx.fillStyle = '#2ebeff';
+        ctx.fillRect(x0, y0 + 2, sh.w, 2);
+        ctx.fillStyle = '#fff9c4';
+        if (sh.vx > 0) ctx.fillRect(x0 + sh.w - 4, y0, 4, sh.h);
+        else ctx.fillRect(x0, y0, 4, sh.h);
+      } else if (sh.w > 14) {
+        ctx.fillStyle = '#8a6a3a';
+        ctx.fillRect(x0, y0 + 3, sh.w, 3);
+        ctx.fillStyle = '#fff';
+        if (sh.vx > 0) ctx.fillRect(x0 + sh.w - 5, y0, 5, sh.h);
+        else ctx.fillRect(x0, y0, 5, sh.h);
+      } else {
+        ctx.fillStyle = '#7a5c3a';
+        ctx.fillRect(x0, y0 + 2, sh.w, 2);
+        ctx.fillStyle = '#e8e8e8';
+        if (sh.vx > 0) ctx.fillRect(x0 + sh.w - 4, y0, 4, sh.h);
+        else ctx.fillRect(x0, y0, 4, sh.h);
+      }
+    }
+  }
+
   /* ========================== 10. COMBAT ========================== */
   var Combat = {
     // Pukulan player -> semua slime yang overlap attackBox (sekali per swing).
@@ -1903,13 +2442,17 @@
     resolvePlayerAttack: function () {
       if (!player.attackBox) return;
       if (player.state !== 'attack') return;
+      // Shop: damage + efek dari stats pedang (data-driven, tanpa if id).
+      var _swd = swordStats();
+      var _dmg = (_swd && _swd.damage > 0) ? _swd.damage : ATTACK_DAMAGE;
       for (var i = 0; i < enemies.length; i++) {
         var s = enemies[i];
         if (s.dead || player.didStrikeHit[s.id]) continue;
         if (rectsOverlap(player.attackBox, s)) {
           player.didStrikeHit[s.id] = true;
           var px = player.x + player.w / 2;
-          if (slimeTakeDamage(s, ATTACK_DAMAGE, px, ATTACK_KNOCKBACK)) {
+          if (slimeTakeDamage(s, _dmg, px, ATTACK_KNOCKBACK)) {
+            applySwordEffect(s, null, null);
             // Impact jelas tapi ringan: shake singkat (damage flash + suara
             // sudah di slimeTakeDamage). Stage 11: hit-stop micro-freeze
             // (kill lebih lama, tanpa ubah damage/timing).
@@ -1921,7 +2464,8 @@
       if (boss && !boss.dead && boss.state !== 'death' && !player.didStrikeHit.boss) {
         if (rectsOverlap(player.attackBox, boss)) {
           player.didStrikeHit.boss = true;
-          if (hurtBoss(ATTACK_DAMAGE, player.x + player.w / 2)) {
+          if (hurtBoss(_dmg, player.x + player.w / 2)) {
+            applySwordEffect(null, boss, null);
             triggerScreenShake(SHAKE_HIT, 0.15);
             triggerHitStop(0.04);
           }
@@ -1930,7 +2474,8 @@
       if (miniboss && !miniboss.dead && miniboss.state !== 'death' && !player.didStrikeHit.mini) {
         if (rectsOverlap(player.attackBox, miniboss)) {
           player.didStrikeHit.mini = true;
-          if (hurtMiniboss(ATTACK_DAMAGE, player.x + player.w / 2)) {
+          if (hurtMiniboss(_dmg, player.x + player.w / 2)) {
+            applySwordEffect(null, null, miniboss);
             triggerScreenShake(SHAKE_HIT, 0.15);
             triggerHitStop(0.04);
           }
@@ -2618,7 +3163,7 @@
         setR(_r2, player.x, player.y, player.w, player.h);
         if (rectsOverlap(_r1, _r2)) {
           sh.hitDone = true;
-          playerTakeDamage(sh.dmg, sh.x + sh.w / 2);
+          playerTakeDamage(sh.dmg, sh.x + sh.w / 2, 'shock');
         }
       }
       if (sh.life <= 0 || sh.x < sh.minX || sh.x > sh.maxX) {
@@ -3460,7 +4005,7 @@
 
   function getDefaultSave() {
     return {
-      version: 3,
+      version: 4,
       bestTime: null, bestL1: null, bestL2: null,
       bestL3: null, bestL4: null, bestL5: null, bestCoins: 0,
       totalCoins: 0, totalGoldShards: 0, totalDeaths: 0,
@@ -3471,7 +4016,12 @@
       level4Unlocked: false, level5Unlocked: false,
       sfxEnabled: true, sfxVolume: 100,
       musicEnabled: true, musicVolume: 70,
-      inputPreference: 'auto'
+      inputPreference: 'auto',
+      // Weapon Shop (v4): starter owned, agar game tetap playable
+      // tanpa membeli apa pun.
+      owned: { rusty: true, buckler: true, makeshift: true },
+      eqSword: 'rusty', eqShield: 'buckler', eqBow: 'makeshift',
+      mode: 'SWORD'
     };
   }
 
@@ -3491,9 +4041,11 @@
   //   ke totalCoins baru (keduanya kini currency coin yang sama).
   // - bestShards lama -> bestCoins baru (posisi/count run sama).
   // - totalGoldShards baru mulai 0 (resource treasure baru, tanpa histori).
+  // Migrasi v1/v2/v3 -> v4: progres + settings + coins utuh; shop diisi
+  // default starter (tanpa menebak pembelian lama).
   function sanitizeSave(o) {
     var d = getDefaultSave();
-    if (!o || typeof o !== 'object' || (o.version !== 1 && o.version !== 2 && o.version !== 3)) return d;
+    if (!o || typeof o !== 'object' || (o.version !== 1 && o.version !== 2 && o.version !== 3 && o.version !== 4)) return d;
     d.bestTime = (o.bestTime == null) ? null : saveNum(o.bestTime, null, 0, 1e9);
     d.bestL1 = (o.bestL1 == null) ? null : saveNum(o.bestL1, null, 0, 1e9);
     d.bestL2 = (o.bestL2 == null) ? null : saveNum(o.bestL2, null, 0, 1e9);
@@ -3503,10 +4055,10 @@
     // bestCoins: v3 langsung; v1/v2 fallback ke bestShards legacy.
     var legacyBest = Math.floor(saveNum(o.bestShards, 0, 0, 1e9));
     d.bestCoins = Math.floor(saveNum((o.bestCoins == null ? legacyBest : o.bestCoins), 0, 0, 1e9));
-    // totalCoins: v3 langsung; v1/v2 = treasure-coin lama + shard lama.
+    // totalCoins: v3/v4 langsung; v1/v2 = treasure-coin lama + shard lama.
     var legacyCoins = Math.floor(saveNum(o.totalCoins, 0, 0, 1e9));
     var legacyShards = Math.floor(saveNum(o.totalShards, 0, 0, 1e9));
-    if (o.version === 3) {
+    if (o.version === 3 || o.version === 4) {
       d.totalCoins = legacyCoins;
     } else {
       d.totalCoins = Math.min(1e9, legacyCoins + legacyShards);
@@ -3536,6 +4088,26 @@
     d.musicVolume = Math.round(saveNum(o.musicVolume, 70, 0, 100));
     d.inputPreference = (o.inputPreference === 'keyboard' || o.inputPreference === 'touch')
       ? o.inputPreference : 'auto';
+    // Shop v4: validasi id terhadap SHOP_ITEMS (unknown -> default starter).
+    // v1/v2/v3 tidak punya shop -> default starter (progres lain utuh).
+    d.owned = { rusty: true, buckler: true, makeshift: true };
+    if (o.version === 4 && o.owned && typeof o.owned === 'object') {
+      for (var _ok = 0; _ok < SHOP_ITEMS.length; _ok++) {
+        var _it = SHOP_ITEMS[_ok];
+        if (o.owned[_it.id]) d.owned[_it.id] = true;
+      }
+    }
+    d.eqSword = (o.version === 4 && shopItemById(o.eqSword) && shopItemById(o.eqSword).category === 'sword' && d.owned[o.eqSword])
+      ? o.eqSword : 'rusty';
+    d.eqShield = (o.version === 4 && shopItemById(o.eqShield) && shopItemById(o.eqShield).category === 'shield' && d.owned[o.eqShield])
+      ? o.eqShield : 'buckler';
+    d.eqBow = (o.version === 4 && shopItemById(o.eqBow) && shopItemById(o.eqBow).category === 'bow' && d.owned[o.eqBow])
+      ? o.eqBow : 'makeshift';
+    d.mode = (o.version === 4 && (o.mode === 'GUARDIAN' || o.mode === 'ARCHER' || o.mode === 'SWORD'))
+      ? o.mode : 'SWORD';
+    // Konsistensi mode: ARCHER butuh bow owned; GUARDIAN butuh sword+shield.
+    if (d.mode === 'ARCHER' && !d.owned[d.eqBow]) d.mode = 'SWORD';
+    if (d.mode === 'GUARDIAN' && (!d.owned[d.eqSword] || !d.owned[d.eqShield])) d.mode = 'SWORD';
     return d;
   }
 
@@ -3569,6 +4141,7 @@
     applyAudioSettings();
     refreshSettingsUI();
     refreshRecordsUI();
+    refreshShopUI();
   }
 
   function applyAudioSettings() {
@@ -3595,10 +4168,72 @@
     return { time: save.bestTime, coins: save.bestCoins };
   }
 
+  /* ---- SHOP LOGIC (atomic, data-driven, event-persist) ----
+   * buy: cek owned -> cek saldo -> kurangi sekali -> tandai owned -> save.
+   * Tidak pernah Coin negatif; duplicate purchase tidak mengurangi lagi. */
+  function isOwned(id) {
+    try { return !!(save.owned && save.owned[id]); }
+    catch (e) { return false; }
+  }
+  function shopBalance() {
+    var n = Math.floor(Number(save.totalCoins));
+    return (isFinite(n) && n > 0) ? n : 0;
+  }
+  function buyItem(id) {
+    var it = shopItemById(id);
+    if (!it) return { ok: false, reason: 'unknown' };
+    if (isOwned(id)) return { ok: false, reason: 'owned' };
+    var bal = shopBalance();
+    if (bal < it.price) return { ok: false, reason: 'coins' };
+    save.totalCoins = bal - it.price; // atomik: satu kali, clamp >= 0
+    if (!save.owned || typeof save.owned !== 'object') save.owned = {};
+    save.owned[id] = true;
+    persistSave();
+    refreshShopUI();
+    return { ok: true };
+  }
+  function equipItem(id) {
+    var it = shopItemById(id);
+    if (!it || !isOwned(id)) return false;
+    if (it.category === 'sword') {
+      save.eqSword = id;
+      save.mode = 'SWORD';
+    } else if (it.category === 'shield') {
+      save.eqShield = id;
+      if (save.mode !== 'ARCHER') save.mode = 'GUARDIAN';
+    } else if (it.category === 'bow') {
+      save.eqBow = id;
+      save.mode = 'ARCHER';
+    } else return false;
+    persistSave();
+    refreshShopUI();
+    return true;
+  }
+  // Mode eksplisit (tombol USE): validasi agar tak ada state mustahil.
+  // ARCHER butuh bow owned; GUARDIAN butuh sword+shield; SWORD butuh sword.
+  function setMode(m) {
+    if (m === 'ARCHER') {
+      if (!isOwned(save.eqBow)) return false;
+      save.mode = 'ARCHER';
+    } else if (m === 'GUARDIAN') {
+      if (!isOwned(save.eqSword) || !isOwned(save.eqShield)) return false;
+      save.mode = 'GUARDIAN';
+    } else if (m === 'SWORD') {
+      if (!isOwned(save.eqSword)) return false;
+      save.mode = 'SWORD';
+    } else return false;
+    persistSave();
+    refreshShopUI();
+    return true;
+  }
+  function getEquipment() {
+    return { sword: save.eqSword, shield: save.eqShield, bow: save.eqBow, mode: playerMode() };
+  }
+
   /* ---- Overlay & panel ---- */
   function hideAllOverlays() {
     var els = [overlayEl, winOverlayEl, menuEl, lvlclearEl, gameclearEl,
-               settingsEl, resetEl, campaignEl, pauseEl];
+               settingsEl, resetEl, campaignEl, pauseEl, shopEl];
     for (var i = 0; i < els.length; i++) {
       if (els[i]) els[i].classList.add('hidden');
     }
@@ -3619,6 +4254,7 @@
     Input.left = false; Input.right = false;
     Input.jumpHeld = false; Input.jumpPressed = false;
     Input.attackPressed = false; Input.restartPressed = false;
+    Input.blockHeld = false;
   }
 
   function resetTotals() {
@@ -3660,6 +4296,7 @@
     miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
     shocks = [];
     shots = [];
+    playerShots = [];
     resetCoins();
     resetChests(); // level baru: semua chest tertutup
     levelStats = { kills: 0, coins: 0, time: 0 };
@@ -3848,6 +4485,254 @@
     resetTotals();
     startTrans(n);
     return true;
+  }
+
+  function playCampaignLevel(n) {
+    n = Math.floor(Number(n));
+    if (!(n >= 1 && n <= Levels.length)) return false;
+    if (!canPlayLevel(n)) {
+      showToast('Selesaikan level sebelumnya dulu!');
+      AudioManager.play('click');
+      return false;
+    }
+    resetTotals();
+    startTrans(n);
+    return true;
+  }
+
+  /* ---- SHOP UI (state 'shop', DOM-driven, data dari SHOP_ITEMS) ----
+   * Tab kategori + item cards + tier badge (warna + label + simbol, tak
+   * bergantung warna saja) + harga + deskripsi + preview karakter +
+   * stat bar dari data + BUY/EQUIP/EQUIPPED + mode USE. Coin jelas.
+   * NOT ENOUGH COINS tanpa pembelian. Keyboard + touch + pointer, Esc back.
+   * Headless-safe: bila DOM mock tanpa appendChild, render data disimpan
+   * di shopRender untuk QA tanpa crash. */
+  var shopEl = null, shopCoinEl = null, shopListEl = null, shopMsgEl = null;
+  var shopTabBtns = { sword: null, shield: null, bow: null };
+  var shopPrevImg = null, shopPrevName = null, shopPrevTier = null;
+  var shopPrevPrice = null, shopPrevDesc = null, shopPrevStats = null;
+  var shopPrevSpecial = null, shopPrevAction = null;
+  var shopModeBtns = { SWORD: null, GUARDIAN: null, ARCHER: null };
+  var btnShop = null, shopBackBtn = null;
+  var shopTab = 'sword';
+  var shopSel = 'rusty';
+  var shopRender = { tab: 'sword', sel: 'rusty', cards: [], preview: null, balance: 0, mode: 'SWORD' };
+  var SHOP_CLASS_IMG = { sword: 'assets/sprites/knight-attack.png',
+    shield: 'assets/sprites/guardian-block.png', bow: 'assets/sprites/archer-aim.png' };
+
+  function openShop() {
+    if (gameState !== 'menu') return;
+    gameState = 'shop';
+    hideAllOverlays();
+    if (shopEl) shopEl.classList.remove('hidden');
+    clearInput();
+    // Default tab mengikuti mode aktif (archer->bow, guardian->shield).
+    try {
+      var m = playerMode();
+      shopTab = (m === 'ARCHER') ? 'bow' : (m === 'GUARDIAN' ? 'shield' : 'sword');
+      var cur = getEquipment();
+      shopSel = (shopTab === 'bow') ? cur.bow : (shopTab === 'shield' ? cur.shield : cur.sword);
+    } catch (e) { /* abaikan */ }
+    refreshShopUI();
+    AudioManager.play('shopOpen');
+    var f = shopTabBtns[shopTab] || shopBackBtn;
+    if (f && f.focus) { try { f.focus({ preventScroll: true }); } catch (e) { /* abaikan */ } }
+    debugLog('[game] shop dibuka');
+  }
+
+  function shopBack() {
+    toMenu();
+    if (btnShop && btnShop.focus) {
+      try { btnShop.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    }
+  }
+
+  function isShopOpen() {
+    try { return gameState === 'shop' && !!(shopEl && !shopEl.classList.contains('hidden')); }
+    catch (e) { return false; }
+  }
+
+  function shopCardAction(id) {
+    var it = shopItemById(id);
+    if (!it) return false;
+    shopSel = id;
+    if (!isOwned(id)) {
+      var r = buyItem(id);
+      if (!r.ok) {
+        if (shopMsgEl) shopMsgEl.textContent = (r.reason === 'coins') ? 'NOT ENOUGH COINS' : 'LOCKED';
+        AudioManager.play('buyFail');
+        refreshShopUI();
+        return false;
+      }
+      if (shopMsgEl) shopMsgEl.textContent = 'OWNED';
+      AudioManager.play('buy');
+      refreshShopUI();
+      return true;
+    }
+    // Owned -> equip (atau sudah equipped).
+    var eq = getEquipment();
+    var cur = it.category === 'sword' ? eq.sword : (it.category === 'shield' ? eq.shield : eq.bow);
+    if (cur === id) {
+      if (shopMsgEl) shopMsgEl.textContent = 'EQUIPPED';
+      refreshShopUI();
+      return true;
+    }
+    if (equipItem(id)) {
+      if (shopMsgEl) shopMsgEl.textContent = 'EQUIPPED';
+      AudioManager.play('equip');
+    }
+    refreshShopUI();
+    return true;
+  }
+
+  function shopStatBars(it) {
+    // Semua indikator dari data item (bukan palsu). Normalisasi per kategori.
+    var bars = [];
+    if (it.category === 'sword') {
+      bars.push(['Damage', it.damage, 22]);
+      bars.push(['Attack Speed', Math.round(it.attackSpeed * 100) / 100, 1.3]);
+      bars.push(['Range', it.range, 12]);
+      bars.push(['Defense', 0, 1]);
+    } else if (it.category === 'shield') {
+      bars.push(['Damage', 0, 22]);
+      bars.push(['Defense', Math.round(it.defense * 100) / 100, 0.9]);
+      bars.push(['Attack Speed', 1, 1.3]);
+      bars.push(['Range', 0, 12]);
+    } else {
+      bars.push(['Damage', it.damage, 22]);
+      bars.push(['Defense', 0, 1]);
+      bars.push(['Attack Speed', Math.round(it.attackSpeed * 100) / 100, 1.3]);
+      bars.push(['Range', it.range, 540]);
+    }
+    return bars;
+  }
+
+  function refreshShopUI() {
+    var items = shopItemsByCategory(shopTab);
+    if (!shopItemById(shopSel) || shopItemById(shopSel).category !== shopTab) {
+      var eq0 = null;
+      try { eq0 = getEquipment(); } catch (e) { eq0 = null; }
+      if (eq0) shopSel = shopTab === 'bow' ? eq0.bow : (shopTab === 'shield' ? eq0.shield : eq0.sword);
+      else shopSel = items.length ? items[0].id : null;
+    }
+    var bal = 0;
+    try { bal = shopBalance(); } catch (e) { bal = 0; }
+    var mode = 'SWORD';
+    try { mode = playerMode(); } catch (e) { mode = 'SWORD'; }
+    // Snapshot headless (tanpa DOM) untuk QA/tests.
+    try {
+      shopRender = {
+        tab: shopTab, sel: shopSel, balance: bal, mode: mode,
+        cards: items.map(function (it) {
+          var eq1 = null;
+          try { eq1 = getEquipment(); } catch (e2) { eq1 = { sword: 'rusty', shield: 'buckler', bow: 'makeshift' }; }
+          var cur1 = it.category === 'sword' ? eq1.sword : (it.category === 'shield' ? eq1.shield : eq1.bow);
+          return { id: it.id, owned: isOwned(it.id),
+            action: !isOwned(it.id) ? 'BUY' : ((cur1 === it.id) ? 'EQUIPPED' : 'EQUIP') };
+        }),
+        preview: (function () {
+          var p = shopItemById(shopSel);
+          return p ? { id: p.id, stats: shopStatBars(p), special: p.special } : null;
+        })()
+      };
+    } catch (e) { /* abaikan */ }
+    try {
+      if (shopCoinEl) shopCoinEl.textContent = 'Coin: ' + bal;
+      var t;
+      for (t in shopTabBtns) {
+        if (shopTabBtns[t]) {
+          var on = (t === shopTab);
+          try {
+            if (on) shopTabBtns[t].classList.add('active');
+            else shopTabBtns[t].classList.remove('active');
+          } catch (e2) { /* abaikan */ }
+        }
+      }
+      // Mode USE buttons: label + disabled saat syarat tak terpenuhi.
+      try {
+        if (shopModeBtns.SWORD) {
+          shopModeBtns.SWORD.textContent = 'USE SWORD' + (mode === 'SWORD' ? ' ✓' : '');
+          shopModeBtns.SWORD.disabled = (mode === 'SWORD');
+        }
+        if (shopModeBtns.GUARDIAN) {
+          shopModeBtns.GUARDIAN.textContent = 'USE GUARDIAN' + (mode === 'GUARDIAN' ? ' ✓' : '');
+          shopModeBtns.GUARDIAN.disabled = (mode === 'GUARDIAN');
+        }
+        if (shopModeBtns.ARCHER) {
+          shopModeBtns.ARCHER.textContent = 'USE ARCHER' + (mode === 'ARCHER' ? ' ✓' : '');
+          shopModeBtns.ARCHER.disabled = (mode === 'ARCHER');
+        }
+      } catch (e3) { /* abaikan */ }
+      var prev = shopItemById(shopSel);
+      if (prev) {
+        var tm = TIER_META[prev.tier] || TIER_META.Common;
+        if (shopPrevImg) { try { shopPrevImg.src = SHOP_CLASS_IMG[prev.category]; } catch (e4) { /* abaikan */ } }
+        if (shopPrevName) shopPrevName.textContent = prev.name;
+        if (shopPrevTier) {
+          shopPrevTier.textContent = tm.symbol + ' ' + tm.label;
+          try { shopPrevTier.style.color = tm.color; } catch (e5) { /* abaikan */ }
+        }
+        if (shopPrevPrice) shopPrevPrice.textContent = prev.price + ' Coin';
+        if (shopPrevDesc) shopPrevDesc.textContent = prev.desc;
+        if (shopPrevStats) {
+          var bars = shopStatBars(prev);
+          var html = '';
+          for (var bi = 0; bi < bars.length; bi++) {
+            var pct = bars[bi][2] > 0 ? Math.round(clamp(bars[bi][1] / bars[bi][2], 0, 1) * 100) : 0;
+            html += bars[bi][0] + ' ' + bars[bi][1] + ' [' + pct + '%]; ';
+          }
+          shopPrevStats.textContent = html;
+        }
+        if (shopPrevSpecial) {
+          shopPrevSpecial.textContent = 'SPECIAL: ' + (prev.special ? prev.special.kind : '-');
+        }
+        if (shopPrevAction) {
+          var eq2 = getEquipment();
+          var cur2 = prev.category === 'sword' ? eq2.sword : (prev.category === 'shield' ? eq2.shield : eq2.bow);
+          shopPrevAction.textContent = !isOwned(prev.id) ? 'BUY' : ((cur2 === prev.id) ? 'EQUIPPED' : 'EQUIP');
+        }
+      }
+      // Cards: rebuild hanya bila DOM nyata mendukung.
+      if (shopListEl && typeof shopListEl.appendChild === 'function' && typeof document !== 'undefined' && document.createElement) {
+        try {
+          while (shopListEl.firstChild) shopListEl.removeChild(shopListEl.firstChild);
+        } catch (e6) {
+          try { shopListEl.innerHTML = ''; } catch (e7) { /* abaikan */ }
+        }
+        for (var ci = 0; ci < items.length; ci++) {
+          (function (it) {
+            var card = null;
+            try { card = document.createElement('div'); } catch (e8) { return; }
+            if (!card) return;
+            try { card.className = 'shop-card tier-' + it.tier; } catch (e9) { /* abaikan */ }
+            var eq3 = getEquipment();
+            var cur3 = it.category === 'sword' ? eq3.sword : (it.category === 'shield' ? eq3.shield : eq3.bow);
+            var act = !isOwned(it.id) ? 'BUY' : ((cur3 === it.id) ? 'EQUIPPED' : 'EQUIP');
+            var tmm = TIER_META[it.tier] || TIER_META.Common;
+            var btn = null;
+            try {
+              btn = document.createElement('button');
+              btn.className = 'btn-small';
+              btn.textContent = act + ' • ' + it.price + 'c';
+              btn.setAttribute('aria-label', act + ' ' + it.name);
+              btn.addEventListener('click', function () { shopCardAction(it.id); });
+            } catch (e10) { btn = null; }
+            try {
+              var nm = document.createElement('div');
+              nm.textContent = (isOwned(it.id) ? '[OWNED] ' : '[LOCKED] ') + it.name;
+              card.appendChild(nm);
+              var tb = document.createElement('div');
+              tb.textContent = tmm.symbol + ' ' + tmm.label;
+              card.appendChild(tb);
+              if (btn) card.appendChild(btn);
+              var self = this;
+              card.addEventListener('click', function () { shopSel = it.id; refreshShopUI(); });
+              shopListEl.appendChild(card);
+            } catch (e11) { /* abaikan (mock DOM minimal) */ }
+          })(items[ci]);
+        }
+      }
+    } catch (e) { /* abaikan: headless tanpa DOM penuh */ }
   }
 
   /* ---- 11f. EXPLICIT PAUSE (Stage 10): P / Esc / tombol DOM ----
@@ -4121,6 +5006,7 @@
       finalT = 0;
       shocks = [];
       shots = [];
+      playerShots = [];
       // Bersihkan sisa enemy/summon tanpa kill-count agar fase lich steril.
       enemies.length = 0;
       triggerScreenShake(SHAKE_HURT, 0.35);
@@ -4132,6 +5018,7 @@
     // Player tidak boleh mati oleh sisa projectile/shock setelah kemenangan.
     shocks = [];
     shots = [];
+    playerShots = [];
   }
 
   // Level terakhir (5) -> Game Complete; selainnya -> Level Complete.
@@ -4162,6 +5049,7 @@
     miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
     shocks = [];
     shots = [];
+    playerShots = [];
     resetChests();
     for (var ri = 0; ri < chests.length; ri++) {
       if (keptOpened.indexOf(chests[ri].x) >= 0) {
@@ -4400,9 +5288,13 @@
       if (Math.floor(player.animTime * 14) % 2 === 0) return;
     }
     // Stage 11: pose victory heroik di layar menang (tanpa ubah FSM).
+    // Shop: victory mengikuti class aktif (guardian/archer/knight).
+    var _vm = 'knight';
+    try { _vm = playerMode() === 'GUARDIAN' ? 'guardian' : (playerMode() === 'ARCHER' ? 'archer' : 'knight'); } catch (e) { _vm = 'knight'; }
+    var _vlist = sprites[_vm + 'Victory'] || sprites.knightVictory;
     var victoryPose = (gameState === 'levelcomplete' || gameState === 'gamecomplete') &&
-      player.state !== 'death' && sprites.knightVictory && sprites.knightVictory[0];
-    var img = victoryPose ? sprites.knightVictory[0] : playerCurrentSprite();
+      player.state !== 'death' && _vlist && _vlist[0];
+    var img = victoryPose ? _vlist[0] : playerCurrentSprite();
     if (!img) return;
     // Squash pendaratan + napas idle (polish: offset piksel bulat, murah).
     var squashing = player.landT > 0;
@@ -5050,6 +5942,15 @@
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 14px monospace';
     ctx.fillText(player.hp + '/' + PLAYER_MAX_HP, bx + 34, by + bh / 2 + 1);
+    // Shop: mode + equipment aktif (teks, bukan warna saja).
+    try {
+      var _eqm = getEquipment();
+      var _mlabel = _eqm.mode === 'GUARDIAN' ? 'GUARDIAN' : (_eqm.mode === 'ARCHER' ? 'ARCHER' : 'SWORD');
+      var _wlabel = _eqm.mode === 'ARCHER' ? shopItemById(_eqm.bow).name : shopItemById(_eqm.sword).name;
+      ctx.fillStyle = '#c6ccea';
+      ctx.font = '11px monospace';
+      ctx.fillText(_mlabel + ' • ' + _wlabel, bx, by + bh + 12);
+    } catch (e) { /* abaikan */ }
 
     // --- Progress level (tengah atas): player, checkpoint, goal/boss ---
     var px = 330, pw = 300, py = 16, ph = 12;
@@ -5337,6 +6238,8 @@
     updateGates(dt);
     updateShocks(dt);
     updateShots(dt);
+    updatePlayerShots(dt);
+    tickDots(dt);
     Combat.resolveEnemyAttacks();
     checkCheckpoints();
     checkGoal();
@@ -5391,6 +6294,7 @@
     drawSlash();
     drawShocks();
     drawShots();
+    drawPlayerShots();
     drawParticles();
     drawGates(); // jeruji di depan semua (tak bisa dilewati visual)
     if (DEBUG) drawDebugBoxes();
@@ -5561,6 +6465,27 @@
     campStats[cni - 1] = document.getElementById('camp-status-' + cni);
   }
   btnCampBack = document.getElementById('btn-camp-back');
+  // Weapon Shop.
+  btnShop = document.getElementById('btn-shop');
+  shopEl = document.getElementById('shop');
+  shopCoinEl = document.getElementById('shop-coin');
+  shopListEl = document.getElementById('shop-list');
+  shopMsgEl = document.getElementById('shop-msg');
+  shopTabBtns.sword = document.getElementById('shop-tab-sword');
+  shopTabBtns.shield = document.getElementById('shop-tab-shield');
+  shopTabBtns.bow = document.getElementById('shop-tab-bow');
+  shopPrevImg = document.getElementById('shop-prev-img');
+  shopPrevName = document.getElementById('shop-prev-name');
+  shopPrevTier = document.getElementById('shop-prev-tier');
+  shopPrevPrice = document.getElementById('shop-prev-price');
+  shopPrevDesc = document.getElementById('shop-prev-desc');
+  shopPrevStats = document.getElementById('shop-prev-stats');
+  shopPrevSpecial = document.getElementById('shop-prev-special');
+  shopPrevAction = document.getElementById('shop-prev-action');
+  shopModeBtns.SWORD = document.getElementById('shop-mode-sword');
+  shopModeBtns.GUARDIAN = document.getElementById('shop-mode-guardian');
+  shopModeBtns.ARCHER = document.getElementById('shop-mode-archer');
+  shopBackBtn = document.getElementById('shop-back');
   pauseEl = document.getElementById('pause');
   btnPause = document.getElementById('btn-pause');
   btnResume = document.getElementById('btn-resume');
@@ -5586,6 +6511,9 @@
   bindHoldButton('btn-attack',
     function () { Input.attackPressed = true; },
     function () { /* edge-trigger, tidak perlu off */ });
+  bindHoldButton('btn-block',
+    function () { Input.blockHeld = true; },
+    function () { Input.blockHeld = false; });
 
   if (restartBtn) {
     restartBtn.addEventListener('click', function () { restart(); });
@@ -5605,6 +6533,15 @@
   }
   onClick(btnPlay, function () { playFresh(); });
   onClick(btnCampaign, function () { openCampaign(); });
+  onClick(btnShop, function () { openShop(); });
+  onClick(shopBackBtn, function () { shopBack(); });
+  onClick(shopTabBtns.sword, function () { shopTab = 'sword'; refreshShopUI(); });
+  onClick(shopTabBtns.shield, function () { shopTab = 'shield'; refreshShopUI(); });
+  onClick(shopTabBtns.bow, function () { shopTab = 'bow'; refreshShopUI(); });
+  onClick(shopPrevAction, function () { if (shopSel) shopCardAction(shopSel); });
+  onClick(shopModeBtns.SWORD, function () { setMode('SWORD'); });
+  onClick(shopModeBtns.GUARDIAN, function () { setMode('GUARDIAN'); });
+  onClick(shopModeBtns.ARCHER, function () { setMode('ARCHER'); });
   onClick(btnCampBack, function () { campaignBack(); });
   for (var cpi = 1; cpi <= 5; cpi++) {
     (function (n) {
@@ -5677,7 +6614,7 @@
   // Navigasi keyboard: menu (panel utama/kontrol/about/campaign), settings,
   // dialog reset, dan explicit pause. Atas/Bawah pindah tombol, Escape kembali.
   // Tidak menyentuh input gameplay. P/Esc saat playing = pause/resume.
-  var menuNavIds = ['btn-play', 'btn-campaign', 'btn-controls', 'btn-settings', 'btn-about'];
+  var menuNavIds = ['btn-play', 'btn-campaign', 'btn-shop', 'btn-controls', 'btn-settings', 'btn-about'];
   var campNavIds = ['btn-camp-1', 'btn-camp-2', 'btn-camp-3', 'btn-camp-4',
     'btn-camp-5', 'btn-camp-back'];
   // Navigasi settings: Atas/Bawah antar kontrol, Escape kembali ke menu.
@@ -5685,6 +6622,11 @@
     'set-music', 'set-music-vol-down', 'set-music-vol-up',
     'set-input', 'btn-reset-progress', 'btn-settings-back'];
   var resetNavIds = ['btn-reset-cancel', 'btn-reset-confirm'];
+  // Navigasi shop: Kiri/Kanan ganti tab, Atas/Bawah ganti item,
+  // Enter = BUY/EQUIP item terpilih, Esc kembali ke menu.
+  var shopNavIds = ['shop-tab-sword', 'shop-tab-shield', 'shop-tab-bow',
+    'shop-prev-action', 'shop-mode-sword', 'shop-mode-guardian',
+    'shop-mode-archer', 'shop-back'];
 
   function focusNavId(ids, down) {
     var cur = -1;
@@ -5736,6 +6678,42 @@
         return;
       }
       return; // sisa input playing diurus listener gameplay
+    }
+    // Shop: state sendiri (bukan menu) — Esc kembali, panah navigasi.
+    if (gameState === 'shop') {
+      if (e.code === 'Escape') {
+        shopBack();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+        var order = ['sword', 'shield', 'bow'];
+        var ix = 0;
+        for (var ti = 0; ti < order.length; ti++) { if (order[ti] === shopTab) ix = ti; }
+        ix = (ix + (e.code === 'ArrowRight' ? 1 : order.length - 1)) % order.length;
+        shopTab = order[ix];
+        refreshShopUI();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+        var list = shopItemsByCategory(shopTab);
+        var ci2 = 0;
+        for (var cj = 0; cj < list.length; cj++) { if (list[cj].id === shopSel) ci2 = cj; }
+        if (list.length) {
+          ci2 = (ci2 + (e.code === 'ArrowDown' ? 1 : list.length - 1)) % list.length;
+          shopSel = list[ci2].id;
+          refreshShopUI();
+        }
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code === 'Enter') {
+        if (shopSel) shopCardAction(shopSel);
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      return;
     }
     if (gameState !== 'menu') return;
     // Campaign overlay di atas menu: Esc kembali, panah navigasi level.
@@ -5872,7 +6850,7 @@
     handleVisibility: onVisibility,
     clampDt: clampDt,
     getAssetErrors: function () { return assetErrors; },
-    hurtPlayer: function (n, x) { playerTakeDamage(n, x); },
+    hurtPlayer: function (n, x, t) { playerTakeDamage(n, x, t); },
     respawn: respawn,
     restart: restart,
     // Test-only: paksa state akhir agar "resume setelah Game Over / Win"
@@ -5947,6 +6925,37 @@
     },
     getSprites: function () { return sprites; },
     drawOnce: function () { drawWorld(); drawHUD(); return true; },
+    // Weapon Shop (test hooks, tidak memengaruhi gameplay).
+    shopItems: SHOP_ITEMS,
+    tierMeta: TIER_META,
+    shopItemById: shopItemById,
+    shopItemsByCategory: shopItemsByCategory,
+    isOwned: isOwned,
+    shopBalance: shopBalance,
+    buyItem: buyItem,
+    equipItem: equipItem,
+    setMode: setMode,
+    getMode: playerMode,
+    getEquipment: getEquipment,
+    openShop: openShop,
+    shopBack: shopBack,
+    isShopOpen: isShopOpen,
+    refreshShopUI: refreshShopUI,
+    shopCardAction: shopCardAction,
+    shopStatBars: shopStatBars,
+    getShopRender: function () { return JSON.parse(JSON.stringify(shopRender)); },
+    getShopTab: function () { return shopTab; },
+    setShopTab: function (t) {
+      if (t === 'sword' || t === 'shield' || t === 'bow') { shopTab = t; refreshShopUI(); return true; }
+      return false;
+    },
+    getShopSel: function () { return shopSel; },
+    setShopSel: function (id) { if (shopItemById(id)) { shopSel = id; refreshShopUI(); return true; } return false; },
+    getPlayerShots: function () { return playerShots; },
+    firePlayerArrow: firePlayerArrow,
+    swordStats: function () { return JSON.parse(JSON.stringify(swordStats())); },
+    shieldStats: function () { return JSON.parse(JSON.stringify(shieldStats())); },
+    bowStats: function () { return JSON.parse(JSON.stringify(bowStats())); },
     // Stage 11: sprite player per state (test mapping animasi).
     playerSprite: playerCurrentSprite,
     foeFrameFor: foeFrameFor,

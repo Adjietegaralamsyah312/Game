@@ -28,7 +28,7 @@
     <h1>Knight Platformer <span>skeleton campaign</span></h1>
     <p class="hint">
       <b>A / D</b> atau <b>◀ / ▶</b> bergerak &nbsp;•&nbsp; <b>Space</b> lompat
-      &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>R</b> respawn
+      &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>K</b> block &nbsp;•&nbsp; <b>R</b> respawn
     </p>
     <p id="mission" class="mission">L1: coin • checkpoint • capai <b>FINISH</b>.</p>
 
@@ -60,17 +60,18 @@
       <!-- Menu utama (Stage 5): PLAY / CAMPAIGN / CONTROLS / ABOUT -->
       <div id="mainmenu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mainmenu-title" aria-label="Menu Utama">
         <h2 id="mainmenu-title" class="game-title">KNIGHT<br />PLATFORMER</h2>
-        <p class="build-tag">Final Release v1.0</p>
+        <p class="build-tag">v1.1.0 Weapon Shop</p>
         <div id="menu-main" class="btn-col">
           <button id="btn-play" class="btn-primary">▶ PLAY</button>
           <button id="btn-campaign" class="btn-secondary">🗺 CAMPAIGN</button>
+          <button id="btn-shop" class="btn-secondary">🛒 SHOP</button>
           <button id="btn-controls" class="btn-secondary">🎮 CONTROLS</button>
           <button id="btn-settings" class="btn-secondary">⚙ SETTINGS</button>
           <button id="btn-about" class="btn-secondary">ℹ ABOUT</button>
         </div>
         <div id="menu-controls" class="hidden btn-col" aria-label="Kontrol game">
-          <p class="menu-lines">⌨ <b>A/D</b> gerak • <b>Space</b> lompat<br /><b>J/X</b> serang • <b>R</b> respawn • <b>P/Esc</b> pause</p>
-          <p class="menu-lines">📱 <b>◀ ▶</b> gerak • <b>⤒</b> lompat • <b>❖</b> serang</p>
+          <p class="menu-lines">⌨ <b>A/D</b> gerak • <b>Space</b> lompat<br /><b>J/X</b> serang • <b>K</b> block (Guardian) • <b>R</b> respawn • <b>P/Esc</b> pause</p>
+          <p class="menu-lines">📱 <b>◀ ▶</b> gerak • <b>⤒</b> lompat • <b>❖</b> serang • <b>🛡</b> block</p>
           <button id="btn-back-controls" class="btn-secondary">← BACK</button>
         </div>
         <div id="menu-about" class="hidden btn-col" aria-label="Tentang game">
@@ -183,6 +184,42 @@
         </div>
         <p class="tiny">P / Esc = lanjut • R = respawn</p>
       </div>
+
+      <!-- Weapon Shop: tab kategori + cards + preview + mode -->
+      <div id="shop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="shop-title" aria-label="Weapon Shop">
+        <h2 id="shop-title" class="win">WEAPON SHOP</h2>
+        <p id="shop-coin" class="menu-lines">Coin: 0</p>
+        <div class="btn-row" role="tablist" aria-label="Kategori shop">
+          <button id="shop-tab-sword" class="btn-small" role="tab" aria-label="Tab pedang">⚔ SWORD</button>
+          <button id="shop-tab-shield" class="btn-small" role="tab" aria-label="Tab perisai">🛡 SHIELD</button>
+          <button id="shop-tab-bow" class="btn-small" role="tab" aria-label="Tab panah">🏹 BOW</button>
+        </div>
+        <div id="shop-body">
+          <div id="shop-list" aria-label="Daftar item shop"></div>
+          <div id="shop-preview" aria-label="Pratinjau karakter">
+            <h3 id="shop-prev-name">[ CHARACTER PREVIEW ]</h3>
+            <img id="shop-prev-img" src="assets/sprites/knight-attack.png" alt="Pratinjau karakter" width="64" height="64" />
+            <p id="shop-prev-tier" class="menu-lines">● COMMON</p>
+            <p id="shop-prev-price" class="menu-lines">0 Coin</p>
+            <p id="shop-prev-desc" class="menu-lines">-</p>
+            <p id="shop-prev-stats" class="menu-lines">-</p>
+            <p id="shop-prev-special" class="menu-lines">SPECIAL: -</p>
+            <div class="btn-row">
+              <button id="shop-prev-action" class="btn-primary">BUY</button>
+            </div>
+            <div class="btn-row" aria-label="Pilih mode karakter">
+              <button id="shop-mode-sword" class="btn-small">USE SWORD</button>
+              <button id="shop-mode-guardian" class="btn-small">USE GUARDIAN</button>
+              <button id="shop-mode-archer" class="btn-small">USE ARCHER</button>
+            </div>
+          </div>
+        </div>
+        <p id="shop-msg" class="menu-lines" aria-live="polite"></p>
+        <div class="btn-row">
+          <button id="shop-back" class="btn-secondary">← BACK</button>
+        </div>
+        <p class="tiny">←/→ tab • ↑/↓ item • Enter beli/pasang • Esc kembali</p>
+      </div>
     </div>
 
     <!-- Kontrol sentuh untuk Android / HP -->
@@ -196,6 +233,7 @@
       </div>
       <div class="touch-group">
         <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>
+        <button id="btn-block" class="touch-btn block" aria-label="Tahan untuk block">🛡</button>
         <button id="btn-jump" class="touch-btn jump" aria-label="Lompat">⤒</button>
       </div>
     </div>
@@ -207,6 +245,6 @@
   </div>
 
   <!-- Query v= samakan VERSION agar browser tak pakai game.js basi setelah update -->
-  <script src="game.js?v=1.0.0"></script>
+  <script src="game.js?v=1.1.0"></script>
 </body>
 </html>

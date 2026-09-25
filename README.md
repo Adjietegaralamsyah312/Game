@@ -1,4 +1,4 @@
-# Knight Platformer — 5-Level Campaign (v1.0.0)
+# Knight Platformer — 5-Level Campaign (v1.1.0)
 
 ![Preview](assets/og/knight-platformer-og.png)
 
@@ -15,7 +15,27 @@ berurutan, GAME COMPLETE).
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
 cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
-**Status: Final Release v1.0** — playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: v1.1.0 Weapon Shop** — playable: https://adjietegaralamsyah312.github.io/Game/
+
+## Fitur v1.1
+
+- **Weapon Shop** (Main Menu → SHOP): 3 kategori (PEDANG / PERISAI / PEMANAH),
+  15 item data-driven (Common/Uncommon/Rare/Epic + badge simbol tak hanya warna),
+  tab + cards + preview karakter + stat bar dari data + BUY/EQUIP/EQUIPPED,
+  Coin jelas, NOT ENOUGH COINS tanpa pembelian, atomik (cek owned → cek saldo →
+  kurangi sekali → tandai owned → save)
+- **3 class karakter** (sprite 32x32 lokal, baseline 26 konsisten):
+  SWORD KNIGHT (melee), GUARDIAN KNIGHT (sword + shield block, postur defensif,
+  silhouette lebar), ARCHER (ranger + bow + quiver, aim/shoot ranged)
+- **Mekanik**: pedang (damage/speed/reach per tier; Shadow Poison DoT 3 dtk
+  refresh-tanpa-stack; Sunfire burn 2 dtk + cooldown 5 dtk); perisai block
+  (tombol `K`/`Shift`/🛡, reduced damage frontal, gerak lambat, tak bisa serang
+  bersamaan; Tower anti-proyektil, Aegis anti-sihir, Bastion aura berbatas);
+  bow (aim 0.25s → panah pool bounded 8, tanpa melee hitbox; wind trail,
+  lightning chain, dragon pierce 2)
+- Default starter (Rusty/Buckler/Makeshift owned, mode SWORD) — playable tanpa beli;
+  baseline Rusty = damage 12 / speed 1.0 (kompatibel penuh)
+- Save schema v4 (migrasi aman v1/v2/v3 → v4, progres/coins/settings lestari)
 
 ## Fitur v1.0
 
@@ -64,11 +84,13 @@ Dari Main Menu → **SETTINGS** (`↑`/`↓` + `Enter`, `Esc` kembali):
 
 ## Persistence
 
-Satu key terversi **`knightSaveV1`** (schema v3, migrasi aman dari v1/v2:
+Satu key terversi **`knightSaveV1`** (schema v4, migrasi aman dari v1/v2/v3:
 field audio hilang berarti ON): best total/L1–L5, best coin, total coin/gold shard/mati,
-completion L1–L5/game, unlock L2–L5, settings. Migrasi v1/v2→v3: totalCoins lama
+completion L1–L5/game, unlock L2–L5, settings, shop (owned, eqSword/eqShield/eqBow,
+mode). Migrasi v1/v2→v3: totalCoins lama
 tetap coin (tidak dianggap gold shard), totalShards lama digabung ke totalCoins
 (keduanya kini currency coin), bestShards lama → bestCoins, totalGoldShards mulai 0.
+Migrasi v1/v2/v3→v4: shop diisi starter default (Rusty/Buckler/Makeshift, SWORD).
 Guarded: JSON rusak → default;
 localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 
@@ -82,7 +104,8 @@ localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 |---|---|
 | `A` / `D` atau `←` / `→` | Bergerak kiri / kanan |
 | `Space` / `W` / `↑` | Lompat (tahan = lebih tinggi) |
-| `J` / `X` | Serang pedang |
+| `J` / `X` | Serang pedang / bidik panah (Archer) |
+| `K` / `Shift` | Block perisai (Guardian, tahan) |
 | `R` | Respawn checkpoint (saat playing maupun Game Over) |
 | `Enter` | Next / main lagi (kontekstual) |
 | `P` / `Esc` | Pause / resume (saat playing) |
@@ -90,7 +113,7 @@ localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 
 ## Kontrol mobile (Android)
 
-Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **⏸** pause.
+Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **🛡** block, **⏸** pause.
 Multi-touch (gerak + lompat/serang bersamaan). Semua dialog touch-friendly.
 Layout portrait + landscape pendek (dialog fullscreen, canvas 16:9).
 
@@ -128,13 +151,13 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 250 automated test headless (node test.js)
+├── test.js             # 282 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
-├── VERSION             # 1.0.0
+├── VERSION             # 1.1.0
 └── assets/
     ├── knight/         # 18 sprite PNG ksatria
-    ├── sprites/        # 14 sprite undead + chest + coin + reward (lokal, termasuk gold-shard.png)
+    ├── sprites/        # undead + chest + coin + reward + heroik + guardian (9) + archer (9)
     └── og/             # social preview 1200x630 (lokal, tanpa CDN)
 ```
 
@@ -194,14 +217,14 @@ node test.js
 git diff --check
 ```
 
-250 automated test (164 campaign/hardening + 13 final release + 15 treasure/asset + 1 attack-direction + 4 attack-frame + 12 coin/gold-shard swap + 14 stage 11 polish + 4 skeleton crumble/pit + 3 skeleton walk + 3 bone pile + 1 pit persisten + 3 audit + 3 boss pit + 4 boss gate + 3 death/goo + 3 king death) —
+282 automated test (252 campaign/hardening + 30 weapon shop) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
 ## Spesifikasi minimum yang disarankan
 
 - Android kelas menengah (Chrome modern), RAM 3 GB+, layar 360px ke atas
-- Backing store kanvas maks 2x DPR; pool partikel 120, proyektil 10
+- Backing store kanvas maks 2x DPR; pool partikel 120, proyektil musuh 10, panah player 8
 
 ## Catatan pengujian (jujur)
 
@@ -213,7 +236,7 @@ target semua PASS, 0 FAIL.
 
 ## Project status & Development History
 
-- Status: **v1.0.0 Final Release**, live di GitHub Pages.
+- Status: **v1.1.0 Weapon Shop**, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
 - History singkat: Tahap 4 Release Candidate → Content Expansion (Stage 5:
   2 level + RAJA SLIME) → Settings & Persistence (Stage 6) → BGM prosedural
