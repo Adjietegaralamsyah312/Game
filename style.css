@@ -189,7 +189,8 @@ canvas#game {
 #reset-confirm.hidden,
 #campaign.hidden,
 #shop.hidden,
-#pause.hidden {
+#pause.hidden,
+#achievements.hidden {
   display: none;
 }
 
