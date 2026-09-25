@@ -2055,7 +2055,6 @@
     try {
       if (save && save.skills && save.skills.unlocked) {
         if (save.mode === 'SWORD' && save.skills.unlocked.sharpEdge) dmgMult = 1.10;
-        if (save.mode === 'GUARDIAN' && save.skills.unlocked.fortifiedGuard) dmgMult = 0.95; // receive less is handled elsewhere
       }
     } catch (e) {}
     amount = amount * dmgMult;
@@ -4590,6 +4589,7 @@
     return true;
   }
 
+  var _achToastTimer = null;
   function triggerAchieveToast(id) {
     var def = ACHIEVEMENT_DEFS[id];
     if (!def) return;
@@ -4598,7 +4598,8 @@
     if (toast && text) {
       text.textContent = def.name;
       toast.classList.remove('hidden');
-      setTimeout(function () { try { toast.classList.add('hidden'); } catch (e) {} }, 3200);
+      if (_achToastTimer) clearTimeout(_achToastTimer);
+      _achToastTimer = setTimeout(function () { try { toast.classList.add('hidden'); } catch (e) {} }, 3200);
     }
   }
 
