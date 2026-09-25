@@ -60,7 +60,7 @@
       <!-- Menu utama (Stage 5): PLAY / CAMPAIGN / CONTROLS / ABOUT -->
       <div id="mainmenu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mainmenu-title" aria-label="Menu Utama">
         <h2 id="mainmenu-title" class="game-title">KNIGHT<br />PLATFORMER</h2>
-        <p class="build-tag">v1.2.0 Weapon Visuals</p>
+        <p class="build-tag">v1.3.0 Mobile Shop</p>
         <div id="menu-main" class="btn-col">
           <button id="btn-play" class="btn-primary">▶ PLAY</button>
           <button id="btn-campaign" class="btn-secondary">🗺 CAMPAIGN</button>
@@ -187,12 +187,14 @@
 
       <!-- Weapon Shop: tab kategori + cards + preview + mode -->
       <div id="shop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="shop-title" aria-label="Weapon Shop">
-        <h2 id="shop-title" class="win">WEAPON SHOP</h2>
-        <p id="shop-coin" class="menu-lines">Coin: 0</p>
-        <div class="btn-row" role="tablist" aria-label="Kategori shop">
-          <button id="shop-tab-sword" class="btn-small" role="tab" aria-label="Tab pedang">⚔ SWORD</button>
-          <button id="shop-tab-shield" class="btn-small" role="tab" aria-label="Tab perisai">🛡 SHIELD</button>
-          <button id="shop-tab-bow" class="btn-small" role="tab" aria-label="Tab panah">🏹 BOW</button>
+        <div id="shop-head">
+          <h2 id="shop-title" class="win">WEAPON SHOP</h2>
+          <p id="shop-coin" class="menu-lines">Coin: 0</p>
+          <div class="btn-row" role="tablist" aria-label="Kategori shop">
+            <button id="shop-tab-sword" class="btn-small" role="tab" aria-label="Tab pedang">⚔ SWORD</button>
+            <button id="shop-tab-shield" class="btn-small" role="tab" aria-label="Tab perisai">🛡 SHIELD</button>
+            <button id="shop-tab-bow" class="btn-small" role="tab" aria-label="Tab panah">🏹 BOW</button>
+          </div>
         </div>
         <div id="shop-body">
           <div id="shop-list" aria-label="Daftar item shop"></div>
@@ -248,6 +250,6 @@
   </div>
 
   <!-- Query v= samakan VERSION agar browser tak pakai game.js basi setelah update -->
-  <script src="game.js?v=1.2.0"></script>
+  <script src="game.js?v=1.3.0"></script>
 </body>
 </html>

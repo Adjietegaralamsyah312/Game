@@ -1,5 +1,17 @@
 # Changelog — Knight Platformer
 
+## [1.3.0] — Mobile Shop Layout
+
+- Shop mobile rapi: portrait fullscreen + header compact + preview compact +
+  card 1 kolom (nama/tier/deskripsi/harga/BUY-USE wrap, tombol ≥44px);
+  landscape preview kiri + daftar kanan; tanpa horizontal overflow
+- Scroll satu jari pada content (overflow-y auto, momentum, pan-y,
+  overscroll contain, min-height flex fix); guard touchmove anti input leak
+- Isolasi input: keyboard gameplay diabaikan saat Shop buka; tap = click,
+  drag = scroll (native); swipe/tap Shop tak gerakkan player/kamera
+- Keyboard (panah/Enter/Esc) + reduced-motion + save v4 utuh;
+  harga/stat/gameplay tak berubah; 314 automated test PASS
+
 ## [1.2.0] — Weapon Visuals + Scrollable Shop
 
 - 40 weapon overlay PNG 32x32: pedang (down/horiz/up/back) × 5,

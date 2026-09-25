@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.2.0 — Weapon Visuals + Scrollable Shop (vanilla JS + Canvas)
+ * Knight Platformer v1.3.0 — Mobile Shop Layout (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.2.0';
+  var GAME_VERSION = '1.3.0';
   const DEBUG = false;
 
   var VIEW_W = 960;
@@ -889,6 +889,10 @@
   };
 
   window.addEventListener('keydown', function (e) {
+    // Shop mobile: gesture/keyboard di Shop tak boleh bocor ke gameplay
+    // (swipe bukan movement, tap BUY bukan attack). Navigasi Shop diurus
+    // listener nav; state dibersihkan via clearInput saat buka/tutup.
+    if (typeof gameState !== 'undefined' && gameState === 'shop') return;
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') { Input.left = true; e.preventDefault(); }
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') { Input.right = true; e.preventDefault(); }
     else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
@@ -907,6 +911,7 @@
     else if (e.code === 'KeyR' || e.code === 'Enter') { Input.restartPressed = true; }
   });
   window.addEventListener('keyup', function (e) {
+    if (typeof gameState !== 'undefined' && gameState === 'shop') return;
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') Input.left = false;
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') Input.right = false;
     else if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') Input.jumpHeld = false;
@@ -4918,11 +4923,22 @@
             } catch (e10) { btn = null; }
             try {
               var nm = document.createElement('div');
+              nm.className = 'shop-name';
               nm.textContent = (isOwned(it.id) ? '[OWNED] ' : '[LOCKED] ') + it.name;
               card.appendChild(nm);
               var tb = document.createElement('div');
+              tb.className = 'shop-tier';
               tb.textContent = tmm.symbol + ' ' + tmm.label;
               card.appendChild(tb);
+              // Hierarchy mobile: deskripsi wrap + harga jelas per card.
+              var ds = document.createElement('div');
+              ds.className = 'shop-desc';
+              ds.textContent = it.desc;
+              card.appendChild(ds);
+              var pr = document.createElement('div');
+              pr.className = 'shop-price';
+              pr.textContent = it.price + ' Coin';
+              card.appendChild(pr);
               if (btn) card.appendChild(btn);
               var self = this;
               card.addEventListener('click', function () { shopSel = it.id; refreshShopUI(); });

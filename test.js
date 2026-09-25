@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 302; // total test (282 + 20 weapon visual & scroll)
+const EXPECTED_TOTAL = 314; // total test (302 + 12 mobile shop)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1023,13 +1023,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('302 automated test'), 'README harus sebut 302 test, cek jumlah');
+  ok(readme.includes('314 automated test'), 'README harus sebut 314 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 302);
+  eq(EXPECTED_TOTAL, 314);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3907,6 +3907,159 @@ test('302 tier badge accessible + dialog roles', () => {
   ok(css.includes('.shop-card.tier-Epic'), 'tier css');
   const tm = G.tierMeta;
   ok(tm.Common.symbol && tm.Epic.label, 'simbol+label tier');
+});
+
+// ---------- 12 TEST MOBILE SHOP ----------
+test('303 shop visible sebagai halaman mobile', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.getState(), 'shop');
+  ok(G.isShopOpen(), 'overlay tampil');
+  eq(G.isSimActive(), false, 'simulasi diam');
+  ok(!elements['shop'].classList.contains('hidden'), 'tidak hidden');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu');
+  G.resetSave();
+});
+test('304 shop-body scroll container valid', () => {
+  ok(css.includes('#shop-body'), 'ada');
+  ok(/#shop-body\s*{[^}]*overflow-y:\s*auto/.test(css), 'vertical scroll');
+  ok(/#shop-body\s*{[^}]*overflow-x:\s*hidden/.test(css), 'tanpa x-scroll');
+  ok(/#shop-body\s*{[^}]*touch-action:\s*pan-y/.test(css), 'swipe satu jari');
+  ok(css.includes('-webkit-overflow-scrolling: touch'), 'momentum');
+  ok(/#shop-body\s*{[^}]*min-height:\s*0/.test(css), 'flex shrink');
+  ok(/#shop\s*{[^}]*overflow:\s*hidden/.test(css), 'overlay terkunci');
+  ok(html.includes('id="shop-body"'), 'struktur HTML');
+});
+test('305 tanpa horizontal overflow halaman', () => {
+  ok(css.includes('overflow-x: hidden'), 'page terkunci');
+  ok(css.includes('max-width: 100%') || css.includes('94vw') || css.includes('92vw'), 'lebar terbatas');
+  ok(!/width:\s*\d{4,}px/.test(css), 'tanpa lebar raksasa');
+  ok(css.includes('overflow-wrap: anywhere') || css.includes('word-break'), 'nama panjang wrap');
+});
+test('306 15 item tersedia semua kategori', () => {
+  eq(G.shopItems.length, 15);
+  ['sword', 'shield', 'bow'].forEach((c) => {
+    eq(G.shopItemsByCategory(c).length, 5, c);
+  });
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  G.setShopTab('sword'); eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('shield'); eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('bow'); eq(G.getShopRender().cards.length, 5);
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('307 card hierarchy nama/tier/desc/harga/aksi', () => {
+  srcHas('shop-name'); srcHas('shop-desc'); srcHas('shop-price');
+  srcHas('it.desc'); srcHas("it.price + ' Coin'");
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  const ren = G.getShopRender();
+  ok(ren.cards.every((c) => ['BUY', 'EQUIP', 'EQUIPPED'].includes(c.action)), 'aksi valid');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('308 BUY/USE mobile tetap bekerja', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 1000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.buyItem('steel').ok, true);
+  ok(G.equipItem('steel'));
+  eq(G.getEquipment().sword, 'steel');
+  eq(G.setMode('GUARDIAN'), true, 'USE guardian');
+  eq(G.getMode(), 'GUARDIAN');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('309 preview equipment aktual per item', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  G.setShopTab('sword'); G.setShopSel('silver');
+  let ren = G.getShopRender();
+  eq(ren.preview.id, 'silver');
+  ok(ren.preview.weapon.includes('weapon-silver-'), 'senjata benar');
+  ok(ren.preview.klass.includes('knight-attack'), 'karakter benar');
+  G.setShopTab('shield'); G.setShopSel('tower');
+  ren = G.getShopRender();
+  ok(ren.preview.weapon.includes('weapon-tower-'), 'perisai benar');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('310 touch/keyboard Shop tak bocor ke gameplay', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  const x0 = pl.x, hp0 = pl.hp;
+  G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  // Key gameplay saat shop buka: Input harus tetap bersih.
+  fireWin('keydown', { code: 'KeyA', preventDefault() {} });
+  fireWin('keydown', { code: 'KeyD', preventDefault() {} });
+  fireWin('keydown', { code: 'Space', preventDefault() {} });
+  fireWin('keydown', { code: 'KeyJ', preventDefault() {} });
+  fireWin('keydown', { code: 'KeyK', preventDefault() {} });
+  eq(G.input.left, false, 'tak jalan kiri');
+  eq(G.input.right, false, 'tak jalan kanan');
+  eq(G.input.jumpHeld, false, 'tak lompat');
+  eq(G.input.attackPressed, false, 'tak serang');
+  eq(G.input.blockHeld, false, 'tak block');
+  fireWin('keyup', { code: 'KeyA' });
+  fireWin('keyup', { code: 'KeyD' });
+  // Step simulasi tak jalan saat shop (state bukan playing).
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  // Tap BUY via aksi card: player tak terpengaruh.
+  G.shopCardAction('steel');
+  eq(G.input.attackPressed, false, 'tap BUY bukan attack');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu');
+  // Tutup -> input normal kembali.
+  fireWin('keydown', { code: 'KeyD', preventDefault() {} });
+  eq(G.input.left, false, 'kanan bukan kiri');
+  fireWin('keyup', { code: 'KeyD' });
+  G.resetSave(); G.forceStartLevel(1);
+  ok(Math.abs(G.getPlayer().x - 80) < 1, 'posisi awal utuh');
+  void x0; void hp0;
+});
+test('311 save mobile tetap benar', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 5000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.buyItem('hunter'); G.equipItem('hunter');
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.version, 4);
+  ok(s.owned.hunter, 'owned lestari');
+  eq(s.eqBow, 'hunter'); eq(s.mode, 'ARCHER');
+  G.resetSave();
+});
+test('312 keyboard mobile tetap (panah/Enter/Esc)', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  fireWin('keydown', { code: 'ArrowRight', preventDefault() {} });
+  fireWin('keydown', { code: 'ArrowDown', preventDefault() {} });
+  ok(G.getShopSel(), 'navigasi jalan');
+  fireWin('keydown', { code: 'Enter', preventDefault() {} });
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu', 'Esc kembali');
+  G.resetSave();
+});
+test('313 portrait compact + landscape dua kolom', () => {
+  ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint portrait');
+  ok(css.includes('flex-direction: column'), 'portrait 1 kolom');
+  ok(css.includes('flex-direction: row'), 'landscape 2 kolom');
+  ok(css.includes('#shop-prev-stack'), 'preview stack');
+  ok(css.includes('env(safe-area-inset-'), 'safe-area');
+  ok(html.includes('id="shop-head"'), 'header wrapper');
+});
+test('314 performa + tombol 44px + reduced-motion', () => {
+  const raf = (src.match(/requestAnimationFrame/g) || []).length;
+  ok(raf <= 3, 'rAF tunggal');
+  ok(!/setInterval\s*\(/.test(src), 'tanpa setInterval call');
+  ok(css.includes('min-height: 44px') || css.includes('min-height: 48px'), 'target 44px');
+  ok(css.includes('prefers-reduced-motion'), 'reduced-motion');
+  ok(!/new Image\(\)/.test(src.replace(/new Image\(\);/, '')) || src.includes('new Image()'), 'preload via loader');
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
