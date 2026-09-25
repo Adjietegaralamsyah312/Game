@@ -1,5 +1,15 @@
 # Changelog — Knight Platformer
 
+## [1.3.6] — Guardian Update
+
+- Walk guardian/archer 2 frame (realistis, tanpa slide)
+- Tombol block sejajar jump/attack; hanya tampil di mode Guardian
+- Block frontal kebal + stamina per tier (anti-turtle: jebol + cooldown +
+  regen, bar HUD); belakang full damage
+- Serangan Guardian = shield bash (visual + suara, bisa buka treasure);
+  panah bisa buka treasure; damage/timing/harga/save tak berubah
+- 358 automated test PASS
+
 ## [1.3.5] — Portrait Touch Fit
 
 - 6 tombol sentuh muat viewport 320px portrait (total ≤308px): sizing

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.3.5 — Portrait Touch Fit (vanilla JS + Canvas)
+ * Knight Platformer v1.3.6 — Guardian Bash & Walk (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.3.5';
+  var GAME_VERSION = '1.3.6';
   const DEBUG = false;
 
   var VIEW_W = 960;
@@ -525,7 +525,8 @@
     // Shop classes (lokal, 32px, bottom row 26 — kompatibel KNIGHT_FEET_DY).
     // Guardian: heavy armor + shield besar, silhouette lebar defensif.
     guardianIdle:   ['assets/sprites/guardian-idle.png'],
-    guardianWalk:   ['assets/sprites/guardian-walk.png'],
+    guardianWalk:   ['assets/sprites/guardian-walk.png',
+                     'assets/sprites/guardian-walk-2.png'],
     guardianBlock:  ['assets/sprites/guardian-block.png'],
     guardianAttack: ['assets/sprites/guardian-attack.png'],
     guardianJump:   ['assets/sprites/guardian-jump.png'],
@@ -535,7 +536,8 @@
     guardianVictory: ['assets/sprites/guardian-victory.png'],
     // Archer: ranger ringan + bow + quiver, silhouette ramping.
     archerIdle:   ['assets/sprites/archer-idle.png'],
-    archerWalk:   ['assets/sprites/archer-walk.png'],
+    archerWalk:   ['assets/sprites/archer-walk.png',
+                   'assets/sprites/archer-walk-2.png'],
     archerAim:    ['assets/sprites/archer-aim.png'],
     archerShoot:  ['assets/sprites/archer-shoot.png'],
     archerJump:   ['assets/sprites/archer-jump.png'],
@@ -807,9 +809,9 @@
       }
       if (st === 'attack') {
         if (!knight) {
-          // Guardian: base selalu horizontal saat attack.
-          _wov.key = wKey(id, 'Horiz');
-          _wov.ox = 2; _wov.oy = 2;
+          // Guardian menyerang dengan PERISAI (shield bash), bukan pedang:
+          // overlay pedang disembunyikan, overlay perisai (front) yang maju.
+          // Base sword tertutup overlay shield (tangan tetap terlihat megang).
           return _wov;
         }
         // Knight: cerminkan playerAttackFrame: windup->Back, strike->Horiz,
@@ -853,6 +855,10 @@
       if (st === 'block') {
         _wov.key = wKey(sid, 'Front');
         _wov.ox = -1; _wov.oy = 0;
+      } else if (st === 'attack') {
+        // Shield bash: perisai didorong ke depan (thrust).
+        _wov.key = wKey(sid, 'Front');
+        _wov.ox = 2; _wov.oy = 0;
       } else {
         _wov.key = wKey(sid, 'Side');
         _wov.ox = 0;
@@ -1383,11 +1389,20 @@
       queued: false, // buffer serangan beruntun (responsif, Tahap 3)
       combo: false,  // Stage 11: ayunan rantai memakai pose attack-2
       blockT: 0, aimT: 0, shotFired: false, // shop: block hold & bow aim
+      blockStam: 2, blockCd: 0, bashSfx: false, // guardian: stamina block + shield bash
       bastionHits: 0, bastionWin: 0, bastionOn: 0, bastionCd: 0, // bastion aura (bounded)
       sunfireCd: 0 // sunfire burn cooldown global (bounded)
     };
   }
   var player = createPlayer();
+  // Kapasitas stamina block dari stats perisai (data-driven, tanpa ubah data):
+  // 0.5 + defense*4 -> buckler 1.5s ... bastion 3.5s. Regen 0.8/s saat lepas.
+  function blockMax() {
+    var sh = null;
+    try { sh = shieldStats(); } catch (e) { sh = null; }
+    var d = (sh && sh.defense > 0) ? sh.defense : 0;
+    return 0.5 + d * 4;
+  }
 
   function playerStartAttack(combo) {
     // Shop Archer: serangan utama = ranged (aim), bukan melee.
@@ -1406,6 +1421,7 @@
     player.attackT = 0;
     player.didStrikeHit = {};
     player.attackBox = null;
+    player.bashSfx = false;
     // Ayunan baru selalu mulai tanpa buffer (B2): queued basi dari ayunan
     // yang di-interrupt hurt/death tidak boleh bocor ke kombo berikutnya.
     // Kombo/buffer normal aman: queued hanya di-set selama ayunan berjalan.
@@ -1421,27 +1437,24 @@
     if (typeof victoryArmed !== 'undefined' && victoryArmed) return;
     if (player.state === 'death' || player.iframes > 0) return;
     var dtype = dmgType || 'melee';
-    // Shop Guardian: block frontal mengurangi damage (tidak pernah immune).
-    // Syarat: mode GUARDIAN + sedang block + penyerang di depan arah hadap.
-    if (playerMode() === 'GUARDIAN' && player.state === 'block') {
+    // Guardian: block frontal = KEBAL damage selama stamina tersisa.
+    // Syarat: mode GUARDIAN + sedang block + stamina > 0 + penyerang di depan.
+    // Stamina habis -> block jebol otomatis (lihat updatePlayer) + cooldown,
+    // sehingga tidak bisa turtle permanen. Dari belakang: full damage.
+    if (playerMode() === 'GUARDIAN' && player.state === 'block' && player.blockStam > 0) {
       var pcx0 = player.x + player.w / 2;
       var front = (player.facing === 1 && fromX >= pcx0) || (player.facing === -1 && fromX < pcx0);
       if (front) {
         var sh = shieldStats();
-        var red = sh.defense || 0;
-        if (dtype === 'arrow' && sh.special && sh.special.kind === 'projGuard') red += sh.special.projExtra || 0;
-        if ((dtype === 'bolt' || dtype === 'shock' || dtype === 'magic') && sh.special && sh.special.kind === 'magicGuard') red += sh.special.magicExtra || 0;
-        if (sh.id === 'bastion' && player.bastionOn > 0) red = sh.special.activeRed || red;
-        if (red > 0.9) red = 0.9; // tidak pernah immune
-        if (red < 0) red = 0;
-        var reduced = Math.max(1, Math.round(amount * (1 - red)));
-        player.hp -= reduced;
-        player.iframes = 0.25;
+        player.iframes = 0.1;
         AudioManager.play('block');
-        burst(pcx0 + player.facing * 24, player.y + player.h / 2, 5, '#cfe3ff', 120, 0.3, 3, 250);
-        triggerScreenShake(SHAKE_HIT, 0.1);
-        // Bastion aura: 3 block dalam 10 dtk -> 2 dtk 0.9, cooldown 12 dtk.
-        if (sh.id === 'bastion' && player.bastionCd <= 0) {
+        var bcol = '#cfe3ff';
+        if (sh && sh.special && sh.special.kind === 'magicGuard' &&
+            (dtype === 'bolt' || dtype === 'shock' || dtype === 'magic')) bcol = '#7df9ff';
+        else if (sh && sh.id === 'bastion') bcol = '#c07bff';
+        burst(pcx0 + player.facing * 24, player.y + player.h / 2, 5, bcol, 120, 0.3, 3, 250);
+        // Bastion: hit block terhitung untuk aura (visual + bertahan).
+        if (sh && sh.id === 'bastion' && player.bastionCd <= 0) {
           if (player.bastionWin <= 0) { player.bastionHits = 0; player.bastionWin = 10; }
           player.bastionHits++;
           if (player.bastionHits >= 3) {
@@ -1450,19 +1463,7 @@
             burst(pcx0, player.y + 10, 8, '#c07bff', 130, 0.5, 3, 200);
           }
         }
-        if (player.hp <= 0) {
-          player.hp = 0;
-          player.state = 'death';
-          player.animTime = 0;
-          player.deathT = 0;
-          player.vx = 0;
-          player.attackBox = null;
-          player.queued = false;
-          player.didStrikeHit = {};
-          burst(player.x + player.w / 2, player.y + player.h / 2, 10, '#e05252', 200, 0.6, 4, 350);
-          return;
-        }
-        return; // block menahan interrupt (tetap di state block)
+        return; // kebal: tanpa damage, tanpa interrupt (tetap block)
       }
     }
     // Serangan sendiri tidak bisa di-interrupt oleh hurt yang baru? tetap bisa — prioritaskan hurt.
@@ -1517,6 +1518,13 @@
     if (player.bastionOn > 0) player.bastionOn = Math.max(0, player.bastionOn - dt);
     if (player.bastionCd > 0) player.bastionCd = Math.max(0, player.bastionCd - dt);
     if (player.sunfireCd > 0) player.sunfireCd = Math.max(0, player.sunfireCd - dt);
+    if (player.blockCd > 0) player.blockCd = Math.max(0, player.blockCd - dt);
+    // Stamina block regen saat tidak blocking (tak bisa turtle selamanya,
+    // tapi pulih cepat setelah lepas).
+    if (player.state !== 'block') {
+      var _bm = blockMax();
+      if (player.blockStam < _bm) player.blockStam = Math.min(_bm, player.blockStam + 0.8 * dt);
+    }
 
     // Konsumsi buffer lompat
     if (Input.jumpPressed) { player.jumpBuf = JUMP_BUFFER; Input.jumpPressed = false; }
@@ -1608,12 +1616,22 @@
 
     // Shop Guardian: tahan block -> state block (defensif, gerak lambat).
     // Attack tidak aktif bersamaan secara tidak masuk akal: intent dibuang.
+    // Stamina terkuras 1/dtk; habis -> jebol paksa + cooldown 1 dtk.
     if (player.state === 'block') {
       player.blockT += dt;
       player.attackBox = null;
       if (wantAttack) wantAttack = false;
       player.vx = move * PLAYER_SPEED * 0.4;
-      if (!Input.blockHeld || playerMode() !== 'GUARDIAN') {
+      player.blockStam -= dt;
+      if (player.blockStam <= 0) {
+        player.blockStam = 0;
+        player.blockCd = 1.0;
+        player.state = player.onGround ? (move !== 0 ? 'run' : 'idle') : 'fall';
+        player.animTime = 0;
+        player.blockT = 0;
+        try { showToast('BLOCK JEBOL!'); } catch (e) { /* abaikan */ }
+        AudioManager.play('buyFail');
+      } else if (!Input.blockHeld || playerMode() !== 'GUARDIAN') {
         player.state = player.onGround ? (move !== 0 ? 'run' : 'idle') : 'fall';
         player.animTime = 0;
         player.blockT = 0;
@@ -1653,7 +1671,9 @@
     // Serangan baru? (tidak bisa saat death/hurt — sudah di-return di atas,
     // dan wantAttack sudah dikonsumsi di awal sehingga tidak bocor.)
     // Shop: Guardian + tahan block -> block (attack dibuang); Archer -> aim.
-    if (playerMode() === 'GUARDIAN' && Input.blockHeld && player.attackCooldown <= 0) {
+    // Block butuh stamina + tanpa cooldown jebol.
+    if (playerMode() === 'GUARDIAN' && Input.blockHeld && player.attackCooldown <= 0 &&
+        player.blockCd <= 0 && player.blockStam > 0) {
       wantAttack = false;
       player.state = 'block';
       player.animTime = 0;
@@ -1771,6 +1791,9 @@
       case 'run':
         if (P === 'knight' && sprites.knightWalk && sprites.knightWalk.length >= 2) {
           return sprites.knightWalk[Math.floor(player.animTime * 10) % 2];
+        }
+        if ((P === 'guardian' || P === 'archer') && sprites[P + 'Walk'] && sprites[P + 'Walk'].length >= 2) {
+          return sprites[P + 'Walk'][Math.floor(player.animTime * 10) % 2];
         }
         if ((P === 'guardian' || P === 'archer') && sprites[P + 'Walk'] && sprites[P + 'Walk'][0]) {
           return sprites[P + 'Walk'][0];
@@ -2461,7 +2484,7 @@
 
   /* Shop Archer: panah player (pool bounded 8, tanpa alokasi per-frame —
    * spawn hanya saat menembak). Tabrakan swept-AABB vs platform, lalu
-   * musuh/boss/miniboss. Panah TIDAK membuka chest (melee only, by design).
+   * musuh/boss/miniboss/chest (panah bisa membuka chest tertutup).
    * Boss utama kompatibel: direct hit via hurtBoss/hurtMiniboss. */
   var playerShots = [];
   var PLAYER_SHOTS_MAX = 8;
@@ -2566,6 +2589,26 @@
             else { out = true; }
           }
         }
+        // Panah membuka chest tertutup (sekali per panah per chest).
+        // Dunia beku saat victory: tidak ada pembukaan baru.
+        if (!out && !(typeof victoryArmed !== 'undefined' && victoryArmed)) {
+          for (var ci = 0; ci < chests.length; ci++) {
+            var ch = chests[ci];
+            if (ch.state !== 'closed' || sh.hitIds['c' + ci]) continue;
+            setR(_r1, Math.min(prevX, sh.x), sh.y, Math.abs(sh.x - prevX) + sh.w, sh.h);
+            setR(_r2, ch.x, ch.y, ch.w, ch.h);
+            if (rectsOverlap(_r1, _r2)) {
+              sh.hitIds['c' + ci] = true;
+              ch.state = 'opening';
+              ch.openT = 0;
+              burst(ch.x + ch.w / 2, ch.y + 8, 5, '#c9a227', 100, 0.3, 2, 200);
+              AudioManager.play('chestOpen');
+              triggerScreenShake(SHAKE_HIT, 0.1);
+              out = true;
+              break;
+            }
+          }
+        }
       }
       if (sh.windy && !out) {
         // Trail angin ringan (pool bounded, visual saja).
@@ -2626,6 +2669,19 @@
     }
   }
 
+  /* Guardian shield bash: visual + suara tameng saat menghantam.
+   * Damage/timing/hitbox sama dengan melee (tanpa ubah balance). */
+  function bashHitFX(x, y) {
+    var guard = false;
+    try { guard = (playerMode() === 'GUARDIAN'); } catch (e) { guard = false; }
+    if (!guard) return;
+    burst(x, y, 5, '#cfe3ff', 140, 0.3, 3, 250);
+    if (!player.bashSfx) {
+      player.bashSfx = true;
+      AudioManager.play('shieldBlock');
+    }
+  }
+
   /* ========================== 10. COMBAT ========================== */
   var Combat = {
     // Pukulan player -> semua slime yang overlap attackBox (sekali per swing).
@@ -2645,6 +2701,7 @@
           var px = player.x + player.w / 2;
           if (slimeTakeDamage(s, _dmg, px, ATTACK_KNOCKBACK)) {
             applySwordEffect(s, null, null);
+            bashHitFX(s.x + s.w / 2, s.y + s.h / 2);
             // Impact jelas tapi ringan: shake singkat (damage flash + suara
             // sudah di slimeTakeDamage). Stage 11: hit-stop micro-freeze
             // (kill lebih lama, tanpa ubah damage/timing).
@@ -2658,6 +2715,7 @@
           player.didStrikeHit.boss = true;
           if (hurtBoss(_dmg, player.x + player.w / 2)) {
             applySwordEffect(null, boss, null);
+            bashHitFX(boss.x + boss.w / 2, boss.y + boss.h / 2);
             triggerScreenShake(SHAKE_HIT, 0.15);
             triggerHitStop(0.04);
           }
@@ -2668,6 +2726,7 @@
           player.didStrikeHit.mini = true;
           if (hurtMiniboss(_dmg, player.x + player.w / 2)) {
             applySwordEffect(null, null, miniboss);
+            bashHitFX(miniboss.x + miniboss.w / 2, miniboss.y + miniboss.h / 2);
             triggerScreenShake(SHAKE_HIT, 0.15);
             triggerHitStop(0.04);
           }
@@ -4399,6 +4458,7 @@
     } else return false;
     persistSave();
     refreshShopUI();
+    refreshBlockBtn();
     return true;
   }
   // Mode eksplisit (tombol USE): validasi agar tak ada state mustahil.
@@ -4416,6 +4476,7 @@
     } else return false;
     persistSave();
     refreshShopUI();
+    refreshBlockBtn();
     return true;
   }
   function getEquipment() {
@@ -4483,6 +4544,7 @@
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
+    player.blockStam = blockMax(); // stamina penuh tiap level
     enemies = Level.enemySpawns.map(function (sp) { return createSlime(sp); });
     boss = spawnLevelBoss();
     miniboss = Level.miniSpawn ? createMiniboss(Level.miniSpawn, Level.miniArena) : null;
@@ -4521,6 +4583,7 @@
     trans.phase = '';
     gameState = 'playing';
     hideAllOverlays();
+    refreshBlockBtn();
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     AudioManager.updateMusicState(); // BGM gameplay tanpa overlap
@@ -4535,6 +4598,7 @@
     trans.phase = '';
     gameState = 'playing';
     hideAllOverlays();
+    refreshBlockBtn();
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     AudioManager.updateMusicState();
@@ -4553,6 +4617,7 @@
     hideAllOverlays();
     if (menuEl) menuEl.classList.remove('hidden');
     clearInput();
+    refreshBlockBtn();
     setPaused(false);
     camera.x = 120; // vista menu
     refreshRecordsUI();
@@ -4955,6 +5020,20 @@
    * membersihkan input agar tidak bocor saat resume. Satu rAF tetap. */
   var pauseEl = null, btnPause = null;
   var btnResume = null, btnPauseRespawn = null, btnPauseMenu = null;
+  var btnBlockEl = null;
+
+  /* Tombol block (🛡) hanya ada di mode GUARDIAN saat playing.
+     Di SWORD/ARCHER disembunyikan agar tak membingungkan. */
+  function refreshBlockBtn() {
+    try {
+      if (!btnBlockEl) return;
+      var show = false;
+      try { show = (gameState === 'playing' && playerMode() === 'GUARDIAN'); }
+      catch (e) { show = false; }
+      btnBlockEl.style.display = show ? '' : 'none';
+      if (!show) Input.blockHeld = false;
+    } catch (e) { /* abaikan */ }
+  }
 
   function refreshPauseBtn() {
     try {
@@ -5255,6 +5334,7 @@
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
+    player.blockStam = blockMax(); // stamina penuh tiap respawn
     // Korban jurang (pitDead) TIDAK dibangun ulang — sisanya kembali
     // seperti biasa (desain retry). Boss/miniboss selalu kembali.
     enemies = Level.enemySpawns.filter(function (sp) {
@@ -6198,6 +6278,7 @@
     ctx.font = 'bold 14px monospace';
     ctx.fillText(player.hp + '/' + PLAYER_MAX_HP, bx + 34, by + bh / 2 + 1);
     // Shop: mode + equipment aktif (teks, bukan warna saja).
+    // Guardian: bar stamina block (batas anti-turtle, regen saat lepas).
     try {
       var _eqm = getEquipment();
       var _mlabel = _eqm.mode === 'GUARDIAN' ? 'GUARDIAN' : (_eqm.mode === 'ARCHER' ? 'ARCHER' : 'SWORD');
@@ -6205,6 +6286,17 @@
       ctx.fillStyle = '#c6ccea';
       ctx.font = '11px monospace';
       ctx.fillText(_mlabel + ' • ' + _wlabel, bx, by + bh + 12);
+      if (_eqm.mode === 'GUARDIAN') {
+        var _bmax = blockMax(), _bpct = _bmax > 0 ? clamp(player.blockStam / _bmax, 0, 1) : 0;
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(bx - 4, by + bh + 16, 120, 10);
+        ctx.fillStyle = '#20264d';
+        ctx.fillRect(bx, by + bh + 18, 112, 6);
+        ctx.fillStyle = _bpct > 0.5 ? '#5aa9ff' : (_bpct > 0.25 ? '#ffd23f' : '#e05252');
+        ctx.fillRect(bx, by + bh + 18, Math.round(112 * _bpct), 6);
+        ctx.fillStyle = '#c6ccea';
+        ctx.fillText('BLOCK', bx, by + bh + 34);
+      }
     } catch (e) { /* abaikan */ }
 
     // --- Progress level (tengah atas): player, checkpoint, goal/boss ---
@@ -6747,6 +6839,7 @@
   btnResume = document.getElementById('btn-resume');
   btnPauseRespawn = document.getElementById('btn-pause-respawn');
   btnPauseMenu = document.getElementById('btn-pause-menu');
+  btnBlockEl = document.getElementById('btn-block');
   applyReducedMotionPref();
   try {
     var rmq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -7211,6 +7304,11 @@
     setShopSel: function (id) { if (shopItemById(id)) { shopSel = id; refreshShopUI(); return true; } return false; },
     getPlayerShots: function () { return playerShots; },
     firePlayerArrow: firePlayerArrow,
+    blockMax: blockMax,
+    isBlockVisible: function () {
+      try { return !!(btnBlockEl && btnBlockEl.style.display !== 'none'); }
+      catch (e) { return false; }
+    },
     // Weapon overlay (test hooks).
     weaponKey: wKey,
     weaponVariants: WEAPON_VARIANT,

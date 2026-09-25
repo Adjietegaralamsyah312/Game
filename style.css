@@ -130,8 +130,6 @@ canvas#game {
 .touch-btn.jump {
   background: rgba(46, 125, 78, 0.6);
   border-color: #57c98a;
-  width: clamp(72px, 20vw, 96px);
-  height: clamp(72px, 20vw, 96px);
 }
 
 .touch-btn.jump:active,
@@ -142,6 +140,12 @@ canvas#game {
 .touch-btn.attack {
   background: rgba(150, 45, 55, 0.6);
   border-color: #e0685c;
+}
+
+/* Jump/attack/block segaris rata: ukuran sama (warna masing-masing). */
+.touch-btn.jump,
+.touch-btn.attack,
+.touch-btn.block {
   width: clamp(72px, 20vw, 96px);
   height: clamp(72px, 20vw, 96px);
 }
@@ -572,7 +576,8 @@ canvas#game {
     font-size: 22px;
   }
   .touch-btn.jump,
-  .touch-btn.attack {
+  .touch-btn.attack,
+  .touch-btn.block {
     width: 72px;
     height: 72px;
   }
@@ -891,8 +896,6 @@ canvas#game {
 .touch-btn.block {
   background: rgba(45, 90, 150, 0.6);
   border-color: #5aa9ff;
-  width: clamp(64px, 18vw, 84px);
-  height: clamp(64px, 18vw, 84px);
 }
 .touch-btn.block:active,
 .touch-btn.block.pressed {

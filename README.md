@@ -1,4 +1,4 @@
-# Knight Platformer — 5-Level Campaign (v1.3.5)
+# Knight Platformer — 5-Level Campaign (v1.3.6)
 
 ![Preview](assets/og/knight-platformer-og.png)
 
@@ -15,7 +15,20 @@ berurutan, GAME COMPLETE).
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
 cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
-**Status: v1.3.5 Touch Fit** — playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: v1.3.6 Guardian Update** — playable: https://adjietegaralamsyah312.github.io/Game/
+
+## Fitur v1.3.6
+
+- **Walk realistis**: guardian + archer kini 2 frame jalan bergantian
+  (bob 1px seperti knight) — tanpa slide statis
+- **Tombol block sejajar** jump/attack (ukuran sama) dan **hanya tampil di
+  mode Guardian** (disembunyikan di Sword/Archer)
+- **Block = kebal + stamina**: kebal damage frontal selama stamina ada;
+  kapasitas per tier (buckler 1.5s … bastion 3.5s), habis → jebol + cooldown
+  1s, regen saat lepas; bar stamina di HUD; belakang tetap full damage
+- **Shield bash**: serangan Guardian memakai perisai (visual + suara tameng,
+  damage/timing sama) dan bisa membuka treasure; **panah juga bisa membuka
+  treasure** (tetap sekali per panah per chest)
 
 ## Fitur v1.3.5
 
@@ -219,7 +232,7 @@ knight_game/
 ├── test.js             # 348 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
-├── VERSION             # 1.3.5
+├── VERSION             # 1.3.6
 └── assets/
     ├── knight/         # 18 sprite PNG ksatria
     ├── sprites/        # undead + chest + coin + reward + heroik + guardian (9) + archer (9)
@@ -282,7 +295,7 @@ node test.js
 git diff --check
 ```
 
-348 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit) —
+358 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
@@ -301,7 +314,7 @@ target semua PASS, 0 FAIL.
 
 ## Project status & Development History
 
-- Status: **v1.3.5 Touch Fit**, live di GitHub Pages.
+- Status: **v1.3.6 Guardian Update**, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
 - History singkat: Tahap 4 Release Candidate → Content Expansion (Stage 5:
   2 level + RAJA SLIME) → Settings & Persistence (Stage 6) → BGM prosedural

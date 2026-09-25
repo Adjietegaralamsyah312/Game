@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 348; // total test (342 + 6 tombol portrait muat)
+const EXPECTED_TOTAL = 358; // total test (348 + 10 bash/stamina/visibility)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -378,8 +378,8 @@ test('55 pixel-art tajam (smoothing OFF + pixelated CSS)', () => {
 
 // Audio & aset (56-57)
 test('56 AudioManager.play aman tanpa ctx', () => noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('tidak-ada'); }));
-test('57 111 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10 + lightning slime 3 + guardian 9 + archer 9 + weapon overlay 40)', () => {
-  eq(imageInstances.length, 111, 'Image instans harus 111, got ' + imageInstances.length);
+test('57 113 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10 + lightning slime 3 + guardian 10 + archer 10 + weapon overlay 40)', () => {
+  eq(imageInstances.length, 113, 'Image instans harus 113, got ' + imageInstances.length);
   srcHas('Promise.all'); srcHas('assets/knight/idle_0.png'); srcHas('assets/knight/death_1.png');
   srcHas('assets/sprites/skeleton-sword.png'); srcHas('assets/sprites/raja-lich.png');
   srcHas('assets/sprites/treasure-chest.png'); srcHas('assets/sprites/coin.png');
@@ -387,7 +387,9 @@ test('57 111 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/re
   srcHas('assets/sprites/knight-idle.png'); srcHas('assets/sprites/knight-victory.png');
   srcHas('assets/sprites/skeleton-sword-strike.png'); srcHas('assets/sprites/raja-lich-cast.png');
   srcHas('assets/sprites/guardian-idle.png'); srcHas('assets/sprites/guardian-block.png');
+  srcHas('assets/sprites/guardian-walk-2.png');
   srcHas('assets/sprites/archer-idle.png'); srcHas('assets/sprites/archer-aim.png');
+  srcHas('assets/sprites/archer-walk-2.png');
   srcHas('assets/sprites/weapon-rusty-down.png'); srcHas('assets/sprites/weapon-bastion-front.png');
   srcHas('assets/sprites/weapon-storm-drawn.png'); srcHas('assets/sprites/weapon-dragon-side.png');
 });
@@ -1023,13 +1025,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('348 automated test'), 'README harus sebut 348 test, cek jumlah');
+  ok(readme.includes('358 automated test'), 'README harus sebut 358 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 348);
+  eq(EXPECTED_TOTAL, 358);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3364,7 +3366,7 @@ test('264 sunfire burn singkat + cooldown aman', () => {
   ok(G.getPlayer().sunfireCd > 0 || true, 'cooldown jalan');
   G.resetSave(); G.forceStartLevel(1);
 });
-test('265 shield block reduction + gerak lambat + tak bisa serang', () => {
+test('265 shield block kebal + stamina + gerak lambat + tak bisa serang', () => {
   G.resetSave(); shopGiveCoins(5000);
   G.buyItem('kite'); G.equipItem('kite');
   eq(G.getMode(), 'GUARDIAN');
@@ -3372,8 +3374,11 @@ test('265 shield block reduction + gerak lambat + tak bisa serang', () => {
   const pl = G.getPlayer();
   pl.hp = 100; pl.iframes = 0;
   pl.facing = 1; pl.state = 'block'; pl.x = 500; pl.y = 402;
+  G.input.blockHeld = true;
+  const stam0 = pl.blockStam;
+  ok(stam0 > 0, 'stamina awal > 0');
   G.hurtPlayer(20, pl.x + 200);
-  eq(pl.hp, 100 - Math.max(1, Math.round(20 * (1 - 0.4))), 'reduksi 0.4 kite');
+  eq(pl.hp, 100, 'kebal saat block frontal');
   eq(pl.state, 'block', 'tahan interrupt');
   // gerak lambat saat block
   G.input.left = false; G.input.right = true;
@@ -3384,8 +3389,17 @@ test('265 shield block reduction + gerak lambat + tak bisa serang', () => {
   // attack dibuang saat block
   G.input.attackPressed = true;
   for (let i = 0; i < 5; i++) G.step(1 / 60);
-  ok(pl.state !== 'attack' || true, 'tak serang bersamaan');
+  ok(pl.state !== 'attack', 'tak serang bersamaan, state=' + pl.state);
   G.input.right = false;
+  // stamina terkuras lalu jebol + cooldown + regen
+  pl.state = 'block'; pl.blockStam = 0.05;
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  eq(pl.state === 'block', false, 'jebol keluar block');
+  ok(pl.blockCd > 0 || pl.blockStam < 0.5, 'cooldown/stamina habis');
+  const s0 = pl.blockStam;
+  G.input.blockHeld = false;
+  for (let i = 0; i < 60; i++) G.step(1 / 60);
+  ok(pl.blockStam > s0, 'regen saat lepas');
   G.resetSave(); G.forceStartLevel(1);
 });
 test('266 block belakang tetap full damage (frontal only)', () => {
@@ -3398,21 +3412,23 @@ test('266 block belakang tetap full damage (frontal only)', () => {
   eq(pl.hp, 80, 'belakang full');
   G.resetSave(); G.forceStartLevel(1);
 });
-test('267 tower projectile protection + aegis magic', () => {
+test('267 tower/aegis kebal semua tipe saat block', () => {
   G.resetSave(); shopGiveCoins(20000);
   G.buyItem('tower'); G.equipItem('tower');
   G.forceStartLevel(1);
   let pl = G.getPlayer();
   pl.hp = 100; pl.iframes = 0; pl.facing = 1; pl.state = 'block';
   G.hurtPlayer(20, pl.x + 200, 'arrow');
-  eq(pl.hp, 100 - Math.max(1, Math.round(20 * (1 - 0.55 - 0.2))), 'tower arrow extra');
+  eq(pl.hp, 100, 'kebal panah');
   G.resetSave(); shopGiveCoins(20000);
   G.buyItem('aegis'); G.equipItem('aegis');
   G.forceStartLevel(1);
   pl = G.getPlayer();
   pl.hp = 100; pl.iframes = 0; pl.facing = 1; pl.state = 'block';
   G.hurtPlayer(20, pl.x + 200, 'bolt');
-  eq(pl.hp, 100 - Math.max(1, Math.round(20 * (1 - 0.65 - 0.15))), 'aegis magic extra');
+  eq(pl.hp, 100, 'kebal sihir');
+  G.hurtPlayer(20, pl.x + 200, 'melee');
+  eq(pl.hp, 100, 'kebal melee');
   G.resetSave(); G.forceStartLevel(1);
 });
 test('268 bastion aura bounded (tak permanen immune)', () => {
@@ -3562,12 +3578,12 @@ test('279 performance: 1 rAF + pool bounded + tanpa setInterval baru', () => {
   ok(G.getPlayerShots().length <= 8, 'pool bounded 8');
   G.resetSave(); G.forceStartLevel(1);
 });
-test('280 asset QA 18 sprite baru valid', () => {
-  const list = ['guardian-idle', 'guardian-walk', 'guardian-block', 'guardian-attack',
+test('280 asset QA 20 sprite baru valid', () => {
+  const list = ['guardian-idle', 'guardian-walk', 'guardian-walk-2', 'guardian-block', 'guardian-attack',
     'guardian-jump', 'guardian-fall', 'guardian-hurt', 'guardian-death', 'guardian-victory',
-    'archer-idle', 'archer-walk', 'archer-aim', 'archer-shoot',
+    'archer-idle', 'archer-walk', 'archer-walk-2', 'archer-aim', 'archer-shoot',
     'archer-jump', 'archer-fall', 'archer-hurt', 'archer-death', 'archer-victory'];
-  eq(list.length, 18);
+  eq(list.length, 20);
   list.forEach((n) => {
     const p = path.join(__dirname, 'assets', 'sprites', n + '.png');
     ok(fs.existsSync(p), 'hilang: ' + n);
@@ -3685,7 +3701,8 @@ test('286 varian overlay ikut state (attack/jump/block/aim)', () => {
   pl.state = 'block';
   eq(G.getWeaponOverlay('shield').key, 'wTowerFront', 'block -> front');
   pl.state = 'attack'; pl.attackT = 0.3; pl.combo = false;
-  eq(G.getWeaponOverlay('sword').key, 'wSilverHoriz', 'guardian attack -> horiz');
+  eq(G.getWeaponOverlay('sword').key, null, 'guardian bash: pedang sembunyi');
+  eq(G.getWeaponOverlay('shield').key, 'wTowerFront', 'guardian bash: perisai maju');
   pl.state = 'jump';
   eq(G.getWeaponOverlay('sword').key, 'wSilverUp', 'jump -> up');
   pl.state = 'death';
@@ -4142,7 +4159,7 @@ test('321 keyboard + no-x-overflow setelah fix', () => {
 test('322 save + versi schema tak berubah', () => {
   G.resetSave();
   eq(G.getSave().version, 4);
-  eq(G.version, '1.3.5');
+  eq(G.version, '1.3.6');
   G.resetSave();
 });
 
@@ -4347,16 +4364,126 @@ test('346 keenam tombol ter-wire tanpa error', () => {
   noThrow(() => { G.forceStartLevel(1); G.drawOnce(); });
   G.resetSave(); G.forceStartLevel(1);
 });
-test('347 landscape + desktop sizing tak berubah', () => {
+test('347 tombol segaris: jump/attack/block sama + base utuh', () => {
   ok(/\.touch-btn\s*{[^}]*clamp\(64px,\s*18vw,\s*84px\)/.test(css), 'base utuh');
-  ok(/\.touch-btn\.jump\s*{[^}]*clamp\(72px,\s*20vw,\s*96px\)/.test(css), 'jump base utuh');
+  ok(/\.touch-btn\.jump,\s*\n?\s*\.touch-btn\.attack,\s*\n?\s*\.touch-btn\.block\s*{[^}]*clamp\(72px,\s*20vw,\s*96px\)/.test(css), 'trio segaris');
   ok(css.includes('width: 64px') && css.includes('width: 72px'), 'landscape fix utuh');
   ok(/@media \(pointer: coarse\)\s*{[^}]*min-width:\s*64px/.test(css), 'coarse utuh');
 });
-test('348 versi 1.3.5 + save v4 utuh', () => {
+test('348 versi 1.3.6 + save v4 utuh', () => {
   G.resetSave();
   eq(G.getSave().version, 4);
-  eq(G.version, '1.3.5');
+  eq(G.version, '1.3.6');
+  G.resetSave();
+});
+
+// ---------- 10 TEST BASH/STAMINA/VISIBILITY/WALK ----------
+test('349 walk guardian 2 frame realistis', () => {
+  G.resetSave(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const sp = G.getSprites();
+  sp.guardianWalk[0] = { id: 'w0' }; sp.guardianWalk[1] = { id: 'w1' };
+  const pl = G.getPlayer();
+  pl.state = 'run'; pl.animTime = 0;
+  const f0 = G.playerSprite();
+  pl.animTime = 0.15;
+  const f1 = G.playerSprite();
+  ok(f0 && f1 && f0 !== f1, 'frame bergantian');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('350 walk archer 2 frame realistis', () => {
+  G.resetSave(); G.setMode('ARCHER'); G.forceStartLevel(1);
+  const sp = G.getSprites();
+  sp.archerWalk[0] = { id: 'a0' }; sp.archerWalk[1] = { id: 'a1' };
+  const pl = G.getPlayer();
+  pl.state = 'run'; pl.animTime = 0;
+  const f0 = G.playerSprite();
+  pl.animTime = 0.15;
+  const f1 = G.playerSprite();
+  ok(f0 && f1 && f0 !== f1, 'frame bergantian');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('351 tombol block hanya di guardian', () => {
+  G.resetSave(); G.toMenu();
+  G.setMode('SWORD'); G.forceStartLevel(1);
+  eq(G.isBlockVisible(), false, 'sword sembunyi');
+  G.setMode('ARCHER'); G.forceStartLevel(1);
+  eq(G.isBlockVisible(), false, 'archer sembunyi');
+  G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  eq(G.isBlockVisible(), true, 'guardian tampil');
+  G.toMenu();
+  eq(G.isBlockVisible(), false, 'menu sembunyi');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('352 stamina block per tier perisai', () => {
+  G.resetSave(); shopGiveCoins(30000);
+  G.buyItem('buckler');
+  G.buyItem('bastion'); G.equipItem('bastion');
+  ok(G.blockMax() > 3, 'bastion lama, got ' + G.blockMax());
+  G.equipItem('buckler');
+  ok(G.blockMax() < 2, 'buckler pendek, got ' + G.blockMax());
+  G.resetSave();
+});
+test('353 shield bash membuka chest', () => {
+  G.resetSave(); G.setMode('GUARDIAN'); G.forceStartLevel(3);
+  const c = G.getChests()[0];
+  const pl = G.getPlayer();
+  pl.iframes = 9999;
+  pl.x = c.x - pl.w - 4; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1;
+  pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  for (let i = 0; i < 12; i++) G.step(1 / 60);
+  eq(c.state, 'opening', 'bash buka chest');
+  pl.iframes = 0;
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('354 panah membuka chest', () => {
+  G.resetSave(); shopGiveCoins(5000);
+  G.buyItem('hunter'); G.equipItem('hunter');
+  G.forceStartLevel(3);
+  const c = G.getChests()[0];
+  const pl = G.getPlayer();
+  pl.x = c.x - 200; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1; pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  let opened = false;
+  for (let i = 0; i < 120; i++) { G.step(1 / 60); if (c.state !== 'closed') { opened = true; break; } }
+  ok(opened, 'panah buka chest, state=' + c.state);
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('355 bash tanpa error + overlay benar', () => {
+  G.resetSave(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 1150; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1; pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  for (let i = 0; i < 15; i++) G.step(1 / 60);
+  noThrow(() => G.drawOnce(), 'draw bash');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('356 tombol keyboard block tak berlaku di sword/archer', () => {
+  G.resetSave(); G.setMode('SWORD'); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.x = 300; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.attackCooldown = 0;
+  G.input.blockHeld = true;
+  for (let i = 0; i < 5; i++) G.step(1 / 60);
+  ok(pl.state !== 'block', 'sword tak block, state=' + pl.state);
+  G.input.blockHeld = false;
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('357 belakang tetap full damage + depan kebal', () => {
+  G.resetSave(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.hp = 100; pl.iframes = 0; pl.facing = 1; pl.state = 'block'; pl.blockStam = 2;
+  G.hurtPlayer(30, pl.x - 200);
+  eq(pl.hp, 70, 'belakang full');
+  pl.iframes = 0; pl.state = 'block'; pl.hurtT = 0; pl.vx = 0; pl.vy = 0;
+  pl.x = 500; pl.y = 402;
+  G.hurtPlayer(30, pl.x + 200);
+  eq(pl.hp, 70, 'depan kebal');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('358 versi 1.3.6 + save v4 utuh', () => {
+  G.resetSave();
+  eq(G.getSave().version, 4);
+  eq(G.version, '1.3.6');
   G.resetSave();
 });
 // ---------- Ringkasan ----------
