@@ -1029,6 +1029,9 @@ canvas#game {
   font-size: 12px;
   color: #c6ccea;
 }
+#achieve-toast.hidden {
+  display: none;
+}
 #achieve-toast {
   position: fixed;
   top: 14%;
