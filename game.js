@@ -4708,7 +4708,7 @@
   /* ---- Overlay & panel ---- */
   function hideAllOverlays() {
     var els = [overlayEl, winOverlayEl, menuEl, lvlclearEl, gameclearEl,
-               settingsEl, resetEl, campaignEl, pauseEl, shopEl];
+               settingsEl, resetEl, campaignEl, pauseEl, shopEl, achievementsEl];
     for (var i = 0; i < els.length; i++) {
       if (els[i]) els[i].classList.add('hidden');
     }
@@ -4888,6 +4888,7 @@
    * (selalu campaign dari L1). Start via select = fresh run dari level itu
    * (resetTotals) agar best-time tidak tercemar run parsial. */
   var campaignEl = null, campStatusEl = null;
+  var achievementsEl = null;
   var btnCampaign = null, btnCampBack = null;
   var campBtns = [null, null, null, null, null];
   var campStats = [null, null, null, null, null];
@@ -4925,6 +4926,7 @@
 
   function openAchievements() {
     try {
+      hideAllOverlays();
       showMenuPanel('main');
       var achEl = document.getElementById('achievements');
       if (achEl) achEl.classList.remove('hidden');
@@ -7077,6 +7079,7 @@
   // Stage 10: campaign select + explicit pause.
   btnCampaign = document.getElementById('btn-campaign');
   campaignEl = document.getElementById('campaign');
+  achievementsEl = document.getElementById('achievements');
   campStatusEl = document.getElementById('campaign-status');
   for (var cni = 1; cni <= 5; cni++) {
     campBtns[cni - 1] = document.getElementById('btn-camp-' + cni);
