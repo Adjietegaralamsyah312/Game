@@ -1,4 +1,4 @@
-# Knight Platformer — 5-Level Campaign (v1.3.2)
+# Knight Platformer — 5-Level Campaign (v1.3.3)
 
 ![Preview](assets/og/knight-platformer-og.png)
 
@@ -15,7 +15,14 @@ berurutan, GAME COMPLETE).
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
 cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
-**Status: v1.3.2 Portrait Compact** — playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: v1.3.3 Unified Shop** — playable: https://adjietegaralamsyah312.github.io/Game/
+
+## Fitur v1.3.3
+
+- **Shop satu bahasa visual**: portrait memakai desain yang sama dengan
+  landscape/desktop (preview kolom 64px + semua teks + weapon overlay).
+  Adaptasi HP hanya stacking (body 1 kolom, card penuh, teks wrap, tombol
+  aksi selebar card 44px). Tanpa compact divergen, tanpa ubah gameplay
 
 ## Fitur v1.3.2
 
@@ -199,7 +206,7 @@ knight_game/
 ├── test.js             # 332 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
-├── VERSION             # 1.3.2
+├── VERSION             # 1.3.3
 └── assets/
     ├── knight/         # 18 sprite PNG ksatria
     ├── sprites/        # undead + chest + coin + reward + heroik + guardian (9) + archer (9)
@@ -262,7 +269,7 @@ node test.js
 git diff --check
 ```
 
-332 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 portrait compact) —
+332 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
@@ -281,7 +288,7 @@ target semua PASS, 0 FAIL.
 
 ## Project status & Development History
 
-- Status: **v1.3.2 Portrait Compact**, live di GitHub Pages.
+- Status: **v1.3.3 Unified Shop**, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
 - History singkat: Tahap 4 Release Candidate → Content Expansion (Stage 5:
   2 level + RAJA SLIME) → Settings & Persistence (Stage 6) → BGM prosedural

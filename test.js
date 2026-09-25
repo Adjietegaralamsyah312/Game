@@ -4045,13 +4045,17 @@ test('312 keyboard mobile tetap (panah/Enter/Esc)', () => {
   eq(G.getState(), 'menu', 'Esc kembali');
   G.resetSave();
 });
-test('313 portrait compact + landscape dua kolom', () => {
+test('313 portrait = landscape (satu bahasa visual)', () => {
   ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint portrait');
   ok(css.includes('flex-direction: column'), 'portrait 1 kolom');
   ok(css.includes('flex-direction: row'), 'landscape 2 kolom');
   ok(css.includes('#shop-prev-stack'), 'preview stack');
   ok(css.includes('env(safe-area-inset-'), 'safe-area');
   ok(html.includes('id="shop-head"'), 'header wrapper');
+  // Portrait tak boleh menyembunyikan konten preview / mengecilkan stack.
+  const portraitBlock = css.slice(css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)'));
+  ok(!/shop-prev-desc[^}]*display:\s*none/.test(portraitBlock.slice(0, 2500)), 'desc tampil di portrait');
+  ok(!/width:\s*40px/.test(portraitBlock.slice(0, 2500)), 'tanpa mini 40px');
 });
 test('314 performa + tombol 44px + reduced-motion', () => {
   const raf = (src.match(/requestAnimationFrame/g) || []).length;
@@ -4135,23 +4139,22 @@ test('321 keyboard + no-x-overflow setelah fix', () => {
 test('322 save + versi schema tak berubah', () => {
   G.resetSave();
   eq(G.getSave().version, 4);
-  eq(G.version, '1.3.2');
+  eq(G.version, '1.3.3');
   G.resetSave();
 });
 
 // ---------- 10 TEST PORTRAIT AGRESIF ----------
-test('323 preview portrait compact (40px + tinggi dibatasi)', () => {
+test('323 preview portrait sama dengan landscape (64px, penuh)', () => {
   ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint portrait');
-  ok(/#shop-prev-stack\s*{[^}]*width:\s*40px/.test(css), 'stack 40px');
-  ok(/#shop-preview\s*{[^}]*max-height:\s*230px/.test(css), 'preview dibatasi');
-  ok(/#shop-preview\s*{[^}]*overflow:\s*hidden/.test(css), 'tak makan layar');
   ok(css.includes('#shop-prev-weapon'), 'weapon overlay tetap ada');
+  ok(!/#shop-preview\s*{[^}]*max-height:\s*230px/.test(css), 'tanpa batas compact');
+  const portraitBlock = css.slice(css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)'));
+  ok(/shop-preview\s*{[^}]*flex-direction:\s*column/.test(portraitBlock.slice(0, 2500)), 'kolom seperti base');
 });
-test('324 detail duplikat disembunyikan di portrait saja', () => {
-  ok(/#shop-prev-desc/.test(css) && /display:\s*none/.test(css), 'desc portrait off');
-  const base = css.split('@media')[0];
-  ok(!/shop-prev-desc[^}]*display:\s*none/.test(base), 'desktop utuh');
-  ok(!/shop-prev-stats[^}]*display:\s*none/.test(base), 'desktop utuh');
+test('324 deskripsi/stat tampil di semua orientasi', () => {
+  ok(!/shop-prev-desc[^}]*display:\s*none/.test(css), 'desc tak disembunyikan');
+  ok(!/shop-prev-stats[^}]*display:\s*none/.test(css), 'stats tak disembunyikan');
+  ok(!/shop-prev-special[^}]*display:\s*none/.test(css), 'special tak disembunyikan');
 });
 test('325 item pertama dekat atas area scroll', () => {
   ok(/#shop-body\s*{[^}]*flex-direction:\s*column/.test(css), '1 kolom');

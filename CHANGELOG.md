@@ -1,5 +1,11 @@
 # Changelog — Knight Platformer
 
+## [1.3.3] — Unified Shop Layout
+
+- Portrait disamakan dengan landscape/desktop (preview kolom + semua teks +
+  weapon overlay, tanpa compact divergen); adaptasi hanya stacking 1 kolom
+- Tanpa ubah gameplay/harga/save; 332 automated test PASS
+
 ## [1.3.2] — Portrait Shop Compact
 
 - Portrait HP: preview jadi baris compact 40px (nama + tier/harga + aksi +

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.3.2 — Portrait Shop Compact (vanilla JS + Canvas)
+ * Knight Platformer v1.3.3 — Unified Shop Layout (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.3.2';
+  var GAME_VERSION = '1.3.3';
   const DEBUG = false;
 
   var VIEW_W = 960;

@@ -758,8 +758,9 @@ canvas#game {
     flex-shrink: 0;
   }
 }
-/* HP portrait: halaman mobile rapi — header compact, preview compact,
-   1 kolom card penuh, tombol ≥44px, tanpa horizontal scroll. */
+/* HP portrait: SATU bahasa visual dengan landscape/desktop — preview, card,
+   dan tombol memakai gaya yang sama. Yang menyesuaikan hanya stacking:
+   body 1 kolom, card penuh, teks wrap. Tanpa compact divergen. */
 @media (orientation: portrait) and (max-width: 600px) {
   #shop-head {
     gap: 4px;
@@ -778,52 +779,14 @@ canvas#game {
     padding: 10px 10px;
     font-size: clamp(12px, 3.2vw, 14px);
   }
-  /* Preview agresif-compact: baris "[gambar 40px] [tier+harga]" +
-     nama, lalu aksi + mode. Deskripsi/stat/special disembunyikan di sini
-     (tetap ada di tiap card + desktop/landscape utuh). Tinggi dibatasi
-     agar item pertama langsung terlihat. Weapon overlay tetap tampil. */
+  /* Preview SAMA seperti landscape/desktop (kolom, stack 64px, semua teks
+     terlihat termasuk deskripsi/stat/special + weapon overlay). */
   #shop-preview {
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 4px 8px;
-    padding: 6px 8px;
-    max-height: 230px;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-  #shop-preview h3 {
-    flex: 1 1 100%;
-    text-align: center;
-    font-size: clamp(12px, 3.4vw, 14px);
-    overflow-wrap: anywhere;
-  }
-  #shop-prev-stack {
-    width: 40px;
-    height: 40px;
-    flex-shrink: 0;
-  }
-  #shop-prev-img,
-  #shop-prev-weapon {
-    width: 40px;
-    height: 40px;
-  }
-  #shop-prev-tier,
-  #shop-prev-price {
-    flex: 0 1 auto;
-    font-size: clamp(11px, 3.2vw, 13px);
-    margin: 0;
-  }
-  #shop-prev-desc,
-  #shop-prev-stats,
-  #shop-prev-special {
-    display: none;
-  }
-  #shop-preview .btn-row {
-    flex: 1 1 100%;
-    justify-content: center;
+    padding: 8px 10px;
     gap: 6px;
+    flex-shrink: 0;
   }
   #shop-list {
     flex-basis: auto;
@@ -832,7 +795,8 @@ canvas#game {
     width: 100%;
     max-width: 100%;
   }
-  /* Tombol aksi selebar card agar mudah ditekan ibu jari. */
+  /* Satu-satunya adaptasi sentuh: tombol aksi selebar card (komponen dan
+     gaya tombol tetap sama) agar mudah ditekan ibu jari. */
   #shop-list .shop-card .btn-small {
     display: block;
     width: 100%;
