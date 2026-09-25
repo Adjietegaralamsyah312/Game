@@ -6886,6 +6886,11 @@
   bindHoldButton('btn-attack',
     function () { Input.attackPressed = true; },
     function () { /* edge-trigger, tidak perlu off */ });
+  if (btnBlockEl) {
+    btnBlockEl.style.display = '';
+    btnBlockEl.style.visibility = 'visible';
+    btnBlockEl.style.opacity = '1';
+  }
   bindHoldButton('btn-block',
     function () { Input.blockHeld = true; },
     function () { Input.blockHeld = false; });

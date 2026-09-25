@@ -97,10 +97,11 @@ canvas#game {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-top: 4px;
   user-select: none;
   -webkit-user-select: none;
+  overflow: visible;
 }
 
 .touch-group {
