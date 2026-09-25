@@ -778,36 +778,52 @@ canvas#game {
     padding: 10px 10px;
     font-size: clamp(12px, 3.2vw, 14px);
   }
-  /* Preview compact: ringkas horizontal agar item pertama cepat terlihat,
-     weapon overlay tetap tampil. */
+  /* Preview agresif-compact: baris "[gambar 40px] [tier+harga]" +
+     nama, lalu aksi + mode. Deskripsi/stat/special disembunyikan di sini
+     (tetap ada di tiap card + desktop/landscape utuh). Tinggi dibatasi
+     agar item pertama langsung terlihat. Weapon overlay tetap tampil. */
   #shop-preview {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 6px 10px;
+    gap: 4px 8px;
     padding: 6px 8px;
+    max-height: 230px;
+    overflow: hidden;
+    flex-shrink: 0;
   }
   #shop-preview h3 {
-    flex-basis: 100%;
+    flex: 1 1 100%;
     text-align: center;
-    font-size: clamp(12px, 3.2vw, 14px);
+    font-size: clamp(12px, 3.4vw, 14px);
+    overflow-wrap: anywhere;
   }
-  #shop-prev-stack,
+  #shop-prev-stack {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
   #shop-prev-img,
   #shop-prev-weapon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
   }
   #shop-prev-tier,
-  #shop-prev-price,
+  #shop-prev-price {
+    flex: 0 1 auto;
+    font-size: clamp(11px, 3.2vw, 13px);
+    margin: 0;
+  }
   #shop-prev-desc,
   #shop-prev-stats,
   #shop-prev-special {
-    font-size: clamp(11px, 3vw, 13px);
-    flex-basis: 100%;
-    text-align: center;
-    overflow-wrap: anywhere;
+    display: none;
+  }
+  #shop-preview .btn-row {
+    flex: 1 1 100%;
+    justify-content: center;
+    gap: 6px;
   }
   #shop-list {
     flex-basis: auto;
@@ -815,6 +831,12 @@ canvas#game {
   .shop-card {
     width: 100%;
     max-width: 100%;
+  }
+  /* Tombol aksi selebar card agar mudah ditekan ibu jari. */
+  #shop-list .shop-card .btn-small {
+    display: block;
+    width: 100%;
+    min-height: 44px;
   }
 }
 /* HP landscape pendek: preview kiri, daftar kanan, tinggi menyesuaikan. */

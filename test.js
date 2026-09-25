@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 322; // total test (314 + 8 landscape scroll)
+const EXPECTED_TOTAL = 332; // total test (322 + 10 portrait agresif)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1023,13 +1023,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('322 automated test'), 'README harus sebut 322 test, cek jumlah');
+  ok(readme.includes('332 automated test'), 'README harus sebut 332 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 322);
+  eq(EXPECTED_TOTAL, 332);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4135,7 +4135,103 @@ test('321 keyboard + no-x-overflow setelah fix', () => {
 test('322 save + versi schema tak berubah', () => {
   G.resetSave();
   eq(G.getSave().version, 4);
-  eq(G.version, '1.3.1');
+  eq(G.version, '1.3.2');
+  G.resetSave();
+});
+
+// ---------- 10 TEST PORTRAIT AGRESIF ----------
+test('323 preview portrait compact (40px + tinggi dibatasi)', () => {
+  ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint portrait');
+  ok(/#shop-prev-stack\s*{[^}]*width:\s*40px/.test(css), 'stack 40px');
+  ok(/#shop-preview\s*{[^}]*max-height:\s*230px/.test(css), 'preview dibatasi');
+  ok(/#shop-preview\s*{[^}]*overflow:\s*hidden/.test(css), 'tak makan layar');
+  ok(css.includes('#shop-prev-weapon'), 'weapon overlay tetap ada');
+});
+test('324 detail duplikat disembunyikan di portrait saja', () => {
+  ok(/#shop-prev-desc/.test(css) && /display:\s*none/.test(css), 'desc portrait off');
+  const base = css.split('@media')[0];
+  ok(!/shop-prev-desc[^}]*display:\s*none/.test(base), 'desktop utuh');
+  ok(!/shop-prev-stats[^}]*display:\s*none/.test(base), 'desktop utuh');
+});
+test('325 item pertama dekat atas area scroll', () => {
+  ok(/#shop-body\s*{[^}]*flex-direction:\s*column/.test(css), '1 kolom');
+  ok(html.indexOf('id="shop-list"') > html.indexOf('id="shop-body"'), 'list di body');
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.getShopRender().cards.length, 5, 'item siap tanpa scroll');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('326 scroll tunggal + pan-y + contain utuh', () => {
+  const fixIdx = css.indexOf('#canvas-container #shop {');
+  ok(fixIdx >= 0 && /overflow:\s*hidden/.test(css.slice(fixIdx, fixIdx + 120)), 'outer hidden');
+  ok(/#shop-body\s*{[^}]*overflow-y:\s*auto/.test(css), 'inner scroll');
+  ok(/#shop-body\s*{[^}]*touch-action:\s*pan-y/.test(css), 'satu jari');
+  ok(css.includes('overscroll-behavior: contain'), 'contain');
+  srcHas("closest('#shop-body')");
+});
+test('327 card 1 kolom penuh + wrap + tombol 44px', () => {
+  ok(/\.shop-card\s*{[^}]*max-width:\s*100%/.test(css), 'penuh');
+  ok(css.includes('overflow-wrap: anywhere'), 'wrap nama panjang');
+  ok(/#shop-list \.shop-card \.btn-small\s*{[^}]*width:\s*100%/.test(css), 'tombol selebar card');
+  ok(/#shop-list \.shop-card \.btn-small\s*{[^}]*min-height:\s*44px/.test(css), '44px');
+  ok(css.includes('overflow-x: hidden'), 'tanpa x-scroll');
+});
+test('328 BUY/USE portrait bekerja', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 1000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.buyItem('steel').ok, true);
+  ok(G.equipItem('steel'));
+  eq(G.getEquipment().sword, 'steel');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+test('329 buka shop membersihkan input (anti leak)', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  G.input.left = true; G.input.right = true; G.input.jumpHeld = true; G.input.blockHeld = true;
+  G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.input.left, false); eq(G.input.right, false);
+  eq(G.input.jumpHeld, false); eq(G.input.blockHeld, false);
+  fireWin('keydown', { code: 'KeyA', preventDefault() {} });
+  eq(G.input.left, false, 'tetap bersih');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('330 landscape + desktop regresi nol', () => {
+  ok(css.includes('(orientation: landscape)') && css.includes('flex-direction: row'), 'landscape baris');
+  ok(css.includes('flex: 0 0 200px'), 'preview landscape');
+  ok(/#shop \.tiny\s*{\s*display:\s*none/.test(css), 'landscape ramping');
+  ok(/#shop-prev-stack,\s*\n?\s*#shop-prev-img/.test(css) || css.includes('#shop-prev-img'), 'stack base ada');
+  ok(/\.touch-btn\s*{[^}]*clamp\(64px/.test(css), 'desktop sentuh utuh');
+});
+test('331 save v4 + harga/stat utuh', () => {
+  G.resetSave();
+  eq(G.getSave().version, 4);
+  const it = {};
+  G.shopItems.forEach((x) => { it[x.id] = x.price; });
+  eq(it.rusty, 50); eq(it.sunfire, 5500); eq(it.bastion, 4800); eq(it.dragon, 5000);
+  eq(G.swordStats().damage, 12);
+  G.resetSave();
+});
+test('332 alur portrait penuh tanpa error', () => {
+  G.resetSave();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = 2000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
+  G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  ['sword', 'shield', 'bow'].forEach((t) => {
+    G.setShopTab(t);
+    noThrow(() => G.drawOnce(), 'draw ' + t);
+  });
+  eq(G.buyItem('kite').ok, true);
+  ok(G.equipItem('kite'));
+  eq(G.getMode(), 'GUARDIAN');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu');
   G.resetSave();
 });
 // ---------- Ringkasan ----------

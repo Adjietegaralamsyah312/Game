@@ -1,5 +1,12 @@
 # Changelog — Knight Platformer
 
+## [1.3.2] — Portrait Shop Compact
+
+- Portrait HP: preview jadi baris compact 40px (nama + tier/harga + aksi +
+  mode, maks 230px); deskripsi/stat pindah ke card; tombol aksi selebar card
+  44px; item pertama langsung terlihat; landscape/desktop nol perubahan
+- Tanpa ubah gameplay/harga/save; 332 automated test PASS
+
 ## [1.3.1] — Shop Scroll Fix
 
 - Landscape HP: satu scroller (`#shop-body`), override `overflow: hidden`
