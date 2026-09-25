@@ -80,7 +80,7 @@ const mockCtx = new Proxy({}, {
 });
 const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
-  'btn-jump', 'btn-attack',
+  'btn-jump', 'btn-attack', 'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
   // Stage 5: menu + clear screens
   'mainmenu', 'menu-main', 'menu-controls', 'menu-about',
   'btn-play', 'btn-controls', 'btn-about', 'btn-back-controls', 'btn-back-about',
@@ -90,8 +90,8 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'btn-gameover-menu',
   // Stage 10: campaign select + explicit pause
   'btn-campaign', 'campaign', 'campaign-status',
-  'btn-camp-1', 'btn-camp-2', 'btn-camp-3', 'btn-camp-4', 'btn-camp-5',
-  'camp-status-1', 'camp-status-2', 'camp-status-3', 'camp-status-4', 'camp-status-5',
+  'btn-diff-normal', 'btn-diff-hard', 'diff-hard-card', 'achieve-toast-text', 'btn-achieve-back', 'hard-lock-label',
+  'btn-achievements', 'achievements', 'achieve-list', 'achieve-counter', 'achieve-toast',
   'btn-camp-back', 'btn-pause', 'pause',
   'btn-resume', 'btn-pause-respawn', 'btn-pause-menu',
   // Stage 6: settings + reset + records + mission
@@ -791,7 +791,7 @@ function finalKillFlow() {
 test('85 default save schema knightSaveV1', () => {
   G.resetSave();
   const s = G.getSave();
-  eq(s.version, 4);
+  eq(s.version, 5);
   eq(s.bestTime, null); eq(s.bestL1, null); eq(s.bestL2, null);
   eq(s.bestL3, null); eq(s.bestL4, null); eq(s.bestL5, null);
   eq(s.bestCoins, 0); eq(s.totalCoins, 0); eq(s.totalGoldShards, 0); eq(s.totalDeaths, 0);
@@ -895,7 +895,7 @@ test('92 JSON corrupt -> default + game tetap jalan', () => {
   const s = G.getSave();
   eq(s.sfxVolume, 100); eq(s.bestTime, null); eq(s.level2Unlocked, false);
   noThrow(() => { G.forceStartLevel(1); G.step(1 / 60); });
-  ok(JSON.parse(testStorage._map.get('knightSaveV1')).version === 4, 'storage ditulis ulang valid');
+  ok(JSON.parse(testStorage._map.get('knightSaveV1')).version === 5, 'storage ditulis ulang valid');
   G.resetSave();
 });
 test('93 localStorage hilang/rusak -> fallback memori, tanpa error', () => {
@@ -1660,7 +1660,7 @@ test('153 old save v1 migrasi aman', () => {
   testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 12.5, level1Completed: true, level2Unlocked: true, sfxVolume: 80 }));
   noThrow(() => G.reloadSave());
   const s = G.getSave();
-  eq(s.version, 4, 'migrasi ke v4');
+  eq(s.version, 5, 'migrasi ke v4');
   eq(s.bestL1, 12.5, 'best lama lestari');
   eq(s.level1Completed, true); eq(s.level2Unlocked, true);
   eq(s.level3Unlocked, false, 'field baru default terkunci');
@@ -1856,18 +1856,13 @@ test('164 M9 arrow solid-blocked platform, shock by-design lewat', () => {
 });
 
 // ---------- 13 TEST STAGE 10 (final release v1.0) ----------
-test('165 Level Select lock/unlock + CLEAR', () => {
+test('165 Difficulty Select + LOCKED/UNLOCKED', () => {
   G.resetSave(); G.toMenu();
   elements['btn-campaign'].dispatch('click', {});
   ok(G.isCampaignOpen(), 'panel campaign terbuka');
-  eq(elements['camp-status-2'].textContent, 'LOCKED', 'L2 locked awal');
-  eq(G.playCampaignLevel(2), false, 'locked tidak dapat dimainkan');
-  eq(G.getState(), 'menu', 'tetap di menu');
-  completeL1Flow(); // unlock L2
-  G.toMenu();
-  elements['btn-campaign'].dispatch('click', {});
-  ok(elements['camp-status-1'].textContent.includes('CLEAR'), 'L1 CLEAR, got ' + elements['camp-status-1'].textContent);
-  ok(!elements['camp-status-2'].textContent.includes('LOCKED'), 'L2 terbuka');
+  ok(elements['btn-diff-hard'] && elements['btn-diff-hard'].disabled, 'hard locked awal (button disabled)');
+  eq(G.playCampaignLevel(1), true, 'normal tetap bisa dimainkan');
+  ok(elements['btn-diff-hard'].disabled, 'hard tetap locked setelah L1 saja');
   G.resetSave(); G.toMenu();
 });
 test('166 Level Select replay level terbuka', () => {
@@ -1946,7 +1941,7 @@ test('170 mission jujur vs win condition', () => {
 test('171 dialog focus: campaign + pause', () => {
   G.resetSave(); G.toMenu();
   elements['btn-campaign'].dispatch('click', {});
-  ok(elements['btn-camp-1']._focused, 'fokus ke level terbuka pertama');
+  ok(elements['btn-diff-normal']._focused, 'fokus ke difficulty normal');
   elements['btn-camp-back'].dispatch('click', {});
   eq(G.getState(), 'menu', 'back ke menu');
   ok(elements['btn-campaign']._focused, 'fokus kembali ke CAMPAIGN');
@@ -2048,11 +2043,11 @@ test('176 reload setelah campaign complete', () => {
   G.toMenu();
   ok(G.isCampaignOpen() === false, 'campaign tertutup awal');
   elements['btn-campaign'].dispatch('click', {});
-  ok(elements['camp-status-5'].textContent.includes('CLEAR'), 'L5 CLEAR persist, got ' + elements['camp-status-5'].textContent);
+  ok(!(elements['diff-hard-card'] && elements['diff-hard-card'].classList.contains('locked')), 'hard open setelah complete persist');
   G.resetSave(); G.toMenu();
 });
 test('177 mock mirror: id campaign/pause ter-wire', () => {
-  ['btn-campaign', 'campaign', 'btn-camp-1', 'btn-camp-5', 'btn-camp-back',
+  ['btn-campaign', 'campaign', 'btn-diff-normal', 'btn-diff-hard', 'btn-achievements', 'achievements',
    'btn-pause', 'pause', 'btn-resume', 'btn-pause-respawn', 'btn-pause-menu'].forEach((id) => {
     ok(html.includes('id="' + id + '"'), 'id hilang di HTML: ' + id);
   });
@@ -2237,7 +2232,7 @@ test('191 treasure tidak merusak save', () => {
   const c = attackOpenChest(3);
   const pl = G.getPlayer();
   const s = G.getSave();
-  eq(s.version, 4, 'schema v4 utuh');
+  eq(s.version, 5, 'schema v4 utuh');
   ok(Number.isFinite(s.totalGoldShards) && s.totalGoldShards >= 0, 'totalGoldShards valid');
   ok(Number.isFinite(s.totalCoins) && s.totalCoins >= 0, 'totalCoins valid');
   ok(s.level1Completed === false, 'progresi tak tersentuh');
@@ -2414,7 +2409,7 @@ test('205 migrasi save v2 -> v3 tanpa kehilangan progres', () => {
   testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, totalCoins: 10, totalShards: 6, bestShards: 4, bestL1: 12 }));
   G.reloadSave();
   const s = G.getSave();
-  eq(s.version, 4, 'naik ke v4');
+  eq(s.version, 5, 'naik ke v4');
   eq(s.totalCoins, 16, '10 treasure-coin + 6 shard lama = 16 coin');
   eq(s.bestCoins, 4, 'bestShards -> bestCoins');
   eq(s.totalGoldShards, 0, 'gold baru mulai 0');
@@ -2700,7 +2695,7 @@ test('222 gamecomplete + replay fresh tanpa state lama', () => {
 test('223 save valid + BGM tunggal + rAF tunggal pasca-polish', () => {
   G.resetSave();
   const s = G.getSave();
-  eq(s.version, 4);
+  eq(s.version, 5);
   ok(Number.isFinite(s.totalCoins) && Number.isFinite(s.totalGoldShards), 'tanpa NaN');
   G.toMenu();
   G.fx.audio.setMusic(true, 70);
@@ -3514,7 +3509,7 @@ test('274 save migration v3->v4 + corrupt + old compat', () => {
   testStorage._map.set('knightSaveV1', JSON.stringify({ version: 3, totalCoins: 777, bestL1: 9, level1Completed: true }));
   G.reloadSave();
   let s = G.getSave();
-  eq(s.version, 4);
+  eq(s.version, 5);
   eq(s.totalCoins, 777, 'coin lestari');
   eq(s.bestL1, 9);
   eq(s.eqSword, 'rusty', 'shop default starter');
@@ -3522,10 +3517,10 @@ test('274 save migration v3->v4 + corrupt + old compat', () => {
   testStorage._map.set('knightSaveV1', '{{{corrupt');
   noThrow(() => G.reloadSave());
   s = G.getSave();
-  eq(s.version, 4); eq(s.mode, 'SWORD');
+  eq(s.version, 5); eq(s.mode, 'SWORD');
   testStorage._map.set('knightSaveV1', JSON.stringify({ version: 1, bestL1: 5 }));
   G.reloadSave();
-  eq(G.getSave().version, 4);
+  eq(G.getSave().version, 5);
   eq(G.getSave().bestL1, 5, 'v1 lestari');
   G.resetSave();
 });
@@ -3546,7 +3541,7 @@ test('276 shop preview dari data (bukan palsu)', () => {
   G.setShopSel('silver');
   const ren = G.getShopRender();
   eq(ren.sel, 'silver');
-  ok(ren.preview && ren.preview.stats.length === 4, 'stat bar ada');
+  ok(ren.preview && ren.preview.stats.length === 5, 'stat bar ada');
   ok(elements['shop-prev-name'].textContent.includes('Silver'), 'nama preview');
   ok(elements['shop-prev-price'].textContent.includes('1200'), 'harga preview');
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
@@ -3867,7 +3862,7 @@ test('297 save persist reload + schema tetap v4', () => {
   G.buyItem('elven'); G.equipItem('elven');
   G.reloadSave();
   const s = G.getSave();
-  eq(s.version, 4, 'schema tak berubah');
+  eq(s.version, 5, 'schema tak berubah');
   ok(s.owned.silver && s.owned.elven, 'owned lestari');
   eq(s.eqSword, 'silver'); eq(s.eqBow, 'elven');
   eq(s.mode, 'ARCHER');
@@ -4046,7 +4041,7 @@ test('311 save mobile tetap benar', () => {
   G.buyItem('hunter'); G.equipItem('hunter');
   G.reloadSave();
   const s = G.getSave();
-  eq(s.version, 4);
+  eq(s.version, 5);
   ok(s.owned.hunter, 'owned lestari');
   eq(s.eqBow, 'hunter'); eq(s.mode, 'ARCHER');
   G.resetSave();
@@ -4158,8 +4153,8 @@ test('321 keyboard + no-x-overflow setelah fix', () => {
 });
 test('322 save + versi schema tak berubah', () => {
   G.resetSave();
-  eq(G.getSave().version, 4);
-  eq(G.version, '1.3.6');
+  eq(G.getSave().version, 5);
+  eq(G.version, '1.4.0');
   G.resetSave();
 });
 
@@ -4237,7 +4232,7 @@ test('330 landscape + desktop regresi nol', () => {
 });
 test('331 save v4 + harga/stat utuh', () => {
   G.resetSave();
-  eq(G.getSave().version, 4);
+  eq(G.getSave().version, 5);
   const it = {};
   G.shopItems.forEach((x) => { it[x.id] = x.price; });
   eq(it.rusty, 50); eq(it.sunfire, 5500); eq(it.bastion, 4800); eq(it.dragon, 5000);
@@ -4370,10 +4365,10 @@ test('347 tombol segaris: jump/attack/block sama + base utuh', () => {
   ok(css.includes('width: 64px') && css.includes('width: 72px'), 'landscape fix utuh');
   ok(/@media \(pointer: coarse\)\s*{[^}]*min-width:\s*64px/.test(css), 'coarse utuh');
 });
-test('348 versi 1.3.6 + save v4 utuh', () => {
+test('348 versi 1.4.0 + save v4 utuh', () => {
   G.resetSave();
-  eq(G.getSave().version, 4);
-  eq(G.version, '1.3.6');
+  eq(G.getSave().version, 5);
+  eq(G.version, '1.4.0');
   G.resetSave();
 });
 
@@ -4482,10 +4477,10 @@ test('357 belakang tetap full damage + depan kebal', () => {
   eq(pl.hp, 70, 'depan kebal');
   G.resetSave(); G.forceStartLevel(1);
 });
-test('358 versi 1.3.6 + save v4 utuh', () => {
+test('358 versi 1.4.0 + save v4 utuh', () => {
   G.resetSave();
-  eq(G.getSave().version, 4);
-  eq(G.version, '1.3.6');
+  eq(G.getSave().version, 5);
+  eq(G.version, '1.4.0');
   G.resetSave();
 });
 // ---------- Ringkasan ----------

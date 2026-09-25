@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.3.6 — Guardian Bash & Walk (vanilla JS + Canvas)
+ * Knight Platformer v1.4.0 — Achievement + Difficulty Mode
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,8 +21,17 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.3.6';
+  var GAME_VERSION = '1.4.0';
   const DEBUG = false;
+
+  /* Difficulty modifier (data-driven) */
+  const DIFFICULTY_CONFIG = {
+    normal: { enemyHp: 1, enemyDmg: 1, bossHp: 1, bossDmg: 1, enemyCooldown: 1, bossCooldown: 1, playerDmg: 1 },
+    hard: { enemyHp: 2.0, enemyDmg: 1.8, bossHp: 2.5, bossDmg: 2.0, enemyCooldown: 0.75, bossCooldown: 0.6, playerDmg: 1 }
+  };
+  function getDifficultyMult() {
+    return (save && save.difficulty === 'hard') ? DIFFICULTY_CONFIG.hard : DIFFICULTY_CONFIG.normal;
+  }
 
   var VIEW_W = 960;
   var VIEW_H = 540;
@@ -1907,7 +1916,14 @@
 
   function createSlime(spawn) {
     var kind = enemyKindOf(spawn.type);
-    var st = ENEMY_STATS[kind];
+    var baseSt = ENEMY_STATS[kind];
+    var mult = getDifficultyMult();
+    // Copy stats to avoid mutating global ENEMY_STATS
+    var st = {};
+    for (var _k in baseSt) st[_k] = baseSt[_k];
+    st.hp = Math.round(baseSt.hp * mult.enemyHp);
+    if (st.dmg != null) st.dmg = Math.round(baseSt.dmg * mult.enemyDmg);
+    if (st.cooldown != null) st.cooldown = baseSt.cooldown / mult.enemyCooldown;
     return {
       id: ++slimeUid,
       kind: kind,
@@ -3222,7 +3238,8 @@
     // mods opsional (mis. L5 gauntlet): {hpMul}. L2 tanpa mods = perilaku
     // existing persis (non-regresi RAJA SLIME Level 2).
     var hpMul = (mods && mods.hpMul > 0) ? mods.hpMul : 1;
-    var hp = Math.round(BOSS_MAX_HP * hpMul);
+    var mult = getDifficultyMult();
+    var hp = Math.round(BOSS_MAX_HP * hpMul * mult.bossHp);
     return {
       id: ++slimeUid, kind: 'slimeKing', name: 'RAJA SLIME',
       x: spawn.x, y: spawn.y, w: BOSS_W, h: BOSS_H,
@@ -3562,6 +3579,7 @@
         m.dead = true;
         runStats.kills++;
         levelStats.kills++;
+        if (!save.achievements.first_blood) unlockAchievement('first_blood');
         showToast(currentLevel === 1 ? 'LIGHTNING SLIME TUMBANG!' : 'PANGLIMA TULANG TUMBANG!');
       }
       return;
@@ -3835,7 +3853,8 @@
 
   function createLich(spawn, arena, mods) {
     var hpMul = (mods && mods.hpMul > 0) ? mods.hpMul : 1;
-    var hp = Math.round(LICH_HP * hpMul);
+    var mult = getDifficultyMult();
+    var hp = Math.round(LICH_HP * hpMul * mult.bossHp);
     return {
       id: ++slimeUid, kind: 'lich', name: 'RAJA LICH',
       x: spawn.x, y: spawn.y, w: 56, h: 72,
@@ -4281,7 +4300,7 @@
 
   function getDefaultSave() {
     return {
-      version: 4,
+      version: 5,
       bestTime: null, bestL1: null, bestL2: null,
       bestL3: null, bestL4: null, bestL5: null, bestCoins: 0,
       totalCoins: 0, totalGoldShards: 0, totalDeaths: 0,
@@ -4297,7 +4316,29 @@
       // tanpa membeli apa pun.
       owned: { rusty: true, buckler: true, makeshift: true },
       eqSword: 'rusty', eqShield: 'buckler', eqBow: 'makeshift',
-      mode: 'SWORD'
+      mode: 'SWORD',
+      difficulty: 'normal',
+      achievements: {
+        first_blood: false,
+        first_clear: false,
+        boss_slayer: false,
+        king_slayer: false,
+        collector: false,
+        no_death_clear: false,
+        speed_runner: false,
+        master_of_sword: false,
+        master_of_guardian: false,
+        master_of_archer: false,
+        hard_clear: false,
+        campaign_complete: false
+      },
+      hardProgress: {
+        level1Completed: false, level2Completed: false, level3Completed: false, level4Completed: false, level5Completed: false,
+        gameCompleted: false,
+        level2Unlocked: false, level3Unlocked: false, level4Unlocked: false, level5Unlocked: false,
+        bestTime: null, bestL1: null, bestL2: null, bestL3: null, bestL4: null, bestL5: null,
+        bestCoins: 0
+      }
     };
   }
 
@@ -4321,7 +4362,7 @@
   // default starter (tanpa menebak pembelian lama).
   function sanitizeSave(o) {
     var d = getDefaultSave();
-    if (!o || typeof o !== 'object' || (o.version !== 1 && o.version !== 2 && o.version !== 3 && o.version !== 4)) return d;
+    if (!o || typeof o !== 'object' || (o.version !== 1 && o.version !== 2 && o.version !== 3 && o.version !== 4 && o.version !== 5)) return d;
     d.bestTime = (o.bestTime == null) ? null : saveNum(o.bestTime, null, 0, 1e9);
     d.bestL1 = (o.bestL1 == null) ? null : saveNum(o.bestL1, null, 0, 1e9);
     d.bestL2 = (o.bestL2 == null) ? null : saveNum(o.bestL2, null, 0, 1e9);
@@ -4334,7 +4375,7 @@
     // totalCoins: v3/v4 langsung; v1/v2 = treasure-coin lama + shard lama.
     var legacyCoins = Math.floor(saveNum(o.totalCoins, 0, 0, 1e9));
     var legacyShards = Math.floor(saveNum(o.totalShards, 0, 0, 1e9));
-    if (o.version === 3 || o.version === 4) {
+    if (o.version === 3 || o.version === 4 || o.version === 5) {
       d.totalCoins = legacyCoins;
     } else {
       d.totalCoins = Math.min(1e9, legacyCoins + legacyShards);
@@ -4367,23 +4408,58 @@
     // Shop v4: validasi id terhadap SHOP_ITEMS (unknown -> default starter).
     // v1/v2/v3 tidak punya shop -> default starter (progres lain utuh).
     d.owned = { rusty: true, buckler: true, makeshift: true };
-    if (o.version === 4 && o.owned && typeof o.owned === 'object') {
+    if ((o.version === 4 || o.version === 5) && o.owned && typeof o.owned === 'object') {
       for (var _ok = 0; _ok < SHOP_ITEMS.length; _ok++) {
         var _it = SHOP_ITEMS[_ok];
         if (o.owned[_it.id]) d.owned[_it.id] = true;
       }
     }
-    d.eqSword = (o.version === 4 && shopItemById(o.eqSword) && shopItemById(o.eqSword).category === 'sword' && d.owned[o.eqSword])
+    d.eqSword = ((o.version === 4 || o.version === 5) && shopItemById(o.eqSword) && shopItemById(o.eqSword).category === 'sword' && d.owned[o.eqSword])
       ? o.eqSword : 'rusty';
-    d.eqShield = (o.version === 4 && shopItemById(o.eqShield) && shopItemById(o.eqShield).category === 'shield' && d.owned[o.eqShield])
+    d.eqShield = ((o.version === 4 || o.version === 5) && shopItemById(o.eqShield) && shopItemById(o.eqShield).category === 'shield' && d.owned[o.eqShield])
       ? o.eqShield : 'buckler';
-    d.eqBow = (o.version === 4 && shopItemById(o.eqBow) && shopItemById(o.eqBow).category === 'bow' && d.owned[o.eqBow])
+    d.eqBow = ((o.version === 4 || o.version === 5) && shopItemById(o.eqBow) && shopItemById(o.eqBow).category === 'bow' && d.owned[o.eqBow])
       ? o.eqBow : 'makeshift';
-    d.mode = (o.version === 4 && (o.mode === 'GUARDIAN' || o.mode === 'ARCHER' || o.mode === 'SWORD'))
+    d.mode = ((o.version === 4 || o.version === 5) && (o.mode === 'GUARDIAN' || o.mode === 'ARCHER' || o.mode === 'SWORD'))
       ? o.mode : 'SWORD';
     // Konsistensi mode: ARCHER butuh bow owned; GUARDIAN butuh sword+shield.
     if (d.mode === 'ARCHER' && !d.owned[d.eqBow]) d.mode = 'SWORD';
     if (d.mode === 'GUARDIAN' && (!d.owned[d.eqSword] || !d.owned[d.eqShield])) d.mode = 'SWORD';
+    // Migrasi v4 -> v5 (achievements + difficulty + hard progress)
+    if (o.version !== 5) {
+      d.achievements = (o.achievements && typeof o.achievements === 'object') ? o.achievements : {
+        first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
+        collector: false, no_death_clear: false, speed_runner: false,
+        master_of_sword: false, master_of_guardian: false, master_of_archer: false,
+        hard_clear: false, campaign_complete: false
+      };
+      // If old save had achievements partially missing, fill defaults
+      var achDefs = d.achievements;
+      var defAch = {
+        first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
+        collector: false, no_death_clear: false, speed_runner: false,
+        master_of_sword: false, master_of_guardian: false, master_of_archer: false,
+        hard_clear: false, campaign_complete: false
+      };
+      for (var ak in defAch) {
+        if (achDefs[ak] === undefined) achDefs[ak] = defAch[ak];
+      }
+      d.difficulty = (o.difficulty === 'hard') ? 'hard' : 'normal';
+      d.hardProgress = (o.hardProgress && typeof o.hardProgress === 'object') ? o.hardProgress : {
+        level1Completed: false, level2Completed: false, level3Completed: false, level4Completed: false, level5Completed: false,
+        gameCompleted: false, level2Unlocked: false, level3Unlocked: false, level4Unlocked: false, level5Unlocked: false,
+        bestTime: null, bestL1: null, bestL2: null, bestL3: null, bestL4: null, bestL5: null, bestCoins: 0
+      };
+      // Derive hard unlock from normal completion (safe rule)
+      if (d.gameCompleted || d.level5Completed) {
+        d.hardProgress.level2Unlocked = true; d.hardProgress.level3Unlocked = true; d.hardProgress.level4Unlocked = true; d.hardProgress.level5Unlocked = true;
+      } else if (d.level4Completed) { d.hardProgress.level5Unlocked = true; }
+      else if (d.level3Completed) { d.hardProgress.level4Unlocked = true; }
+      else if (d.level2Completed) { d.hardProgress.level3Unlocked = true; }
+      else if (d.level1Completed) { d.hardProgress.level2Unlocked = true; }
+    }
+    // Set version to 5
+    d.version = 5;
     return d;
   }
 
@@ -4418,6 +4494,108 @@
     refreshSettingsUI();
     refreshRecordsUI();
     refreshShopUI();
+  }
+
+
+
+  /* ===== Achievement System ===== */
+  var ACHIEVEMENT_DEFS = {
+    first_blood: { name: 'First Blood', desc: 'Defeat your first enemy', progress: null },
+    first_clear: { name: 'First Clear', desc: 'Complete the first level', progress: null },
+    boss_slayer: { name: 'Boss Slayer', desc: 'Defeat the first boss', progress: null },
+    king_slayer: { name: 'King Slayer', desc: 'Defeat the final king boss', progress: null },
+    collector: { name: 'Collector', desc: 'Collect 5 Gold Shards (treasures)', progress: function () { return save.totalGoldShards; }, target: 5 },
+    no_death_clear: { name: 'No Death Clear', desc: 'Complete a level without dying', progress: null },
+    speed_runner: { name: 'Speed Runner', desc: 'Complete Level 1 under 45 seconds', progress: function () { return save.bestL1; }, target: 45 },
+    master_of_sword: { name: 'Sword Master', desc: 'Complete campaign in Sword mode', progress: null },
+    master_of_guardian: { name: 'Guardian Master', desc: 'Complete campaign in Guardian mode', progress: null },
+    master_of_archer: { name: 'Archer Master', desc: 'Complete campaign in Archer mode', progress: null },
+    hard_clear: { name: 'Hard Clear', desc: 'Complete a stage in Hard Mode', progress: null },
+    campaign_complete: { name: 'Campaign Complete', desc: 'Complete entire Normal campaign', progress: null }
+  };
+
+  function unlockAchievement(id) {
+    if (!id || !save || !save.achievements) return false;
+    if (save.achievements[id] === true) return false; // already unlocked
+    save.achievements[id] = true;
+    persistSave();
+    triggerAchieveToast(id);
+    try { AudioManager.play('achievement'); } catch (e) { /* abaikan */ }
+    return true;
+  }
+
+  function triggerAchieveToast(id) {
+    var def = ACHIEVEMENT_DEFS[id];
+    if (!def) return;
+    var toast = document.getElementById('achieve-toast');
+    var text = document.getElementById('achieve-toast-text');
+    if (toast && text) {
+      text.textContent = def.name;
+      toast.classList.remove('hidden');
+      setTimeout(function () { try { toast.classList.add('hidden'); } catch (e) {} }, 3200);
+    }
+  }
+
+  function getUnlockedCount() {
+    var c = 0;
+    if (!save || !save.achievements) return 0;
+    for (var k in save.achievements) { if (save.achievements[k] === true) c++; }
+    return c;
+  }
+
+  function refreshAchievementsUI() {
+    var list = document.getElementById('achieve-list');
+    var counter = document.getElementById('achieve-counter');
+    if (!list) return;
+    list.innerHTML = '';
+    var total = 0;
+    var unlocked = 0;
+    for (var k in ACHIEVEMENT_DEFS) total++;
+    for (var k2 in save.achievements) if (save.achievements[k2] === true) unlocked++;
+    if (counter) counter.textContent = 'Unlocked: ' + unlocked + ' / ' + total;
+    for (var key in ACHIEVEMENT_DEFS) {
+      var def = ACHIEVEMENT_DEFS[key];
+      var unlockedFlag = !!(save.achievements && save.achievements[key]);
+      var item = document.createElement('div');
+      item.className = 'achieve-item ' + (unlockedFlag ? 'unlocked' : 'locked');
+      var prog = '';
+      if (def.progress) {
+        var val = def.progress();
+        if (val != null && def.target && val < def.target) prog = ' (' + val + ' / ' + def.target + ')';
+        else if (val != null && val >= def.target && !unlockedFlag) { /* will unlock when checked */ }
+      }
+      item.innerHTML = '<h4>' + (unlockedFlag ? '✓ ' : '☐ ') + def.name + '</h4><p>' + def.desc + (prog ? '<br><small>Progress: ' + prog + '</small>' : '') + '</p>';
+      list.appendChild(item);
+    }
+  }
+
+  /* Check achievements after relevant events */
+  function checkAchievements(levelComplete, levelN, died, timeTaken, bossKilled, kingKilled) {
+    if (!save) return;
+    // First Blood: killed first enemy (global kill count during level)
+    if (!save.achievements.first_blood && (save.totalDeaths !== undefined || levelStats && levelStats.kills > 0)) {
+      // We approximate by checking if levelStats.kills > 0 and not yet unlocked; triggered elsewhere more precisely
+    }
+    // First Clear
+    if (levelN === 1 && levelComplete && !save.achievements.first_clear) unlockAchievement('first_clear');
+    // Boss Slayer: first boss killed (approx: level 2 completed or boss event)
+    if (levelComplete && levelN >= 2 && !save.achievements.boss_slayer) unlockAchievement('boss_slayer');
+    // King Slayer: level 5 complete
+    if (levelComplete && levelN === 5 && !save.achievements.king_slayer) unlockAchievement('king_slayer');
+    // No Death Clear: completed level without death increment since start
+    if (levelComplete && !died && !save.achievements.no_death_clear) unlockAchievement('no_death_clear');
+    // Speed Runner: bestL1 <= 45
+    if (!save.achievements.speed_runner && save.bestL1 != null && save.bestL1 <= 45) unlockAchievement('speed_runner');
+    // Collector: totalGoldShards >= 5
+    if (!save.achievements.collector && save.totalGoldShards >= 5) unlockAchievement('collector');
+    // Hard Clear: hard progress completed any level
+    if (save.difficulty === 'hard' && levelComplete && !save.achievements.hard_clear) unlockAchievement('hard_clear');
+    // Campaign Complete: normal gameCompleted
+    if (save.gameCompleted && !save.achievements.campaign_complete) unlockAchievement('campaign_complete');
+    // Master mode achievements: when gameCompleted and mode matches
+    if (save.gameCompleted && !save.achievements.master_of_sword && save.mode === 'SWORD') unlockAchievement('master_of_sword');
+    if (save.gameCompleted && !save.achievements.master_of_guardian && save.mode === 'GUARDIAN') unlockAchievement('master_of_guardian');
+    if (save.gameCompleted && !save.achievements.master_of_archer && save.mode === 'ARCHER') unlockAchievement('master_of_archer');
   }
 
   function applyAudioSettings() {
@@ -4590,7 +4768,7 @@
     // Copy misi sesuai level aktual (pendek, ramah HP).
     try {
       var me = document.getElementById('mission');
-      if (me) me.innerHTML = MISSION_COPY[n] || MISSION_COPY[1];
+      if (me) me.innerHTML = (MISSION_COPY[n] || MISSION_COPY[1]) + ' • ' + ((save.difficulty === 'hard') ? 'HARD' : 'NORMAL');
     } catch (e) { /* abaikan */ }
   }
 
@@ -4722,24 +4900,50 @@
           st.className = 'camp-status' + (done ? ' clear' : (open ? '' : ' locked'));
         }
       }
-      if (campStatusEl) campStatusEl.textContent = 'Selesai: ' + doneCount + '/5 • Pilih level terbuka untuk replay.';
+      if (campStatusEl) campStatusEl.textContent = 'Pilihan mode: Normal / Hard • Kesulitan: ' + (save.difficulty || 'normal');
     } catch (e) { /* abaikan */ }
+  }
+
+  function openAchievements() {
+    try {
+      showMenuPanel('main');
+      var achEl = document.getElementById('achievements');
+      if (achEl) achEl.classList.remove('hidden');
+      clearInput();
+      refreshAchievementsUI();
+    } catch (e) { /* abaikan */ }
+  }
+
+  function achievementsBack() {
+    toMenu();
+    try { if (document.getElementById('btn-achievements')) document.getElementById('btn-achievements').focus({ preventScroll: true }); } catch (e) {}
   }
 
   function openCampaign() {
     if (gameState !== 'menu') return;
     hideAllOverlays();
     if (menuEl) menuEl.classList.remove('hidden');
-    showMenuPanel('main'); // panel menu tetap main (campaign overlay di atas)
+    showMenuPanel('main');
     if (campaignEl) campaignEl.classList.remove('hidden');
     clearInput();
     refreshCampaignUI();
-    var first = null;
-    for (var n = 1; n <= 5; n++) {
-      if (canPlayLevel(n) && campBtns[n - 1]) { first = campBtns[n - 1]; break; }
+    // Difficulty selection state
+    var hardLocked = !(save.gameCompleted || save.level5Completed);
+    var hardBtn = document.getElementById('btn-diff-hard');
+    var hardCard = document.getElementById('diff-hard-card');
+    var hardLabel = document.getElementById('hard-lock-label');
+    if (hardCard) { hardCard.classList.add('locked'); hardCard.classList.remove('locked'); hardCard.classList.add('locked'); }
+    if (hardBtn) { hardBtn.classList.add('hidden'); hardBtn.disabled = true; }
+    if (hardLabel) hardLabel.style.display = 'block';
+    if (!hardLocked) {
+      if (hardCard) { hardCard.classList.remove('locked'); }
+      if (hardBtn) { hardBtn.classList.remove('hidden'); hardBtn.disabled = false; }
+      if (hardLabel) hardLabel.style.display = 'none';
     }
-    if (first && first.focus) {
-      try { first.focus({ preventScroll: true }); } catch (e) { /* abaikan */ }
+    // Focus first available difficulty option
+    var firstBtn = document.getElementById('btn-diff-normal');
+    if (firstBtn && firstBtn.focus) {
+      try { firstBtn.focus({ preventScroll: true }); } catch (e) {}
     }
     debugLog('[game] campaign dibuka');
   }
@@ -4764,6 +4968,8 @@
       AudioManager.play('click');
       return false;
     }
+    // Set difficulty from menu selection if not already set; if playing from campaign menu, difficulty already set by button
+    if (!save.difficulty) save.difficulty = 'normal';
     resetTotals();
     startTrans(n);
     return true;
@@ -4777,6 +4983,8 @@
       AudioManager.play('click');
       return false;
     }
+    // Set difficulty from menu selection if not already set; if playing from campaign menu, difficulty already set by button
+    if (!save.difficulty) save.difficulty = 'normal';
     resetTotals();
     startTrans(n);
     return true;
@@ -5275,6 +5483,15 @@
     // Persistent final: L5 selesai + game complete + best.
     save.level5Completed = true;
     save.gameCompleted = true;
+    if (save.difficulty === 'hard') {
+      save.hardProgress = save.hardProgress || {};
+      save.hardProgress.gameCompleted = true;
+      save.hardProgress.level5Completed = true;
+      save.hardProgress.level4Unlocked = true;
+      save.hardProgress.level3Unlocked = true;
+      save.hardProgress.level2Unlocked = true;
+      save.hardProgress.level5Unlocked = true;
+    }
     if (save.bestTime == null || timeElapsed < save.bestTime) save.bestTime = timeElapsed;
     if (save.bestL5 == null || levelStats.time < save.bestL5) save.bestL5 = levelStats.time;
     if (runStats.coins > save.bestCoins) save.bestCoins = runStats.coins;
@@ -6603,6 +6820,7 @@
       if (enemies[r].dead) {
         runStats.kills++;
         levelStats.kills++;
+        if (!save.achievements.first_blood) unlockAchievement('first_blood');
         enemies[r] = enemies[enemies.length - 1];
         enemies.pop();
       }
@@ -6918,6 +7136,12 @@
   }
   onClick(btnPlay, function () { playFresh(); });
   onClick(btnCampaign, function () { openCampaign(); });
+  var btnAchievements = document.getElementById('btn-achievements');
+  if (btnAchievements) onClick(btnAchievements, function () { openAchievements(); });
+  var btnDiffNormal = document.getElementById('btn-diff-normal');
+  if (btnDiffNormal) onClick(btnDiffNormal, function () { save.difficulty = 'normal'; persistSave(); playCampaignLevel(1); });
+  var btnDiffHard = document.getElementById('btn-diff-hard');
+  if (btnDiffHard) onClick(btnDiffHard, function () { if (btnDiffHard.disabled) return; save.difficulty = 'hard'; persistSave(); playCampaignLevel(1); });
   onClick(btnShop, function () { openShop(); });
   onClick(shopBackBtn, function () { shopBack(); });
   onClick(shopTabBtns.sword, function () { shopSetTab('sword'); });
@@ -6928,6 +7152,8 @@
   onClick(shopModeBtns.GUARDIAN, function () { setMode('GUARDIAN'); });
   onClick(shopModeBtns.ARCHER, function () { setMode('ARCHER'); });
   onClick(btnCampBack, function () { campaignBack(); });
+  var btnAchieveBack = document.getElementById('btn-achieve-back');
+  if (btnAchieveBack) onClick(btnAchieveBack, function () { achievementsBack(); });
   for (var cpi = 1; cpi <= 5; cpi++) {
     (function (n) {
       onClick(campBtns[n - 1], function () { playCampaignLevel(n); });

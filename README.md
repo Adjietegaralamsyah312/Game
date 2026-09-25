@@ -1,4 +1,4 @@
-# Knight Platformer — 5-Level Campaign (v1.3.6)
+# Knight Platformer — 5-Level Campaign (v1.4.0)
 
 ![Preview](assets/og/knight-platformer-og.png)
 
@@ -15,7 +15,7 @@ berurutan, GAME COMPLETE).
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
 cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
-**Status: v1.3.6 Guardian Update** — playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: v1.4.0 Achievement + Difficulty** — playable: https://adjietegaralamsyah312.github.io/Game/
 
 ## Fitur v1.3.6
 
@@ -314,7 +314,7 @@ target semua PASS, 0 FAIL.
 
 ## Project status & Development History
 
-- Status: **v1.3.6 Guardian Update**, live di GitHub Pages.
+- Status: **v1.4.0 Achievement + Difficulty**, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
 - History singkat: Tahap 4 Release Candidate → Content Expansion (Stage 5:
   2 level + RAJA SLIME) → Settings & Persistence (Stage 6) → BGM prosedural

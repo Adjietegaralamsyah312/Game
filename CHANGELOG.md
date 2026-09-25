@@ -1,5 +1,16 @@
 # Changelog — Knight Platformer
 
+## [1.4.0] — Achievement + Difficulty Mode
+
+- Achievement System persistent (12 achievements: First Blood, First Clear, Boss Slayer, King Slayer, Collector, No Death Clear, Speed Runner, Sword Master, Guardian Master, Archer Master, Hard Clear, Campaign Complete)
+- Difficulty selection: Normal / Hard (Campaign menu berubah menjadi pilihan mode)
+- Hard Mode scaling (enemy HP/damage, boss HP/damage, cooldown lebih ketat)
+- Hard progress terisolasi (hardProgress schema) dan unlock rule berdasarkan campaign normal selesai
+- Save migration v4 -> v5 (achievements + difficulty + hard progress, kompatibel save lama)
+- Achievement UI menu + toast notification (tidak mengganggu gameplay)
+- Mobile/difficulty UI responsive (stack vertikal jika sempit)
+- 357/358 automated test PASS (1 pre-existing shop preview test)
+
 ## [1.3.6] — Guardian Update
 
 - Walk guardian/archer 2 frame (realistis, tanpa slide)

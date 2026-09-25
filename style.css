@@ -972,3 +972,83 @@ canvas#game {
     transition: none !important;
   }
 }
+
+.diff-row {
+  background: rgba(15,18,38,0.85);
+  border: 2px solid #4a5568;
+  border-radius: 12px;
+  padding: 18px 22px;
+  min-width: 260px;
+  text-align: center;
+  margin: 8px auto;
+}
+.diff-row h3 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.diff-row p {
+  margin: 0 0 10px;
+  color: #c6ccea;
+  font-size: 14px;
+}
+.diff-row.locked {
+  border-color: #777;
+  opacity: 0.85;
+}
+#hard-lock-label {
+  color: #ffaa55;
+  font-weight: bold;
+  font-size: 13px;
+}
+#achieve-list {
+  max-height: 320px;
+  overflow-y: auto;
+  gap: 8px;
+  align-items: stretch;
+}
+.achieve-item {
+  background: rgba(20,24,50,0.9);
+  border: 1px solid #334;
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: left;
+}
+.achieve-item.unlocked {
+  border-color: #7ae;
+}
+.achieve-item.locked {
+  border-color: #555;
+  opacity: 0.7;
+}
+.achieve-item h4 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.achieve-item p {
+  margin: 0;
+  font-size: 12px;
+  color: #c6ccea;
+}
+#achieve-toast {
+  position: fixed;
+  top: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,14,30,0.95);
+  border: 3px solid #f0b040;
+  border-radius: 14px;
+  padding: 18px 28px;
+  text-align: center;
+  z-index: 9999;
+  max-width: 320px;
+}
+#achieve-toast h3 {
+  margin: 0 0 6px;
+  color: #f0b040;
+  font-size: 20px;
+}
+#achieve-toast p {
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+}
