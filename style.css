@@ -758,49 +758,16 @@ canvas#game {
     flex-shrink: 0;
   }
 }
-/* HP portrait: SATU bahasa visual dengan landscape/desktop — preview, card,
-   dan tombol memakai gaya yang sama. Yang menyesuaikan hanya stacking:
-   body 1 kolom, card penuh, teks wrap. Tanpa compact divergen. */
+/* HP portrait: TAMPILAN SAMA PERSIS dengan landscape/desktop — ukuran font,
+   preview, dan tombol mengikuti gaya base. Satu-satunya penyesuaian adalah
+   stacking struktural: body 1 kolom, card penuh, teks wrap. */
 @media (orientation: portrait) and (max-width: 600px) {
-  #shop-head {
-    gap: 4px;
-  }
-  #shop h2 {
-    font-size: clamp(18px, 5vw, 24px);
-    letter-spacing: 2px;
-  }
-  #shop-coin {
-    font-size: clamp(12px, 3.4vw, 14px);
-  }
-  #shop-head .btn-row {
-    gap: 8px;
-  }
-  #shop-head .btn-small {
-    padding: 10px 10px;
-    font-size: clamp(12px, 3.2vw, 14px);
-  }
-  /* Preview SAMA seperti landscape/desktop (kolom, stack 64px, semua teks
-     terlihat termasuk deskripsi/stat/special + weapon overlay). */
-  #shop-preview {
-    flex-direction: column;
-    align-items: center;
-    padding: 8px 10px;
-    gap: 6px;
-    flex-shrink: 0;
-  }
   #shop-list {
     flex-basis: auto;
   }
   .shop-card {
     width: 100%;
     max-width: 100%;
-  }
-  /* Satu-satunya adaptasi sentuh: tombol aksi selebar card (komponen dan
-     gaya tombol tetap sama) agar mudah ditekan ibu jari. */
-  #shop-list .shop-card .btn-small {
-    display: block;
-    width: 100%;
-    min-height: 44px;
   }
 }
 /* HP landscape pendek: preview kiri, daftar kanan, tinggi menyesuaikan. */

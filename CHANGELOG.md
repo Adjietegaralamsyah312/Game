@@ -1,5 +1,11 @@
 # Changelog — Knight Platformer
 
+## [1.3.4] — Shop Layout Revert
+
+- Portrait dikembalikan persis ke tampilan landscape (font, preview 64px,
+  tombol base); adaptasi HP hanya stacking 1 kolom + wrap
+- Tanpa ubah gameplay/harga/save; 332 automated test PASS
+
 ## [1.3.3] — Unified Shop Layout
 
 - Portrait disamakan dengan landscape/desktop (preview kolom + semua teks +

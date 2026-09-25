@@ -4052,10 +4052,13 @@ test('313 portrait = landscape (satu bahasa visual)', () => {
   ok(css.includes('#shop-prev-stack'), 'preview stack');
   ok(css.includes('env(safe-area-inset-'), 'safe-area');
   ok(html.includes('id="shop-head"'), 'header wrapper');
-  // Portrait tak boleh menyembunyikan konten preview / mengecilkan stack.
-  const portraitBlock = css.slice(css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)'));
-  ok(!/shop-prev-desc[^}]*display:\s*none/.test(portraitBlock.slice(0, 2500)), 'desc tampil di portrait');
-  ok(!/width:\s*40px/.test(portraitBlock.slice(0, 2500)), 'tanpa mini 40px');
+  // Portrait tanpa restyle kosmetik: tanpa font-size header, tanpa hide konten.
+  const _p313 = css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)');
+  const _p313e = css.indexOf('@media', _p313 + 1);
+  const portraitBlock = css.slice(_p313, _p313e < 0 ? undefined : _p313e);
+  ok(!/font-size/.test(portraitBlock), 'font ikut base landscape');
+  ok(!/display:\s*none/.test(portraitBlock), 'tak ada yang disembunyikan');
+  ok(!/width:\s*40px/.test(portraitBlock), 'tanpa mini 40px');
 });
 test('314 performa + tombol 44px + reduced-motion', () => {
   const raf = (src.match(/requestAnimationFrame/g) || []).length;
@@ -4139,17 +4142,21 @@ test('321 keyboard + no-x-overflow setelah fix', () => {
 test('322 save + versi schema tak berubah', () => {
   G.resetSave();
   eq(G.getSave().version, 4);
-  eq(G.version, '1.3.3');
+  eq(G.version, '1.3.4');
   G.resetSave();
 });
 
 // ---------- 10 TEST PORTRAIT AGRESIF ----------
-test('323 preview portrait sama dengan landscape (64px, penuh)', () => {
+test('323 preview portrait = preview landscape (tanpa override)', () => {
   ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint portrait');
   ok(css.includes('#shop-prev-weapon'), 'weapon overlay tetap ada');
   ok(!/#shop-preview\s*{[^}]*max-height:\s*230px/.test(css), 'tanpa batas compact');
-  const portraitBlock = css.slice(css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)'));
-  ok(/shop-preview\s*{[^}]*flex-direction:\s*column/.test(portraitBlock.slice(0, 2500)), 'kolom seperti base');
+  // Blok portrait tak menyentuh preview sama sekali: gaya base yang berlaku.
+  const _p323 = css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)');
+  const _p323e = css.indexOf('@media', _p323 + 1);
+  const portraitBlock = css.slice(_p323, _p323e < 0 ? undefined : _p323e);
+  ok(!/#shop-preview/.test(portraitBlock), 'preview ikut base landscape');
+  ok(!/#shop-prev-stack/.test(portraitBlock), 'stack ikut base 64px');
 });
 test('324 deskripsi/stat tampil di semua orientasi', () => {
   ok(!/shop-prev-desc[^}]*display:\s*none/.test(css), 'desc tak disembunyikan');
@@ -4173,11 +4180,11 @@ test('326 scroll tunggal + pan-y + contain utuh', () => {
   ok(css.includes('overscroll-behavior: contain'), 'contain');
   srcHas("closest('#shop-body')");
 });
-test('327 card 1 kolom penuh + wrap + tombol 44px', () => {
+test('327 card 1 kolom penuh + wrap + tombol base 44px', () => {
   ok(/\.shop-card\s*{[^}]*max-width:\s*100%/.test(css), 'penuh');
   ok(css.includes('overflow-wrap: anywhere'), 'wrap nama panjang');
-  ok(/#shop-list \.shop-card \.btn-small\s*{[^}]*width:\s*100%/.test(css), 'tombol selebar card');
-  ok(/#shop-list \.shop-card \.btn-small\s*{[^}]*min-height:\s*44px/.test(css), '44px');
+  ok(/\.btn-small\s*{[^}]*min-height:\s*44px/.test(css), 'tombol base 44px');
+  ok(!/#shop-list \.shop-card \.btn-small/.test(css), 'tombol ikut gaya landscape');
   ok(css.includes('overflow-x: hidden'), 'tanpa x-scroll');
 });
 test('328 BUY/USE portrait bekerja', () => {

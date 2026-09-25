@@ -1,4 +1,4 @@
-# Knight Platformer — 5-Level Campaign (v1.3.3)
+# Knight Platformer — 5-Level Campaign (v1.3.4)
 
 ![Preview](assets/og/knight-platformer-og.png)
 
@@ -15,7 +15,14 @@ berurutan, GAME COMPLETE).
 Combat di level FINISH (L1/L3) bersifat opsional — traversal yang jujur:
 cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
-**Status: v1.3.3 Unified Shop** — playable: https://adjietegaralamsyah312.github.io/Game/
+**Status: v1.3.4 Shop Revert** — playable: https://adjietegaralamsyah312.github.io/Game/
+
+## Fitur v1.3.4
+
+- **Shop portrait = landscape**: seluruh restyle kosmetik portrait dicabut —
+  font, preview, dan tombol portrait memakai gaya base yang sama persis.
+  Satu-satunya penyesuaian HP adalah stacking struktural (body 1 kolom,
+  card penuh, teks wrap). Tanpa ubah gameplay/harga/save
 
 ## Fitur v1.3.3
 
@@ -206,7 +213,7 @@ knight_game/
 ├── test.js             # 332 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
-├── VERSION             # 1.3.3
+├── VERSION             # 1.3.4
 └── assets/
     ├── knight/         # 18 sprite PNG ksatria
     ├── sprites/        # undead + chest + coin + reward + heroik + guardian (9) + archer (9)
@@ -288,7 +295,7 @@ target semua PASS, 0 FAIL.
 
 ## Project status & Development History
 
-- Status: **v1.3.3 Unified Shop**, live di GitHub Pages.
+- Status: **v1.3.4 Shop Revert**, live di GitHub Pages.
 - Repository: https://github.com/Adjietegaralamsyah312/Game
 - History singkat: Tahap 4 Release Candidate → Content Expansion (Stage 5:
   2 level + RAJA SLIME) → Settings & Persistence (Stage 6) → BGM prosedural
