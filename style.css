@@ -897,7 +897,8 @@ canvas#game {
   background: rgba(45, 90, 150, 0.85);
   border-color: #5aa9ff;
   border-width: 3px;
-  font-size: clamp(14px, 3vw, 18px);
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 .touch-btn.block:active,
 .touch-btn.block.pressed {

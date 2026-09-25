@@ -1647,6 +1647,10 @@
         player.blockCd = 1.2;
         player.blockBreak = true;
         player.blockBreakT = 0.8;
+        if (player.state === 'block') { // jebol: ledakan visual + suara
+          burst(player.x + player.w / 2, player.y + player.h / 2, 8, '#e05252', 160, 0.5, 3, 300);
+          AudioManager.play('hurt');
+        }
         player.state = player.onGround ? (move !== 0 ? 'run' : 'idle') : 'fall';
         player.animTime = 0;
         player.blockT = 0;

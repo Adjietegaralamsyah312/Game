@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 358; // total test (348 + 10 bash/stamina/visibility)
+const EXPECTED_TOTAL = 358; // total test (348 + 10 bash/stamina/visibility + 0 extra)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -4376,6 +4376,8 @@ test('348 versi 1.3.6 + save v4 utuh', () => {
   eq(G.version, '1.3.6');
   G.resetSave();
 });
+
+// ---------- 10 TEST BASH/STAMINA/VISIBILITY/WALK ----------
 
 // ---------- 10 TEST BASH/STAMINA/VISIBILITY/WALK ----------
 test('349 walk guardian 2 frame realistis', () => {
