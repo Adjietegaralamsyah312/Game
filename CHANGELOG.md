@@ -1,5 +1,17 @@
 # Changelog — Knight Platformer
 
+## [Unreleased] — Shop Anti-Overlap (lihat shop.jpg)
+
+- Akar masalah: `#shop-list` (flex:1 + min-height:0) lebih pendek dari isi
+  pada layout kolom → card terkompres, deskripsi/tombol tumpah keluar border
+  dan tertutup card berikut. Perbaikan struktural: card `flex-shrink: 0`,
+  list `flex: none` + penuh pada layout kolom (tinggi = isi, tanpa spill)
+- Header terbaca: overlay Shop hampir opaque + spacing/line-height title
+- Tab merata (`flex:1`, wrap, breakpoint 400px), state active utuh
+- Preview `object-fit: contain`; hierarki tipografi nama > rarity > desc
+- BACK bermargin aman + safe-area; z-index audit bersih (tanpa absolute liar)
+- Tanpa ubah data/fitur; 342 automated test PASS
+
 ## [1.3.4] — Shop Layout Revert
 
 - Portrait dikembalikan persis ke tampilan landscape (font, preview 64px,

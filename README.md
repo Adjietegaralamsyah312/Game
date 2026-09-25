@@ -210,7 +210,7 @@ knight_game/
 ├── index.html          # kanvas + overlay + metadata/OG
 ├── game.js             # seluruh game (5 level, boss, treasure, save, BGM)
 ├── style.css           # tema + responsif + safe-area + reduced-motion
-├── test.js             # 332 automated test headless (node test.js)
+├── test.js             # 342 automated test headless (node test.js)
 ├── README.md           # file ini
 ├── CHANGELOG.md        # riwayat rilis
 ├── VERSION             # 1.3.4
@@ -276,7 +276,7 @@ node test.js
 git diff --check
 ```
 
-332 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop) —
+342 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 

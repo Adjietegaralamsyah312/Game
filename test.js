@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 332; // total test (322 + 10 portrait agresif)
+const EXPECTED_TOTAL = 342; // total test (332 + 10 anti-overlap shop)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1023,13 +1023,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('332 automated test'), 'README harus sebut 332 test, cek jumlah');
+  ok(readme.includes('342 automated test'), 'README harus sebut 342 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 332);
+  eq(EXPECTED_TOTAL, 342);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4242,6 +4242,64 @@ test('332 alur portrait penuh tanpa error', () => {
   eq(G.getMode(), 'GUARDIAN');
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   eq(G.getState(), 'menu');
+  G.resetSave();
+});
+
+// ---------- 10 TEST ANTI-OVERLAP SHOP (lihat shop.jpg) ----------
+test('333 card tak boleh terkompres', () => {
+  ok(/\.shop-card\s*{[^}]*flex-shrink:\s*0/.test(css), 'card flex-shrink 0');
+  ok(!/\.shop-card\s*{[^}]*(?<!min-)height:\s*\d+px/.test(css), 'tanpa fixed height card');
+});
+test('334 list kolom setinggi isi (akar masalah overlap)', () => {
+  const blk = css.slice(css.indexOf('@media (max-width: 640px)'));
+  ok(/#shop-list\s*{[^}]*flex:\s*none/.test(blk), 'list flex none di kolom');
+  ok(/#shop-list\s*{[^}]*width:\s*100%/.test(blk), 'list penuh');
+  ok(!/#shop-list\s*{[^}]*max-height/.test(css), 'tanpa max-height list');
+});
+test('335 header terbaca (bg opaque + spacing)', () => {
+  ok(/#canvas-container #shop\s*{[^}]*background:\s*rgba\(8,\s*10,\s*25,\s*0\.96\)/.test(css), 'bg hampir opaque');
+  ok(/#shop h2\s*{[^}]*line-height:\s*1\.2/.test(css), 'line-height title');
+  ok(/#shop h2\s*{[^}]*margin:/.test(css), 'margin title');
+});
+test('336 tab merata + wrap + muat 320px', () => {
+  ok(/#shop-head \.btn-small\s*{[^}]*flex:\s*1 1 0/.test(css), 'tab merata');
+  ok(/#shop-head \.btn-small\s*{[^}]*min-width:\s*0/.test(css), 'bisa menyusut');
+  ok(css.includes('@media (max-width: 400px)'), 'breakpoint sempit');
+  ok(/\.btn-row\s*{[^}]*flex-wrap:\s*wrap/.test(css), 'wrap');
+});
+test('337 detail di bawah list pada mobile (DOM + kolom)', () => {
+  ok(html.indexOf('id="shop-list"') < html.indexOf('id="shop-preview"'), 'list di atas preview');
+  ok(/#shop-body\s*{[^}]*flex-direction:\s*column/.test(css), 'kolom mobile');
+  ok(/min-width:\s*min\(320px/.test(css) || css.includes('min(680px, 94vw)'), 'lebar bounded');
+});
+test('338 gambar pertahankan rasio (object-fit)', () => {
+  ok(css.includes('object-fit: contain'), 'contain');
+  ok(/id="shop-prev-img"[^>]*width="64"[^>]*height="64"/.test(html), 'atribut dimensi');
+  ok(/id="shop-prev-weapon"[^>]*width="64"[^>]*height="64"/.test(html), 'atribut dimensi');
+});
+test('339 hierarki tipografi nama > rarity > desc > stats', () => {
+  ok(/\.shop-name\s*{[^}]*font-weight:\s*700/.test(css), 'nama tegas');
+  ok(/\.shop-tier\s*{[^}]*letter-spacing:\s*1px/.test(css), 'tier spacing');
+  ok(/\.shop-desc\s*{[^}]*line-height:\s*1\.5/.test(css), 'desc lega');
+  ok(/\.shop-price\s*{[^}]*font-family:\s*monospace/.test(css), 'harga mono');
+});
+test('340 BACK bermargin aman + safe-area', () => {
+  ok(/#shop-back\s*{[^}]*margin-top:\s*2px/.test(css), 'jarak dari panel');
+  ok(/#shop-back\s*{[^}]*safe-area-inset-bottom/.test(css), 'jarak browser bawah');
+});
+test('341 z-index audit: tanpa absolute liar', () => {
+  const absCount = (css.match(/position:\s*absolute/g) || []).length;
+  eq(absCount, 2, 'hanya overlay base + stack img, got ' + absCount);
+  ok((css.match(/z-index/g) || []).length <= 3, 'tanpa z-index war');
+});
+test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
+  srcHas('shop-name'); srcHas('shop-desc'); srcHas('shop-price');
+  srcHas("it.price + ' Coin'");
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  const ren = G.getShopRender();
+  ok(ren.cards.length === 5 && ren.cards.every((c) => c.action), '5 card beraksi');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
 // ---------- Ringkasan ----------
