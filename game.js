@@ -4371,6 +4371,11 @@
         level2Unlocked: false, level3Unlocked: false, level4Unlocked: false, level5Unlocked: false,
         bestTime: null, bestL1: null, bestL2: null, bestL3: null, bestL4: null, bestL5: null,
         bestCoins: 0
+      },
+      skills: {
+        unlocked: { dashSlash: false, shieldBash: false, multiShot: false, sharpEdge: false, comboMaster: false, fortifiedGuard: false, sturdy: false, quickDraw: false, piercingArrow: false },
+        active: null,
+        passives: []
       }
     };
   }
