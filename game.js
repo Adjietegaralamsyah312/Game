@@ -4369,6 +4369,25 @@
     d.bestL3 = (o.bestL3 == null) ? null : saveNum(o.bestL3, null, 0, 1e9);
     d.bestL4 = (o.bestL4 == null) ? null : saveNum(o.bestL4, null, 0, 1e9);
     d.bestL5 = (o.bestL5 == null) ? null : saveNum(o.bestL5, null, 0, 1e9);
+    // Preserve achievement/difficulty/hard progress for v5 (and v4 if present)
+    d.difficulty = (o.difficulty === 'hard') ? 'hard' : 'normal';
+    d.achievements = (o.achievements && typeof o.achievements === 'object') ? o.achievements : {
+      first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
+      collector: false, no_death_clear: false, speed_runner: false,
+      master_of_sword: false, master_of_guardian: false, master_of_archer: false,
+      hard_clear: false, campaign_complete: false
+    };
+    // Fill missing achievement keys (data-driven extension safe)
+    var defAch = { first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
+      collector: false, no_death_clear: false, speed_runner: false,
+      master_of_sword: false, master_of_guardian: false, master_of_archer: false,
+      hard_clear: false, campaign_complete: false };
+    for (var _ak in defAch) { if (d.achievements[_ak] === undefined) d.achievements[_ak] = defAch[_ak]; }
+    d.hardProgress = (o.hardProgress && typeof o.hardProgress === 'object') ? o.hardProgress : {
+      level1Completed: false, level2Completed: false, level3Completed: false, level4Completed: false, level5Completed: false,
+      gameCompleted: false, level2Unlocked: false, level3Unlocked: false, level4Unlocked: false, level5Unlocked: false,
+      bestTime: null, bestL1: null, bestL2: null, bestL3: null, bestL4: null, bestL5: null, bestCoins: 0
+    };
     // bestCoins: v3 langsung; v1/v2 fallback ke bestShards legacy.
     var legacyBest = Math.floor(saveNum(o.bestShards, 0, 0, 1e9));
     d.bestCoins = Math.floor(saveNum((o.bestCoins == null ? legacyBest : o.bestCoins), 0, 0, 1e9));
