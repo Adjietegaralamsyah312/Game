@@ -6607,6 +6607,7 @@
       else updateBoss(boss, dt);
     }
     if (miniboss && !miniboss.dead) updateMiniboss(miniboss, dt);
+    refreshBlockBtn(); // SHIELD button hanya Guardian saat playing
     updateGates(dt);
     updateShocks(dt);
     updateShots(dt);
