@@ -5475,6 +5475,7 @@
     }
     AudioManager.play('win');
     AudioManager.updateMusicState(); // BGM gameplay berhenti
+    checkAchievements(true, currentLevel, deaths > 0, levelStats.time, false, false);
   }
 
   function showGameComplete() {
@@ -5512,6 +5513,7 @@
     }
     AudioManager.play('win');
     AudioManager.updateMusicState(); // BGM gameplay berhenti
+    checkAchievements(true, 5, deaths > 0, timeElapsed, true, true);
   }
 
   // Lanjut ke level berikutnya dengan gate unlock (L1->L2->L3->L4->L5).
@@ -5540,6 +5542,7 @@
   function onBossDefeated() {
     runStats.kills++;
     levelStats.kills++;
+    if (!save.achievements.first_blood) unlockAchievement('first_blood');
     // Final L5: slime tumbang -> interlude -> lich (bukan victory dulu).
     // Intro lich hanya sekali via dormant (tanpa toast/suara ganda di sini).
     if (currentLevel === 5 && finalPhase === 'slime') {
