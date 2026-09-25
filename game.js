@@ -5072,6 +5072,7 @@
   function openAchievements() {
     try {
       hideAllOverlays();
+      if (menuEl) menuEl.classList.remove('hidden');
       showMenuPanel('main');
       var achEl = document.getElementById('achievements');
       if (achEl) achEl.classList.remove('hidden');
