@@ -4613,26 +4613,31 @@
   function refreshAchievementsUI() {
     var list = document.getElementById('achieve-list');
     var counter = document.getElementById('achieve-counter');
-    if (!list) return;
+    if (!list) { console.log('missing achieve-list'); return; }
     list.innerHTML = '';
-    var total = 0;
-    var unlocked = 0;
+    var total = 0, unlocked = 0;
+    if (typeof ACHIEVEMENT_DEFS === 'undefined') { console.log('ACHIEVEMENT_DEFS missing'); }
     for (var k in ACHIEVEMENT_DEFS) total++;
-    for (var k2 in save.achievements) if (save.achievements[k2] === true) unlocked++;
+    try {
+      for (var k2 in (save && save.achievements ? save.achievements : {})) if (save.achievements[k2] === true) unlocked++;
+    } catch (e) {}
     if (counter) counter.textContent = 'Unlocked: ' + unlocked + ' / ' + total;
     for (var key in ACHIEVEMENT_DEFS) {
-      var def = ACHIEVEMENT_DEFS[key];
-      var unlockedFlag = !!(save.achievements && save.achievements[key]);
-      var item = document.createElement('div');
-      item.className = 'achieve-item ' + (unlockedFlag ? 'unlocked' : 'locked');
-      var prog = '';
-      if (def.progress) {
-        var val = def.progress();
-        if (val != null && def.target && val < def.target) prog = ' (' + val + ' / ' + def.target + ')';
-        else if (val != null && val >= def.target && !unlockedFlag) { /* will unlock when checked */ }
-      }
-      item.innerHTML = '<h4>' + (unlockedFlag ? '✓ ' : '☐ ') + def.name + '</h4><p>' + def.desc + (prog ? '<br><small>Progress: ' + prog + '</small>' : '') + '</p>';
-      list.appendChild(item);
+      try {
+        var def = ACHIEVEMENT_DEFS[key];
+        var unlockedFlag = !!(save && save.achievements && save.achievements[key]);
+        var item = document.createElement('div');
+        item.className = 'achieve-item ' + (unlockedFlag ? 'unlocked' : 'locked');
+        var prog = '';
+        if (def.progress) {
+          try { var val = def.progress(); if (val != null && def.target && val < def.target) prog = ' (' + val + ' / ' + def.target + ')'; } catch (e2) {}
+        }
+        item.innerHTML = '<h4>' + (unlockedFlag ? '✓ ' : '☐ ') + (def.name || key) + '</h4><p>' + (def.desc || '') + (prog ? '<br><small>Progress: ' + prog + '</small>' : '') + '</p>';
+        list.appendChild(item);
+      } catch (e3) { /* abaikan item error */ }
+    }
+    if (list.children.length === 0) {
+      list.innerHTML = '<div style="color:#aaa;font-size:13px">Achievement list empty — save may need refresh or reload.</div>';
     }
   }
 
