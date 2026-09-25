@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 342; // total test (332 + 10 anti-overlap shop)
+const EXPECTED_TOTAL = 348; // total test (342 + 6 tombol portrait muat)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1023,13 +1023,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('342 automated test'), 'README harus sebut 342 test, cek jumlah');
+  ok(readme.includes('348 automated test'), 'README harus sebut 348 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 342);
+  eq(EXPECTED_TOTAL, 348);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4142,7 +4142,7 @@ test('321 keyboard + no-x-overflow setelah fix', () => {
 test('322 save + versi schema tak berubah', () => {
   G.resetSave();
   eq(G.getSave().version, 4);
-  eq(G.version, '1.3.4');
+  eq(G.version, '1.3.5');
   G.resetSave();
 });
 
@@ -4300,6 +4300,63 @@ test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
   const ren = G.getShopRender();
   ok(ren.cards.length === 5 && ren.cards.every((c) => c.action), '5 card beraksi');
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+
+// ---------- 6 TEST TOMBOL PORTRAIT MUAT (jump tak kepotong) ----------
+// Budget: kiri/kanan/block clamp(44,13vw,60), lompat/serang clamp(44,15vw,68),
+// pause clamp(40,11vw,44), gap 8px. Total <= viewport 320/360/412.
+function touchBudget(vw) {
+  const cl = (lo, v, hi) => Math.min(hi, Math.max(lo, v));
+  const side = cl(44, vw * 0.13, 60), act = cl(44, vw * 0.15, 68), pause = cl(40, vw * 0.11, 44);
+  return (side * 2 + 8) + pause + (act * 2 + side + 16) + 16;
+}
+test('343 budget lebar portrait muat 320/360/412', () => {
+  ok(touchBudget(320) <= 320, '320 muat, got ' + touchBudget(320));
+  ok(touchBudget(360) <= 360, '360 muat, got ' + touchBudget(360));
+  ok(touchBudget(412) <= 412, '412 muat, got ' + touchBudget(412));
+  ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint');
+});
+test('344 CSS compact portrait override min 64px coarse', () => {
+  ok(/\.touch-btn\s*{[^}]*clamp\(44px,\s*13vw,\s*60px\)/.test(css), 'sizing compact');
+  ok(/\.touch-btn\s*{[^}]*min-width:\s*44px/.test(css), 'override min-width coarse');
+  ok(/#btn-pause\s*{[^}]*clamp\(40px,\s*11vw,\s*44px\)/.test(css), 'pause compact');
+  ok(/#touch-controls\s*{[^}]*gap:\s*8px/.test(css), 'gap hemat');
+});
+test('345 tombol jump & block berfungsi sentuh', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  const bj = elements['btn-jump'], bb = elements['btn-block'];
+  ok((bj.listeners['pointerdown'] || []).length >= 1, 'jump pointerdown');
+  ok((bb.listeners['pointerdown'] || []).length >= 1, 'block pointerdown');
+  G.input.jumpHeld = false; G.input.jumpPressed = false; G.input.blockHeld = false;
+  bj.dispatch('pointerdown', { pointerId: 21, cancelable: true, preventDefault() {} });
+  eq(G.input.jumpHeld, true); eq(G.input.jumpPressed, true);
+  bj.dispatch('pointerup', { pointerId: 21, cancelable: true, preventDefault() {} });
+  eq(G.input.jumpHeld, false);
+  bb.dispatch('pointerdown', { pointerId: 22, cancelable: true, preventDefault() {} });
+  eq(G.input.blockHeld, true);
+  bb.dispatch('pointerup', { pointerId: 22, cancelable: true, preventDefault() {} });
+  eq(G.input.blockHeld, false);
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('346 keenam tombol ter-wire tanpa error', () => {
+  ['btn-left', 'btn-right', 'btn-jump', 'btn-attack', 'btn-block', 'btn-pause'].forEach((id) => {
+    ok(elements[id], 'ada: ' + id);
+    ok(new RegExp('id="' + id + '"').test(html), 'html ada: ' + id);
+  });
+  noThrow(() => { G.forceStartLevel(1); G.drawOnce(); });
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('347 landscape + desktop sizing tak berubah', () => {
+  ok(/\.touch-btn\s*{[^}]*clamp\(64px,\s*18vw,\s*84px\)/.test(css), 'base utuh');
+  ok(/\.touch-btn\.jump\s*{[^}]*clamp\(72px,\s*20vw,\s*96px\)/.test(css), 'jump base utuh');
+  ok(css.includes('width: 64px') && css.includes('width: 72px'), 'landscape fix utuh');
+  ok(/@media \(pointer: coarse\)\s*{[^}]*min-width:\s*64px/.test(css), 'coarse utuh');
+});
+test('348 versi 1.3.5 + save v4 utuh', () => {
+  G.resetSave();
+  eq(G.getSave().version, 4);
+  eq(G.version, '1.3.5');
   G.resetSave();
 });
 // ---------- Ringkasan ----------

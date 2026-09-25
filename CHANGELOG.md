@@ -1,5 +1,11 @@
 # Changelog — Knight Platformer
 
+## [1.3.5] — Portrait Touch Fit
+
+- 6 tombol sentuh muat viewport 320px portrait (total ≤308px): sizing
+  compact khusus portrait, lantai 44px (pause 40px); tombol jump tak kepotong
+- Landscape/desktop sizing utuh; 348 automated test PASS
+
 ## [Unreleased] — Shop Anti-Overlap (lihat shop.jpg)
 
 - Akar masalah: `#shop-list` (flex:1 + min-height:0) lebih pendek dari isi

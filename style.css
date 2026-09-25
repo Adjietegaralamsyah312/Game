@@ -509,6 +509,35 @@ canvas#game {
   .mission {
     font-size: 12px;
   }
+  /* 6 tombol (gerak ×2, pause, serang, block, lompat) harus muat 320px:
+     budget ≈ 308px. Kecilkan dari 64/72px, lantai tetap ≥44px (pause 40px).
+     Meng-override min-width 64px aturan coarse di atas (urutan menang). */
+  #touch-controls {
+    gap: 8px;
+  }
+  .touch-group {
+    gap: 8px;
+  }
+  .touch-btn {
+    width: clamp(44px, 13vw, 60px);
+    height: clamp(44px, 13vw, 60px);
+    min-width: 44px;
+    min-height: 44px;
+    font-size: clamp(20px, 5vw, 28px);
+  }
+  .touch-btn.jump,
+  .touch-btn.attack,
+  .touch-btn.block {
+    width: clamp(44px, 15vw, 68px);
+    height: clamp(44px, 15vw, 68px);
+    min-width: 44px;
+    min-height: 44px;
+  }
+  #btn-pause {
+    width: clamp(40px, 11vw, 44px);
+    height: clamp(40px, 11vw, 44px);
+    font-size: clamp(15px, 4vw, 18px);
+  }
 }
 
 /* --- HP landscape pendek: mode ringkas (canvas + kontrol muat tanpa scroll) ---

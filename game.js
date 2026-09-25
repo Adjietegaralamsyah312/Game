@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.3.4 — Shop Layout Revert (vanilla JS + Canvas)
+ * Knight Platformer v1.3.5 — Portrait Touch Fit (vanilla JS + Canvas)
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.3.4';
+  var GAME_VERSION = '1.3.5';
   const DEBUG = false;
 
   var VIEW_W = 960;
