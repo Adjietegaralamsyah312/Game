@@ -5240,6 +5240,14 @@
     try { return !!(campaignEl && !campaignEl.classList.contains('hidden')); }
     catch (e) { return false; }
   }
+  function isAchievementsOpen() {
+    try { return !!(achievementsEl && !achievementsEl.classList.contains('hidden')); }
+    catch (e) { return false; }
+  }
+  function isSkillsOpen() {
+    try { var sEl = document.getElementById('skills'); return !!(sEl && !sEl.classList.contains('hidden')); }
+    catch (e) { return false; }
+  }
 
   function playCampaignLevel(n) {
     n = Math.floor(Number(n));
@@ -7517,7 +7525,7 @@
   // Navigasi keyboard: menu (panel utama/kontrol/about/campaign), settings,
   // dialog reset, dan explicit pause. Atas/Bawah pindah tombol, Escape kembali.
   // Tidak menyentuh input gameplay. P/Esc saat playing = pause/resume.
-  var menuNavIds = ['btn-play', 'btn-campaign', 'btn-shop', 'btn-controls', 'btn-settings', 'btn-about'];
+  var menuNavIds = ['btn-play', 'btn-campaign', 'btn-achievements', 'btn-skills', 'btn-shop', 'btn-controls', 'btn-settings', 'btn-about'];
   var campNavIds = ['btn-camp-1', 'btn-camp-2', 'btn-camp-3', 'btn-camp-4',
     'btn-camp-5', 'btn-camp-back'];
   // Navigasi settings: Atas/Bawah antar kontrol, Escape kembali ke menu.
@@ -7618,6 +7626,32 @@
       return;
     }
     if (gameState !== 'menu') return;
+    // Achievements overlay di atas menu: Esc kembali (sesuai hint panel).
+    if (isAchievementsOpen()) {
+      if (e.code === 'Escape') {
+        achievementsBack();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown' && e.code !== 'Enter') return;
+      if (e.code === 'Enter') return; // aktivasi native via fokus tombol
+      if (e.preventDefault) e.preventDefault();
+      focusNavId(['btn-achieve-back'], e.code === 'ArrowDown');
+      return;
+    }
+    // Skills overlay di atas menu: Esc kembali (sesuai hint panel).
+    if (isSkillsOpen()) {
+      if (e.code === 'Escape') {
+        skillsBack();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown' && e.code !== 'Enter') return;
+      if (e.code === 'Enter') return; // aktivasi native via fokus tombol
+      if (e.preventDefault) e.preventDefault();
+      focusNavId(['btn-skills-back'], e.code === 'ArrowDown');
+      return;
+    }
     // Campaign overlay di atas menu: Esc kembali, panah navigasi level.
     if (isCampaignOpen()) {
       if (e.code === 'Escape') {
@@ -7907,6 +7941,8 @@
     _refreshSkillsUI: refreshSkillsUI,
     _openAchievements: openAchievements,
     _openSkills: openSkills,
+    _isAchievementsOpen: isAchievementsOpen,
+    _isSkillsOpen: isSkillsOpen,
     _unlockSkill: unlockSkill,
     _equipActiveSkill: equipActiveSkill,
     _checkSkillUnlocks: checkSkillUnlocks,
