@@ -4322,11 +4322,13 @@ test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
 
 // ---------- 6 TEST TOMBOL PORTRAIT MUAT (jump tak kepotong) ----------
 // Budget: kiri/kanan/block clamp(44,13vw,60), lompat/serang clamp(44,15vw,68),
-// pause clamp(40,11vw,44), gap 8px. Total <= viewport 320/360/412.
+// pause clamp(40,11vw,44), skill ikut .touch-btn. Grup tengah (pause+skill)
+// vertikal -> lebarnya = max(pause, skill). Total <= viewport 320/360/412.
 function touchBudget(vw) {
   const cl = (lo, v, hi) => Math.min(hi, Math.max(lo, v));
   const side = cl(44, vw * 0.13, 60), act = cl(44, vw * 0.15, 68), pause = cl(40, vw * 0.11, 44);
-  return (side * 2 + 8) + pause + (act * 2 + side + 16) + 16;
+  const center = Math.max(pause, side);
+  return (side * 2 + 8) + center + (act * 2 + side + 16) + 16;
 }
 test('343 budget lebar portrait muat 320/360/412', () => {
   ok(touchBudget(320) <= 320, '320 muat, got ' + touchBudget(320));

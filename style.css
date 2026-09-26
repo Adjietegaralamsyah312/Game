@@ -530,14 +530,20 @@ canvas#game {
   .mission {
     font-size: 12px;
   }
-  /* 6 tombol (gerak ×2, pause, serang, block, lompat) harus muat 320px:
-     budget ≈ 308px. Kecilkan dari 64/72px, lantai tetap ≥44px (pause 40px).
-     Meng-override min-width 64px aturan coarse di atas (urutan menang). */
+  /* 7 tombol (gerak ×2, pause, skill, serang, block, lompat) harus muat 320px:
+     budget ≈ 312px. Kecilkan dari 64/72px, lantai tetap ≥44px (pause 40px).
+     Meng-override min-width 64px aturan coarse di atas (urutan menang).
+     Grup tengah disusun vertikal (pause atas, skill bawah) agar tombol
+     skill tidak mendesak jump sampai ketutup/overlap. */
   #touch-controls {
     gap: 8px;
   }
   .touch-group {
     gap: 8px;
+  }
+  .touch-group-center {
+    flex-direction: column;
+    gap: 6px;
   }
   .touch-btn {
     width: clamp(44px, 13vw, 60px);
@@ -600,6 +606,12 @@ canvas#game {
   }
   .touch-group {
     gap: 10px;
+  }
+  /* Grup tengah (pause + skill) disusun vertikal agar 7 tombol muat
+     tanpa mendesak jump di grup kanan sampai ketutup. */
+  .touch-group-center {
+    flex-direction: column;
+    gap: 6px;
   }
 }
 
