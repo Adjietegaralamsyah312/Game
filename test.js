@@ -80,7 +80,7 @@ const mockCtx = new Proxy({}, {
 });
 const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
-  'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd', 'btn-dash', 'btn-map',
+  'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd', 'btn-dash',
   'joystick-zone', 'joystick-base', 'joystick-knob',
   'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
   // Stage 5: menu + clear screens
@@ -5072,11 +5072,10 @@ test('396 badge cooldown LIVE', () => {
   eq(elements['btn-skill-cd'].textContent, '', 'badge hilang saat ready');
   resetSkills();
 });
-test('397 tombol MAP info level real', () => {
-  resetSkills(); G.forceStartLevel(3);
-  noThrow(() => elements['btn-map'].dispatch('click', {}), 'klik map aman');
-  ok(G._toastText().indexOf('L3') !== -1, 'toast level real: ' + G._toastText());
-  resetSkills();
+test('397 tombol MAP dihapus (tanpa UI mati)', () => {
+  ok(!/id="btn-map"/.test(html), 'html bersih');
+  ok(!/getElementById\('btn-map'\)/.test(src), 'js tak wire');
+  ok(!/\.mini-btn/.test(css), 'css bersih');
 });
 test('398 HUD LV + difficulty', () => {
   resetSkills(); G.forceStartLevel(1);

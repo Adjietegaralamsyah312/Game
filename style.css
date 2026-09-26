@@ -583,9 +583,14 @@ canvas#game {
   .footer {
     display: none;
   }
-  #canvas-container,
+  #canvas-container {
+    width: min(100%, calc((100dvh - 140px) * 16 / 9));
+  }
+  /* Bar kontrol selebar layar (bukan dikunci selebar canvas) agar 7 tombol
+     muat tanpa kepotong di tepi; canvas tetap 16:9 dari sisa tinggi. */
   #touch-controls {
-    width: min(100%, calc((100dvh - 170px) * 16 / 9));
+    width: 100%;
+    max-width: 960px;
   }
   #touch-controls {
     margin-top: 0;
@@ -607,11 +612,12 @@ canvas#game {
   .touch-group {
     gap: 10px;
   }
-  /* Grup tengah (pause + skill) disusun vertikal agar 7 tombol muat
-     tanpa mendesak jump di grup kanan sampai ketutup. */
+  /* Grup tengah (pause + skill + map) sebaris horizontal: bar cukup
+     lebar penuh sehingga tak perlu menumpuk vertikal dan jump tak ketutup. */
   .touch-group-center {
-    flex-direction: column;
-    gap: 6px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
 }
 
@@ -1101,27 +1107,6 @@ canvas#game {
     width: 72px;
     height: 72px;
   }
-}
-/* Tombol mini (MAP): info, bukan aksi gameplay. */
-.mini-btn {
-  min-width: 44px;
-  min-height: 36px;
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: bold;
-  letter-spacing: 1px;
-  border-radius: 10px;
-  border: 2px solid #4a558f;
-  background: rgba(58, 66, 120, 0.55);
-  color: #c6ccea;
-  cursor: pointer;
-  touch-action: manipulation;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.mini-btn:active {
-  background: #5a68b0;
-  color: #fff;
 }
 
 /* --- Portrait HP & laptop sempit: kontroler klasik playable ---

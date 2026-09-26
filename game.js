@@ -7745,16 +7745,6 @@
     });
   }
   onClick(btnPlay, function () { playFresh(); });
-  // MAP: info level real (nama + objektif + progres), tanpa sistem peta palsu.
-  var btnMap = document.getElementById('btn-map');
-  if (btnMap) onClick(btnMap, function () {
-    try {
-      var nm = (typeof LEVEL_NAMES !== 'undefined' && LEVEL_NAMES[currentLevel]) || ('Level ' + currentLevel);
-      var txt = 'L' + currentLevel + ' ' + nm + ' • Musuh ' + (typeof runStats !== 'undefined' ? runStats.kills : 0) +
-        ' • Coin ' + coinGot() + '/' + coins.length;
-      showToast(txt);
-    } catch (e) {}
-  });
   onClick(btnCampaign, function () { openCampaign(); });
   var btnAchievements = document.getElementById('btn-achievements');
   if (btnAchievements) onClick(btnAchievements, function () { openAchievements(); });

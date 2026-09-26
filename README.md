@@ -221,7 +221,7 @@ Portrait dan landscape sama-sama playable:
 
 - **Portrait (HP & laptop sempit)**: kontroler klasik — **◀ ▶** gerak,
   **⤒** lompat, **❖** serang, **✦** skill, **🛡** block (Guardian),
-  **⏸** pause + MAP kecil; joystick analog sembunyi (ruang sempit),
+  **⏸** pause; joystick analog sembunyi (ruang sempit),
   tombol kompak ≥44px (pause 40px), dialog fullscreen + scroll.
 - **Landscape**: kontroler MMORPG — **joystick analog kiri** (pointerdown →
   gerak, pointermove → arah/kuat dengan dead zone + radius dibatasi,
@@ -230,8 +230,7 @@ Portrait dan landscape sama-sama playable:
   kedua, tanpa mengunci tombol lain); **kanan**: ❖ ATTACK (combat
   existing), ✦ SKILL (nama skill mode aktif + badge cooldown LIVE + redup
   saat locked), ➤ DASH (SWORD + Dash Slash unlock; satu jalur
-  `activateActiveSkill()` dengan Q), ⤒ JUMP, 🛡 block (Guardian saja);
-  MAP kecil = info level real via toast.
+  `activateActiveSkill()` dengan Q), ⤒ JUMP, 🛡 block (Guardian saja).
 - HUD canvas: LV + NORMAL/HARD, HP, bar energi + status cooldown skill.
 - Safe area `env()` + `touch-action: none`; input di-reset saat blur/
   tab-hidden/rotasi; desktop/laptop (pointer halus) tak tampil joystick,
