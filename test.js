@@ -80,7 +80,9 @@ const mockCtx = new Proxy({}, {
 });
 const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
-  'btn-jump', 'btn-attack', 'btn-skill', 'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
+  'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd', 'btn-dash', 'btn-map', 'btn-fullscreen',
+  'joystick-zone', 'joystick-base', 'joystick-knob', 'rotate-overlay',
+  'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
   // Stage 5: menu + clear screens
   'mainmenu', 'menu-main', 'menu-controls', 'menu-about',
   'btn-play', 'btn-controls', 'btn-about', 'btn-back-controls', 'btn-back-about',
@@ -226,7 +228,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 386; // total test (374 + 12 hard/runtime plan.md)
+const EXPECTED_TOTAL = 401; // total test (386 + 15 controller MMORPG)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1025,13 +1027,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('386 automated test'), 'README harus sebut 386 test, cek jumlah');
+  ok(readme.includes('401 automated test'), 'README harus sebut 401 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 386);
+  eq(EXPECTED_TOTAL, 401);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4307,7 +4309,11 @@ test('340 BACK bermargin aman + safe-area', () => {
 test('341 z-index audit: tanpa absolute liar', () => {
   const absCount = (css.match(/position:\s*absolute/g) || []).length;
   eq(absCount, 2, 'hanya overlay base + stack img, got ' + absCount);
-  ok((css.match(/z-index/g) || []).length <= 3, 'tanpa z-index war');
+  // Hierarki stacking terkunci allowlist (bukan perang angka): base 5,
+  // dialog fullscreen 50, toast 9999, rotate overlay 10000 (paling atas).
+  const zvals = (css.match(/z-index:\s*(\d+)/g) || []).map((s) => s.replace(/[^0-9]/g, ''));
+  ok(zvals.length >= 3 && zvals.length <= 4, 'lapisan wajar, got ' + zvals.length);
+  zvals.forEach((z) => ok(['5', '50', '9999', '10000'].includes(z), 'z-index di luar allowlist: ' + z));
 });
 test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
   srcHas('shop-name'); srcHas('shop-desc'); srcHas('shop-price');
@@ -4503,6 +4509,7 @@ function seedProgress(levels) {
 function resetSkills() {
   G.resetSave(); G.forceStartLevel(1);
   try { G._setSkillEnergy(100); G._updateSkillCooldowns(9999); } catch (e) {}
+  try { if (G._joystickReset) G._joystickReset(); } catch (e) {}
 }
 test('359 registry skill valid + data-driven', () => {
   const defs = G._skillsDefs();
@@ -4931,6 +4938,177 @@ test('386 flow hard end-to-end: unlock, clear, best terisolasi', () => {
   eq(raw.level1Completed || false, false, 'normal bersih');
   eq(raw.bestL1 == null, true, 'best normal bersih');
   resetSkills();
+});
+// ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
+// ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
+test('387 rotate overlay HTML+CSS', () => {
+  ok(/id="rotate-overlay"/.test(html), 'html ada overlay');
+  ok(/ROTATE YOUR DEVICE/.test(html), 'judul overlay');
+  ok(/Please rotate your device to landscape/.test(html), 'pesan overlay');
+  ok(/id="btn-fullscreen"/.test(html), 'tombol fullscreen ada');
+  ok(/orientation:\s*portrait\)\s*and\s*\(pointer:\s*coarse\)/.test(css), 'hanya portrait+coarse');
+  ok(/#rotate-overlay\s*{[^}]*z-index:\s*10000/.test(css), 'di atas semua');
+  ok(/env\(safe-area-inset-/.test(css), 'safe area');
+  ok(!/orientation:\s*landscape[^}]*#rotate-overlay[^}]*display:\s*flex/.test(css), 'landscape tak tampil');
+});
+test('388 joystick DOM+CSS', () => {
+  ['joystick-zone', 'joystick-base', 'joystick-knob'].forEach((id) => {
+    ok(new RegExp('id="' + id + '"').test(html), 'html ada: ' + id);
+    ok(elements[id], 'mock ada: ' + id);
+  });
+  ok(/#joystick-zone\s*{[^}]*touch-action:\s*none/.test(css), 'tanpa scroll');
+  ok(/#joystick-zone\s*{[^}]*clamp\(96px,\s*30vmin,\s*132px\)/.test(css), 'responsif vh/vw');
+  ok(/pointer:\s*fine\)\s*{[^}]*#joystick-zone[^}]*display:\s*none/.test(css), 'desktop sembunyi');
+});
+test('389 joystick kanan gerakkan player', () => {
+  resetSkills(); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  const z = elements['joystick-zone'];
+  z.dispatch('pointerdown', { pointerId: 41, clientX: 100, clientY: 100, cancelable: true, preventDefault() {} });
+  fireWin('pointermove', { pointerId: 41, clientX: 140, clientY: 100 });
+  ok(G.input.joyX > 0.3, 'joyX kanan, got ' + G.input.joyX);
+  const x0 = pl.x;
+  for (let i = 0; i < 10; i++) G.step(1 / 60);
+  ok(pl.x > x0, 'player geser kanan');
+  fireWin('pointerup', { pointerId: 41 });
+  eq(G.input.joyX, 0, 'lepas kembali netral');
+  resetSkills();
+});
+test('390 joystick kiri tanpa sentuh flag tombol', () => {
+  resetSkills(); G.forceStartLevel(1);
+  const z = elements['joystick-zone'];
+  z.dispatch('pointerdown', { pointerId: 42, clientX: 100, clientY: 100, cancelable: true, preventDefault() {} });
+  fireWin('pointermove', { pointerId: 42, clientX: 5, clientY: 100 });
+  ok(G.input.joyX < -0.3, 'joyX kiri');
+  eq(G.input.left, false, 'flag kiri tak tersentuh');
+  eq(G.input.right, false, 'flag kanan tak tersentuh');
+  fireWin('pointerup', { pointerId: 42 });
+  eq(G.input.joyX, 0);
+  resetSkills();
+});
+test('391 pointercancel reset + pointer ganda diabaikan', () => {
+  resetSkills(); G.forceStartLevel(1);
+  const z = elements['joystick-zone'];
+  z.dispatch('pointerdown', { pointerId: 43, clientX: 100, clientY: 100, cancelable: true, preventDefault() {} });
+  fireWin('pointermove', { pointerId: 43, clientX: 140, clientY: 100 });
+  const v1 = G.input.joyX;
+  ok(v1 > 0, 'aktif');
+  z.dispatch('pointerdown', { pointerId: 44, clientX: 100, clientY: 100, cancelable: true, preventDefault() {} });
+  fireWin('pointermove', { pointerId: 44, clientX: 20, clientY: 100 });
+  eq(G.input.joyX, v1, 'pointer kedua diabaikan');
+  fireWin('pointercancel', { pointerId: 43 });
+  eq(G.input.joyX, 0, 'cancel reset');
+  resetSkills();
+});
+test('392 orientationchange reset joystick tanpa crash', () => {
+  resetSkills(); G.forceStartLevel(1);
+  const z = elements['joystick-zone'];
+  z.dispatch('pointerdown', { pointerId: 45, clientX: 100, clientY: 100, cancelable: true, preventDefault() {} });
+  fireWin('pointermove', { pointerId: 45, clientX: 140, clientY: 100 });
+  ok(G.input.joyX > 0, 'aktif');
+  noThrow(() => fireWin('orientationchange', {}), 'orientationchange aman');
+  eq(G.input.joyX, 0, 'reset saat rotasi');
+  resetSkills();
+});
+test('393 joystick + attack bersamaan tak mengunci', () => {
+  resetSkills(); G.forceStartLevel(1);
+  const z = elements['joystick-zone'];
+  z.dispatch('pointerdown', { pointerId: 46, clientX: 100, clientY: 100, cancelable: true, preventDefault() {} });
+  fireWin('pointermove', { pointerId: 46, clientX: 140, clientY: 100 });
+  G.input.attackPressed = true;
+  for (let i = 0; i < 5; i++) G.step(1 / 60);
+  eq(G.input.attackPressed, false, 'attack terkonsumsi');
+  ok(G.input.joyX > 0, 'joystick tetap jalan');
+  fireWin('pointerup', { pointerId: 46 });
+  resetSkills();
+});
+test('394 tombol dash: sword+unlock tampil, jalur sama', () => {
+  resetSkills(); G.forceStartLevel(1);
+  G.toMenu();
+  eq(elements['btn-dash'].style.display, 'none', 'fresh sembunyi');
+  ok(G._unlockSkill('dashSlash'));
+  G.toMenu();
+  eq(elements['btn-dash'].style.display, '', 'sword+unlock tampil');
+  G.setMode('GUARDIAN');
+  G.toMenu();
+  eq(elements['btn-dash'].style.display, 'none', 'guardian sembunyi');
+  G.setMode('SWORD'); G.forceStartLevel(1);
+  G.input.skillPressed = false;
+  elements['btn-dash'].dispatch('pointerdown', { pointerId: 47, cancelable: true, preventDefault() {} });
+  eq(G.input.skillPressed, true, 'dash = jalur skill sama');
+  elements['btn-dash'].dispatch('pointerup', { pointerId: 47, cancelable: true, preventDefault() {} });
+  G.input.skillPressed = false;
+  resetSkills(); G.setMode('SWORD');
+});
+test('395 label skill ikut mode', () => {
+  resetSkills(); G.toMenu();
+  eq(elements['btn-skill-name'].textContent, 'LOCK', 'fresh LOCK');
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  G.toMenu();
+  eq(elements['btn-skill-name'].textContent, 'DASH', 'sword DASH');
+  G.setMode('ARCHER');
+  ok(G._unlockSkill('multiShot'));
+  ok(G._equipActiveSkill('multiShot'));
+  G.toMenu();
+  eq(elements['btn-skill-name'].textContent, 'MULTI', 'archer MULTI');
+  resetSkills(); G.setMode('SWORD');
+});
+test('396 badge cooldown LIVE', () => {
+  resetSkills();
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  G.forceStartLevel(1);
+  ok(G._activateActiveSkill());
+  G.step(1 / 60);
+  ok(elements['btn-skill-cd'].textContent !== '', 'badge tampil saat cd: ' + elements['btn-skill-cd'].textContent);
+  G._updateSkillCooldowns(99);
+  eq(elements['btn-skill-cd'].textContent, '', 'badge hilang saat ready');
+  resetSkills();
+});
+test('397 tombol MAP info level real', () => {
+  resetSkills(); G.forceStartLevel(3);
+  noThrow(() => elements['btn-map'].dispatch('click', {}), 'klik map aman');
+  ok(G._toastText().indexOf('L3') !== -1, 'toast level real: ' + G._toastText());
+  resetSkills();
+});
+test('398 HUD LV + difficulty', () => {
+  resetSkills(); G.forceStartLevel(1);
+  noThrow(() => G.drawOnce(), 'draw normal');
+  srcHas("'LV' + currentLevel");
+  seedDifficulty([], 'hard'); G.forceStartLevel(1);
+  noThrow(() => G.drawOnce(), 'draw hard');
+  resetSkills();
+});
+test('399 fullscreen aman tanpa API', () => {
+  resetSkills();
+  ok(elements['btn-fullscreen'], 'tombol ada');
+  noThrow(() => elements['btn-fullscreen'].dispatch('click', {}), 'klik tanpa Fullscreen API aman');
+  resetSkills();
+});
+test('400 rotate tak ganggu sesi playing headless', () => {
+  resetSkills(); G.forceStartLevel(1);
+  noThrow(() => { fireWin('orientationchange', {}); fireWin('resize', {}); }, 'rotasi/resize aman');
+  ok(G.isSimActive(), 'sim tetap jalan');
+  resetSkills();
+});
+test('401 skill per mode: DASH/BASH/MULTI', () => {
+  resetSkills();
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  G.toMenu();
+  eq(elements['btn-skill-name'].textContent, 'DASH');
+  G.setMode('GUARDIAN');
+  ok(G._unlockSkill('shieldBash'));
+  ok(G._equipActiveSkill('shieldBash'));
+  G.toMenu();
+  eq(elements['btn-skill-name'].textContent, 'BASH');
+  G.setMode('ARCHER');
+  ok(G._unlockSkill('multiShot'));
+  ok(G._equipActiveSkill('multiShot'));
+  G.toMenu();
+  eq(elements['btn-skill-name'].textContent, 'MULTI');
+  resetSkills(); G.setMode('SWORD');
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

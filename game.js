@@ -917,7 +917,8 @@
     attackPressed: false,  // edge-trigger, dikonsumsi oleh Player
     blockHeld: false,      // tahan untuk block (Guardian); dibersihkan saat pause/menu
     restartPressed: false,  // edge-trigger, dikonsumsi oleh Game
-    skillPressed: false    // skill active
+    skillPressed: false,   // skill active
+    joyX: 0                // joystick analog -1..1 (0 = netral); gabung dgn left/right
   };
 
   window.addEventListener('keydown', function (e) {
@@ -1005,13 +1006,110 @@
       el.addEventListener('mousedown', function (e) { down(e, 'mouse'); });
       el.addEventListener('mouseup', function (e) { up(e, 'mouse'); });
     }
-    // Rotasi/orientasi: jangan tinggalkan tombol pressed (anti stuck).
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      try {
-        window.addEventListener('orientationchange', function () { clearHold(); });
-      } catch (err) { /* abaikan */ }
-    }
+  // Rotasi/orientasi: jangan tinggalkan tombol pressed (anti stuck).
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    try {
+      window.addEventListener('orientationchange', function () { clearHold(); });
+    } catch (err) { /* abaikan */ }
+  }
     el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  }
+
+  /* ---- Virtual Joystick analog (landscape-first MMORPG controller) ----
+   * Satu pointer aktif (pointerId) — pointer kedua diabaikan (anti double).
+   * Mengisi Input.joyX (-1..1) yg menyatu dgn left/right di updatePlayer
+   * (tanpa movement system kedua). Dead zone kecil, radius dibatasi,
+   * knob hanya transform (tanpa layout thrash, tanpa alokasi per-move). */
+  var joyZone = null, joyKnob = null, joyPid = null;
+  var joyCX = 0, joyCY = 0, joyR = 46;
+  var JOY_DEAD = 0.18;
+  var _joyMoveX = 0, _joyMoveY = 0;
+  function joystickReset() {
+    joyPid = null;
+    try { Input.joyX = 0; } catch (e) {}
+    try {
+      if (joyKnob && joyKnob.style) { joyKnob.style.transform = 'translate(0px, 0px)'; }
+    } catch (e) {}
+  }
+  function joystickSetKnob(dx, dy) {
+    try {
+      if (joyKnob && joyKnob.style) {
+        joyKnob.style.transform = 'translate(' + Math.round(dx) + 'px,' + Math.round(dy) + 'px)';
+      }
+    } catch (e) {}
+  }
+  function joystickRect() {
+    try {
+      if (joyZone && joyZone.getBoundingClientRect) {
+        var r = joyZone.getBoundingClientRect();
+        if (r && r.width > 0) return r;
+      }
+    } catch (e) {}
+    return { left: 0, top: 0, width: 110, height: 110 };
+  }
+  function joystickDown(e) {
+    if (joyPid !== null) return; // duplikat: abaikan
+    if (!joyZone) return;
+    var pid = (e && e.pointerId !== undefined && e.pointerId !== null) ? e.pointerId : 'mouse';
+    var r = joystickRect();
+    joyPid = pid;
+    joyCX = r.left + r.width / 2;
+    joyCY = r.top + r.height / 2;
+    joyR = Math.max(30, r.width / 2 - 8);
+    if (e && e.cancelable && e.preventDefault) e.preventDefault();
+    joystickMove(e);
+  }
+  function joystickMove(e) {
+    if (joyPid === null) return;
+    var pid = (e && e.pointerId !== undefined && e.pointerId !== null) ? e.pointerId : 'mouse';
+    if (pid !== joyPid) return;
+    var cx = (e && e.clientX !== undefined) ? e.clientX : joyCX;
+    var cy = (e && e.clientY !== undefined) ? e.clientY : joyCY;
+    var dx = cx - joyCX, dy = cy - joyCY;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len > joyR) { dx = dx / len * joyR; dy = dy / len * joyR; len = joyR; }
+    if (len < joyR * JOY_DEAD) {
+      try { Input.joyX = 0; } catch (err) {}
+      joystickSetKnob(0, 0);
+      return;
+    }
+    try { Input.joyX = Math.max(-1, Math.min(1, dx / joyR)); } catch (err) {}
+    joystickSetKnob(dx, dy);
+  }
+  function joystickUp(e) {
+    if (joyPid === null) return;
+    var pid = (e && e.pointerId !== undefined && e.pointerId !== null) ? e.pointerId : 'mouse';
+    if (pid !== joyPid) return;
+    if (e && e.cancelable && e.preventDefault) e.preventDefault();
+    joystickReset();
+  }
+  function joystickInit() {
+    try {
+      joyZone = document.getElementById('joystick-zone');
+      joyKnob = document.getElementById('joystick-knob');
+      if (!joyZone) { debugLog('[input] joystick-zone tidak ditemukan'); return; }
+      if (typeof window !== 'undefined' && window.PointerEvent) {
+        joyZone.addEventListener('pointerdown', joystickDown);
+        window.addEventListener('pointermove', joystickMove);
+        window.addEventListener('pointerup', joystickUp);
+        window.addEventListener('pointercancel', joystickUp);
+      } else {
+        joyZone.addEventListener('touchstart', function (e) {
+          var t = e && e.changedTouches && e.changedTouches[0];
+          joystickDown({ pointerId: 'touch', clientX: t ? t.clientX : 0, clientY: t ? t.clientY : 0, cancelable: true, preventDefault: function () { try { e.preventDefault(); } catch (x) {} } });
+        }, { passive: false });
+        window.addEventListener('touchmove', function (e) {
+          var t = e && e.changedTouches && e.changedTouches[0];
+          joystickMove({ pointerId: 'touch', clientX: t ? t.clientX : 0, clientY: t ? t.clientY : 0 });
+        }, { passive: false });
+        window.addEventListener('touchend', function () { joystickUp({ pointerId: 'touch' }); });
+        window.addEventListener('touchcancel', function () { joystickUp({ pointerId: 'touch' }); });
+      }
+      joyZone.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        try { window.addEventListener('orientationchange', function () { joystickReset(); }); } catch (err) {}
+      }
+    } catch (e) { /* abaikan */ }
   }
 
   /* ========================= 6. LEVEL DATA =========================
@@ -1561,7 +1659,8 @@
   }
 
   function updatePlayer(dt) {
-    var move = (Input.right ? 1 : 0) - (Input.left ? 1 : 0);
+    // Joystick analog menyatu dgn tombol: -1..1, clamp agar tak over-speed.
+    var move = clamp(((Input.right ? 1 : 0) - (Input.left ? 1 : 0)) + (Input.joyX || 0), -1, 1);
     var dead = (player.state === 'death');
 
     if (player.iframes > 0) player.iframes = Math.max(0, player.iframes - dt);
@@ -4843,6 +4942,8 @@
     skillEnergy = Math.min(100, skillEnergy + 8 * dt);
     // Dash damage boost window (0.6 dtk, single-thread aman via dt)
     try { if (typeof player !== 'undefined' && player && player.skillBoostT > 0) player.skillBoostT = Math.max(0, player.skillBoostT - dt); } catch (e) {}
+    // Badge cooldown LIVE di tombol skill (cached: DOM tulis hanya saat berubah).
+    try { syncSkillBadge(); } catch (e) {}
   }
 
   function unlockSkill(id, silent) {
@@ -4865,6 +4966,7 @@
     } catch (e) {}
     persistSave();
     try { AudioManager.play('click'); } catch (e) {}
+    try { refreshSkillBtn(); } catch (e) {}
     if (!silent) { try { showToast('Skill unlocked: ' + (SKILLS[id] ? SKILLS[id].name : id)); } catch (e) {} }
     if (save.achievements && !save.achievements.skill_apprentice) unlockAchievement('skill_apprentice');
     checkSkillAchievements();
@@ -5024,6 +5126,7 @@
     persistSave();
     refreshShopUI();
     refreshBlockBtn();
+    try { refreshSkillBtn(); } catch (e) {}
     return true;
   }
   function getEquipment() {
@@ -5056,6 +5159,7 @@
     Input.jumpHeld = false; Input.jumpPressed = false;
     Input.attackPressed = false; Input.restartPressed = false;
     Input.skillPressed = false;
+    Input.joyX = 0;
     Input.blockHeld = false;
   }
 
@@ -5167,6 +5271,7 @@
     if (menuEl) menuEl.classList.remove('hidden');
     clearInput();
     refreshBlockBtn();
+    try { refreshSkillBtn(); } catch (e) {}
     setPaused(false);
     camera.x = 120; // vista menu
     refreshRecordsUI();
@@ -5277,6 +5382,7 @@
     save.skills.active = id;
     persistSave();
     try { AudioManager.play('click'); } catch (e) {}
+    try { refreshSkillBtn(); } catch (e) {}
     return true;
   }
 
@@ -5681,6 +5787,54 @@
       btnBlockEl.style.visibility = show ? 'visible' : 'hidden';
       btnBlockEl.style.opacity = show ? '1' : '0';
       if (!show) Input.blockHeld = false;
+      // Skill/DASH HUD-DOM ikut sinkron di titik yg sama (cached, murah).
+      try { refreshSkillBtn(); } catch (e2) { /* abaikan */ }
+    } catch (e) { /* abaikan */ }
+  }
+
+  /* ---- MMORPG HUD-DOM sync: label skill + tombol dash ----
+   * Nama skill aktif mengikuti mode; DASH hanya SWORD + Dash Slash unlock.
+   * Dipanggil pada transisi (unlock/equip/mode/menu/boot); angka cooldown
+   * LIVE diupdate per-frame oleh syncSkillBadge() (cached, murah). */
+  var _skillShort = { dashSlash: 'DASH', shieldBash: 'BASH', multiShot: 'MULTI' };
+  var lastSkillBtnKey = null;
+  function refreshSkillBtn() {
+    try {
+      var mode = (save && save.mode) || 'SWORD';
+      var act = (save && save.skills) ? save.skills.active : null;
+      var def = (act && SKILLS[act]) || null;
+      var ready = !!(def && def.mode === mode && save.skills.unlocked && save.skills.unlocked[act] === true);
+      var showDash = (mode === 'SWORD' && save.skills.unlocked && save.skills.unlocked.dashSlash === true);
+      // Cache: tulis DOM hanya saat state berubah (dipanggil tiap frame playing).
+      var key = mode + '|' + (act || '-') + '|' + (ready ? 1 : 0) + '|' + (showDash ? 1 : 0);
+      if (key === lastSkillBtnKey) return;
+      lastSkillBtnKey = key;
+      var btn = document.getElementById('btn-skill');
+      var nm = document.getElementById('btn-skill-name');
+      if (nm) nm.textContent = ready ? (_skillShort[act] || 'SKILL') : 'LOCK';
+      if (btn) {
+        try { if (btn.setAttribute) btn.setAttribute('aria-label', 'Skill aktif: ' + ((ready && def.name) || 'locked') + ' (tombol Q di keyboard)'); } catch (e2) {}
+        try {
+          if (ready && btn.classList && btn.classList.remove) btn.classList.remove('locked');
+          else if (btn.classList && btn.classList.add) btn.classList.add('locked');
+        } catch (e3) {}
+      }
+      var dash = document.getElementById('btn-dash');
+      if (dash) {
+        dash.style.display = showDash ? '' : 'none';
+        dash.style.visibility = showDash ? 'visible' : 'hidden';
+      }
+    } catch (e) { /* abaikan */ }
+  }
+  var lastSkillBadge = null;
+  function syncSkillBadge() {
+    try {
+      var el = document.getElementById('btn-skill-cd');
+      if (!el) return;
+      var cd = 0;
+      try { cd = (save.skills && save.skills.active && skillCooldowns[save.skills.active]) || 0; } catch (e2) { cd = 0; }
+      var txt = (cd > 0) ? String(Math.ceil(cd)) : '';
+      if (txt !== lastSkillBadge) { lastSkillBadge = txt; el.textContent = txt; }
     } catch (e) { /* abaikan */ }
   }
 
@@ -6075,7 +6229,7 @@
     try {
       var hidden = !!(typeof document !== 'undefined' && document.hidden);
       setPaused(hidden);
-      if (hidden) clearInput(); // pointer-up bisa hilang saat tab hidden
+      if (hidden) { clearInput(); joystickReset(); } // pointer-up bisa hilang saat tab hidden
       else last = nowPerf(); // cegah delta melonjak saat kembali
     } catch (e) { /* abaikan */ }
   }
@@ -6952,16 +7106,20 @@
       ctx.fillStyle = '#c6ccea';
       ctx.font = '11px monospace';
       ctx.fillText(_mlabel + ' • ' + _wlabel, bx, by + bh + 12);
+      // MMORPG HUD: LV + difficulty (state real, tanpa duplikat).
+      try {
+        ctx.fillText('LV' + currentLevel + ' • ' + ((save.difficulty === 'hard') ? 'HARD' : 'NORMAL'), bx, by + bh + 26);
+      } catch (e) {}
       if (_eqm.mode === 'GUARDIAN') {
         var _bmax = blockMax(), _bpct = _bmax > 0 ? clamp(player.blockStam / _bmax, 0, 1) : 0;
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(bx - 4, by + bh + 16, 120, 10);
+        ctx.fillRect(bx - 4, by + bh + 30, 120, 10);
         ctx.fillStyle = '#20264d';
-        ctx.fillRect(bx, by + bh + 18, 112, 6);
+        ctx.fillRect(bx, by + bh + 32, 112, 6);
         ctx.fillStyle = _bpct > 0.5 ? '#5aa9ff' : (_bpct > 0.25 ? '#ffd23f' : '#e05252');
-        ctx.fillRect(bx, by + bh + 18, Math.round(112 * _bpct), 6);
+        ctx.fillRect(bx, by + bh + 32, Math.round(112 * _bpct), 6);
         ctx.fillStyle = '#c6ccea';
-        ctx.fillText('BLOCK', bx, by + bh + 34);
+        ctx.fillText('BLOCK', bx, by + bh + 48);
       }
       // Skill: bar energi + status cooldown (hanya bila ada skill terbuka).
       var _skAny = false;
@@ -6971,7 +7129,7 @@
         }
       }
       if (_skAny) {
-        var _ey = by + bh + (_eqm.mode === 'GUARDIAN' ? 46 : 24);
+        var _ey = by + bh + (_eqm.mode === 'GUARDIAN' ? 60 : 40);
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fillRect(bx - 4, _ey - 3, 120, 13);
         ctx.fillStyle = '#20264d';
@@ -7555,6 +7713,12 @@
   bindHoldButton('btn-skill',
     function () { Input.skillPressed = true; },
     function () { /* edge-trigger, tidak perlu off */ });
+  // Dash: alias tombol untuk mekanisme Dash Slash existing (SWORD saja).
+  // Satu source of truth: Input.skillPressed -> activateActiveSkill().
+  bindHoldButton('btn-dash',
+    function () { Input.skillPressed = true; },
+    function () { /* edge-trigger, tidak perlu off */ });
+  joystickInit();
   if (btnBlockEl) {
     btnBlockEl.style.display = '';
     btnBlockEl.style.visibility = 'visible';
@@ -7581,6 +7745,32 @@
     });
   }
   onClick(btnPlay, function () { playFresh(); });
+  // MAP: info level real (nama + objektif + progres), tanpa sistem peta palsu.
+  var btnMap = document.getElementById('btn-map');
+  if (btnMap) onClick(btnMap, function () {
+    try {
+      var nm = (typeof LEVEL_NAMES !== 'undefined' && LEVEL_NAMES[currentLevel]) || ('Level ' + currentLevel);
+      var txt = 'L' + currentLevel + ' ' + nm + ' • Musuh ' + (typeof runStats !== 'undefined' ? runStats.kills : 0) +
+        ' • Coin ' + coinGot() + '/' + coins.length;
+      showToast(txt);
+    } catch (e) {}
+  });
+  // FULLSCREEN (rotate overlay): gesture user, semua API guarded.
+  var btnFs = document.getElementById('btn-fullscreen');
+  if (btnFs) onClick(btnFs, function () {
+    try {
+      var de = document.documentElement;
+      if (de && de.requestFullscreen && document.fullscreenElement !== undefined && !document.fullscreenElement) {
+        try { var r = de.requestFullscreen(); if (r && r.catch) r.catch(function () {}); } catch (e) {}
+      }
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+          var lk = window.screen.orientation.lock('landscape');
+          if (lk && lk.catch) lk.catch(function () {});
+        }
+      } catch (e) {}
+    } catch (e) {}
+  });
   onClick(btnCampaign, function () { openCampaign(); });
   var btnAchievements = document.getElementById('btn-achievements');
   if (btnAchievements) onClick(btnAchievements, function () { openAchievements(); });
@@ -7870,7 +8060,44 @@
       document.addEventListener('visibilitychange', onVisibility);
     }
   } catch (e) { /* abaikan */ }
-  window.addEventListener('blur', function () { setPaused(true); clearInput(); });
+  window.addEventListener('blur', function () { setPaused(true); clearInput(); try { joystickReset(); } catch (e) {} });
+  // Portrait HP = mode rotate (landscape-first): pause otomatis saat
+  // portrait agar player tak mati di balik overlay. Tak pernah resume
+  // otomatis. Semua API guarded (aman di browser tua/headless).
+  function portraitShouldPause() {
+    try {
+      if (typeof window === 'undefined' || !window.matchMedia) return false;
+      var mq = null;
+      try { mq = window.matchMedia('(orientation: portrait)'); } catch (e) { return false; }
+      if (!mq || !mq.matches) return false;
+      var coarse = false;
+      try { coarse = !!(window.matchMedia('(pointer: coarse)').matches); } catch (e) {}
+      return coarse;
+    } catch (e) { return false; }
+  }
+  function checkPortraitPause() {
+    try {
+      if (portraitShouldPause() && gameState === 'playing' && !paused) {
+        pauseGame();
+        try { joystickReset(); } catch (e) {}
+      }
+    } catch (e) { /* abaikan */ }
+  }
+  try {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      var _portraitMq = window.matchMedia('(orientation: portrait)');
+      if (_portraitMq) {
+        if (_portraitMq.addEventListener) _portraitMq.addEventListener('change', function () { checkPortraitPause(); });
+        else if (_portraitMq.addListener) _portraitMq.addListener(function () { checkPortraitPause(); });
+      }
+    }
+  } catch (e) {}
+  try {
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('orientationchange', function () { try { joystickReset(); } catch (e) {} checkPortraitPause(); });
+      window.addEventListener('resize', function () { checkPortraitPause(); });
+    }
+  } catch (e) {}
   window.addEventListener('focus', function () {
     try {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -8126,6 +8353,9 @@
     _activateActiveSkill: activateActiveSkill,
     _hasPassive: hasPassive,
     _skillDamageMult: skillDamageMult,
+    _toastText: function () { try { return (typeof toast !== 'undefined' && toast.text) || ''; } catch (e) { return ''; } },
+    _joystickReset: joystickReset,
+    _refreshSkillBtn: refreshSkillBtn,
     _updateSkillCooldowns: updateSkillCooldowns,
     _skillState: function () {
       try { return { energy: skillEnergy, cooldowns: JSON.parse(JSON.stringify(skillCooldowns)) }; }

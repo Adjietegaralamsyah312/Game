@@ -1,7 +1,6 @@
 # Changelog — Knight Platformer
 
 ## [Unreleased] — Skill / Ability System (lihat plant.md)
-
 - 9 skill data-driven (`SKILLS`): 3 active (Dash Slash / Shield Bash / Multi
   Shot) + 6 passive (Sharp Edge / Combo Master / Fortified Guard / Sturdy /
   Quick Draw / Piercing Arrow), terikat mode SWORD/GUARDIAN/ARCHER
@@ -26,6 +25,11 @@
   damage x2.0 via bossDamage(), boss/miniboss cooldown x0.6 via diffCd,
   miniboss HP ikut bossHp, playerDmg dilive-kan via skillDamageMult
 - 374 automated test (16 baru khusus skill), docs README diperbarui
+- Controller MMORPG landscape-first: joystick analog (Input.joyX, dead
+  zone, anti double-touch), tombol DASH (SWORD), label skill + badge
+  cooldown LIVE, tombol MAP (info level real), overlay ROTATE portrait
+  (auto-pause, fullscreen opsional guarded), HUD LV + difficulty,
+  safe-area; 401 automated test
 
 ## [1.4.0] — Achievement + Difficulty Mode
 

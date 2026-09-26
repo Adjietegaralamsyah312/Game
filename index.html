@@ -21,7 +21,7 @@
   <meta name="twitter:image:alt" content="Knight Platformer — ksatria, slime, dan skeleton di medan malam" />
   <title>Knight Platformer — Skeleton Campaign</title>
   <link rel="icon" type="image/png" href="assets/knight/idle_0.png" />
-  <link rel="stylesheet" href="style.css?v=1.4.0-7" />
+  <link rel="stylesheet" href="style.css?v=1.4.0-8" />
 </head>
 <body>
   <div id="wrap">
@@ -253,21 +253,34 @@
       </div>
     </div>
 
-    <!-- Kontrol sentuh untuk Android / HP -->
+    <!-- Kontrol sentuh untuk Android / HP (landscape-first MMORPG-style) -->
     <div id="touch-controls">
       <div class="touch-group">
+        <div id="joystick-zone" aria-label="Virtual joystick gerak" role="application">
+          <div id="joystick-base" aria-hidden="true"><div id="joystick-knob" aria-hidden="true"></div></div>
+        </div>
         <button id="btn-left" class="touch-btn" aria-label="Kiri">◀</button>
         <button id="btn-right" class="touch-btn" aria-label="Kanan">▶</button>
       </div>
       <div class="touch-group touch-group-center">
         <button id="btn-pause" class="hidden touch-btn-pause" aria-label="Pause atau lanjutkan game">⏸</button>
-        <button id="btn-skill" class="touch-btn skill" aria-label="Skill aktif (tombol Q di keyboard)">✦</button>
+        <button id="btn-skill" class="touch-btn skill" aria-label="Skill aktif (tombol Q di keyboard)"><span class="sk-glyph" aria-hidden="true">✦</span><span id="btn-skill-name" class="sk-name" aria-hidden="true">SKILL</span><span id="btn-skill-cd" class="sk-cd" aria-hidden="true"></span></button>
+        <button id="btn-map" class="mini-btn" aria-label="Info level saat ini">MAP</button>
       </div>
       <div class="touch-group">
         <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>
+        <button id="btn-dash" class="touch-btn dash" aria-label="Dash (Dash Slash, mode Sword)">➤</button>
         <button id="btn-block" class="touch-btn block" aria-label="Shield Block" title="Shield Block">SHIELD</button>
         <button id="btn-jump" class="touch-btn jump" aria-label="Lompat">⤒</button>
       </div>
+    </div>
+
+    <!-- Overlay portrait: game landscape-first, jangan main portrait -->
+    <div id="rotate-overlay" role="dialog" aria-modal="true" aria-label="Rotate device">
+      <h2>ROTATE YOUR DEVICE</h2>
+      <p>Please rotate your device to landscape.</p>
+      <p class="tiny">Game ini dirancang untuk mode landscape.</p>
+      <button id="btn-fullscreen" class="btn-secondary">⛶ FULLSCREEN</button>
     </div>
 
     <div id="achieve-toast" class="hidden" role="status" aria-live="polite" aria-label="Achievement unlocked">
@@ -282,6 +295,6 @@
   </div>
 
   <!-- Query v= samakan VERSION agar browser tak pakai game.js basi setelah update -->
-  <script src="game.js?v=1.4.0-6"></script>
+  <script src="game.js?v=1.4.0-8"></script>
 </body>
 </html>

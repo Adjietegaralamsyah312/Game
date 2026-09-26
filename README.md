@@ -214,6 +214,24 @@ localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 ## Kontrol mobile (Android)
 
 Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **✦** skill, **🛡** block, **⏸** pause.
+
+## Kontroler MMORPG mobile (landscape-first)
+
+Game landscape-first: di HP portrait tampil overlay **ROTATE YOUR DEVICE**
+(game dijeda otomatis; tombol **⛶ FULLSCREEN** opsional, semua API guarded).
+
+- **Joystick analog kiri**: pointerdown → gerak, pointermove → arah/kuat
+  (dead zone, radius dibatasi), pointerup/cancel → netral; satu pointerId
+  (anti double), mengisi `Input.joyX` yang menyatu dengan `left`/`right`
+  (tanpa movement system kedua, tanpa mengunci tombol lain)
+- **Kanan**: ❖ ATTACK (combat existing), ✦ SKILL (nama skill mode aktif +
+  badge cooldown LIVE + redup saat locked), ➤ DASH (SWORD + Dash Slash
+  unlock; satu jalur `activateActiveSkill()` dengan Q), ⤒ JUMP, 🛡 block
+  (Guardian saja); MAP kecil = info level real via toast
+- HUD canvas: LV + NORMAL/HARD, HP, bar energi + status cooldown skill
+- Safe area `env()` + `touch-action: none`; input di-reset saat blur/
+  tab-hidden/rotasi; desktop (pointer halus) tak tampil joystick, keyboard
+  + mouse utuh.
 Multi-touch (gerak + lompat/serang bersamaan). Semua dialog touch-friendly.
 Layout portrait + landscape pendek (dialog fullscreen, canvas 16:9).
 
@@ -317,7 +335,7 @@ node test.js
 git diff --check
 ```
 
-386 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime) —
+401 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
