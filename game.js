@@ -7755,22 +7755,6 @@
       showToast(txt);
     } catch (e) {}
   });
-  // FULLSCREEN (rotate overlay): gesture user, semua API guarded.
-  var btnFs = document.getElementById('btn-fullscreen');
-  if (btnFs) onClick(btnFs, function () {
-    try {
-      var de = document.documentElement;
-      if (de && de.requestFullscreen && document.fullscreenElement !== undefined && !document.fullscreenElement) {
-        try { var r = de.requestFullscreen(); if (r && r.catch) r.catch(function () {}); } catch (e) {}
-      }
-      try {
-        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
-          var lk = window.screen.orientation.lock('landscape');
-          if (lk && lk.catch) lk.catch(function () {});
-        }
-      } catch (e) {}
-    } catch (e) {}
-  });
   onClick(btnCampaign, function () { openCampaign(); });
   var btnAchievements = document.getElementById('btn-achievements');
   if (btnAchievements) onClick(btnAchievements, function () { openAchievements(); });
@@ -8061,41 +8045,11 @@
     }
   } catch (e) { /* abaikan */ }
   window.addEventListener('blur', function () { setPaused(true); clearInput(); try { joystickReset(); } catch (e) {} });
-  // Portrait HP = mode rotate (landscape-first): pause otomatis saat
-  // portrait agar player tak mati di balik overlay. Tak pernah resume
-  // otomatis. Semua API guarded (aman di browser tua/headless).
-  function portraitShouldPause() {
-    try {
-      if (typeof window === 'undefined' || !window.matchMedia) return false;
-      var mq = null;
-      try { mq = window.matchMedia('(orientation: portrait)'); } catch (e) { return false; }
-      if (!mq || !mq.matches) return false;
-      var coarse = false;
-      try { coarse = !!(window.matchMedia('(pointer: coarse)').matches); } catch (e) {}
-      return coarse;
-    } catch (e) { return false; }
-  }
-  function checkPortraitPause() {
-    try {
-      if (portraitShouldPause() && gameState === 'playing' && !paused) {
-        pauseGame();
-        try { joystickReset(); } catch (e) {}
-      }
-    } catch (e) { /* abaikan */ }
-  }
-  try {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      var _portraitMq = window.matchMedia('(orientation: portrait)');
-      if (_portraitMq) {
-        if (_portraitMq.addEventListener) _portraitMq.addEventListener('change', function () { checkPortraitPause(); });
-        else if (_portraitMq.addListener) _portraitMq.addListener(function () { checkPortraitPause(); });
-      }
-    }
-  } catch (e) {}
+  // Rotasi: reset joystick agar tak stuck; setupCanvas ada di listener sendiri.
+  // Portrait tetap playable (kontroler klasik) — tanpa pause otomatis.
   try {
     if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('orientationchange', function () { try { joystickReset(); } catch (e) {} checkPortraitPause(); });
-      window.addEventListener('resize', function () { checkPortraitPause(); });
+      window.addEventListener('orientationchange', function () { try { joystickReset(); } catch (e) {} });
     }
   } catch (e) {}
   window.addEventListener('focus', function () {

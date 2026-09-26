@@ -80,8 +80,8 @@ const mockCtx = new Proxy({}, {
 });
 const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
-  'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd', 'btn-dash', 'btn-map', 'btn-fullscreen',
-  'joystick-zone', 'joystick-base', 'joystick-knob', 'rotate-overlay',
+  'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd', 'btn-dash', 'btn-map',
+  'joystick-zone', 'joystick-base', 'joystick-knob',
   'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
   // Stage 5: menu + clear screens
   'mainmenu', 'menu-main', 'menu-controls', 'menu-about',
@@ -4072,11 +4072,14 @@ test('313 portrait = landscape (satu bahasa visual)', () => {
   ok(css.includes('env(safe-area-inset-'), 'safe-area');
   ok(html.includes('id="shop-head"'), 'header wrapper');
   // Portrait tanpa restyle kosmetik: tanpa font-size header, tanpa hide konten.
+  // Pengecualian: joystick analog sembunyi di portrait sempit (kontroler
+  // klasik yang tampil; landscape yang pakai joystick).
   const _p313 = css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)');
   const _p313e = css.indexOf('@media', _p313 + 1);
   const portraitBlock = css.slice(_p313, _p313e < 0 ? undefined : _p313e);
   ok(!/font-size/.test(portraitBlock), 'font ikut base landscape');
-  ok(!/display:\s*none/.test(portraitBlock), 'tak ada yang disembunyikan');
+  const _p313noj = portraitBlock.replace(/#joystick-zone\s*{[^}]*}/g, '');
+  ok(!/display:\s*none/.test(_p313noj), 'tak ada yang disembunyikan selain joystick');
   ok(!/width:\s*40px/.test(portraitBlock), 'tanpa mini 40px');
 });
 test('314 performa + tombol 44px + reduced-motion', () => {
@@ -4309,11 +4312,11 @@ test('340 BACK bermargin aman + safe-area', () => {
 test('341 z-index audit: tanpa absolute liar', () => {
   const absCount = (css.match(/position:\s*absolute/g) || []).length;
   eq(absCount, 2, 'hanya overlay base + stack img, got ' + absCount);
-  // Hierarki stacking terkunci allowlist (bukan perang angka): base 5,
-  // dialog fullscreen 50, toast 9999, rotate overlay 10000 (paling atas).
+  // Hierarki stacking terkunci allowlist: base 5, dialog fullscreen 50,
+  // toast 9999 (tidak ada lapisan lain).
   const zvals = (css.match(/z-index:\s*(\d+)/g) || []).map((s) => s.replace(/[^0-9]/g, ''));
-  ok(zvals.length >= 3 && zvals.length <= 4, 'lapisan wajar, got ' + zvals.length);
-  zvals.forEach((z) => ok(['5', '50', '9999', '10000'].includes(z), 'z-index di luar allowlist: ' + z));
+  ok(zvals.length === 3, 'lapisan wajar, got ' + zvals.length);
+  zvals.forEach((z) => ok(['5', '50', '9999'].includes(z), 'z-index di luar allowlist: ' + z));
 });
 test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
   srcHas('shop-name'); srcHas('shop-desc'); srcHas('shop-price');
@@ -4941,15 +4944,18 @@ test('386 flow hard end-to-end: unlock, clear, best terisolasi', () => {
 });
 // ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
 // ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
-test('387 rotate overlay HTML+CSS', () => {
-  ok(/id="rotate-overlay"/.test(html), 'html ada overlay');
-  ok(/ROTATE YOUR DEVICE/.test(html), 'judul overlay');
-  ok(/Please rotate your device to landscape/.test(html), 'pesan overlay');
-  ok(/id="btn-fullscreen"/.test(html), 'tombol fullscreen ada');
-  ok(/orientation:\s*portrait\)\s*and\s*\(pointer:\s*coarse\)/.test(css), 'hanya portrait+coarse');
-  ok(/#rotate-overlay\s*{[^}]*z-index:\s*10000/.test(css), 'di atas semua');
-  ok(/env\(safe-area-inset-/.test(css), 'safe area');
-  ok(!/orientation:\s*landscape[^}]*#rotate-overlay[^}]*display:\s*flex/.test(css), 'landscape tak tampil');
+test('387 portrait playable + joystick khusus landscape', () => {
+  ok(!/id="rotate-overlay"/.test(html), 'tanpa rotate-wall: portrait playable');
+  ok(!/ROTATE YOUR DEVICE/.test(html), 'tanpa teks rotate');
+  // Kontroler klasik portrait tetap ada dan ter-wire.
+  ['btn-left', 'btn-right', 'btn-jump', 'btn-attack', 'btn-skill', 'btn-pause'].forEach((id) => {
+    ok(new RegExp('id="' + id + '"').test(html), 'html ada: ' + id);
+  });
+  // Joystick analog hanya landscape (portrait sempit = tombol klasik).
+  ok(/orientation:\s*portrait\)\s*and\s*\(max-width:\s*600px\)[\s\S]*?#joystick-zone\s*{[^}]*display:\s*none/.test(css), 'joystick sembunyi di portrait');
+  // Landscape: joystick tampil (hanya desktop pointer halus yang sembunyi).
+  ok(/pointer:\s*fine\)\s*{[^}]*#joystick-zone[^}]*display:\s*none/.test(css), 'desktop sembunyi');
+  ok(!/orientation:\s*landscape[^}]*#joystick-zone[^}]*display:\s*none/.test(css), 'landscape tampil');
 });
 test('388 joystick DOM+CSS', () => {
   ['joystick-zone', 'joystick-base', 'joystick-knob'].forEach((id) => {
@@ -5080,13 +5086,20 @@ test('398 HUD LV + difficulty', () => {
   noThrow(() => G.drawOnce(), 'draw hard');
   resetSkills();
 });
-test('399 fullscreen aman tanpa API', () => {
-  resetSkills();
-  ok(elements['btn-fullscreen'], 'tombol ada');
-  noThrow(() => elements['btn-fullscreen'].dispatch('click', {}), 'klik tanpa Fullscreen API aman');
+test('399 kontroler klasik utuh untuk portrait', () => {
+  resetSkills(); G.forceStartLevel(1);
+  // Semua tombol klasik ter-wire pointerdown (berfungsi di portrait).
+  ['btn-left', 'btn-right', 'btn-jump', 'btn-attack', 'btn-skill'].forEach((id) => {
+    ok((elements[id].listeners['pointerdown'] || []).length >= 1, id + ' ter-wire');
+  });
+  // Q keyboard tetap jalur yang sama.
+  G.input.skillPressed = false;
+  fireWin('keydown', { code: 'KeyQ', preventDefault() {} });
+  eq(G.input.skillPressed, true, 'Q tetap jalan');
+  G.input.skillPressed = false;
   resetSkills();
 });
-test('400 rotate tak ganggu sesi playing headless', () => {
+test('400 rotasi/resize aman saat playing', () => {
   resetSkills(); G.forceStartLevel(1);
   noThrow(() => { fireWin('orientationchange', {}); fireWin('resize', {}); }, 'rotasi/resize aman');
   ok(G.isSimActive(), 'sim tetap jalan');
