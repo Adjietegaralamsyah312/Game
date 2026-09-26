@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Knight Platformer v1.4.0 — Achievement + Difficulty Mode
+ * Knight Platformer v1.4.1 — Achievement + Difficulty Mode
  *
  * Modul (dalam satu file agar tetap jalan via file:// tanpa build step):
  *   Config / Utils / AudioManager (WebAudio prosedural) / Assets / Input
@@ -21,7 +21,7 @@
   'use strict';
 
   /* ============================ 1. CONFIG ============================ */
-  var GAME_VERSION = '1.4.0';
+  var GAME_VERSION = '1.4.1';
   const DEBUG = false;
 
   /* Difficulty modifier (data-driven) */
@@ -4469,6 +4469,9 @@
       sfxEnabled: true, sfxVolume: 100,
       musicEnabled: true, musicVolume: 70,
       inputPreference: 'auto',
+      // Kontroler sentuh landscape (dibaca applyTouchUI): skema gerak,
+      // ukuran tombol, tangan dominan. Default = joystick + M + kanan.
+      touchUI: { scheme: 'joy', size: 'm', hand: 'right' },
       // Weapon Shop (v4): starter owned, agar game tetap playable
       // tanpa membeli apa pun.
       owned: { rusty: true, buckler: true, makeshift: true },
@@ -4596,6 +4599,15 @@
     d.musicVolume = Math.round(saveNum(o.musicVolume, 70, 0, 100));
     d.inputPreference = (o.inputPreference === 'keyboard' || o.inputPreference === 'touch')
       ? o.inputPreference : 'auto';
+    // touchUI: migrasi aman — hilang/rusak -> default (tanpa reset lain).
+    d.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
+    try {
+      if (o.touchUI && typeof o.touchUI === 'object') {
+        if (o.touchUI.scheme === 'arrows') d.touchUI.scheme = 'arrows';
+        if (o.touchUI.size === 's' || o.touchUI.size === 'l') d.touchUI.size = o.touchUI.size;
+        if (o.touchUI.hand === 'left') d.touchUI.hand = 'left';
+      }
+    } catch (e) {}
     // Shop v4: validasi id terhadap SHOP_ITEMS (unknown -> default starter).
     // v1/v2/v3 tidak punya shop -> default starter (progres lain utuh).
     d.owned = { rusty: true, buckler: true, makeshift: true };
@@ -5907,6 +5919,10 @@
       if (setMusic) setMusic.textContent = 'MUSIC: ' + (save.musicEnabled ? 'ON' : 'OFF');
       if (setMusicVal) setMusicVal.textContent = save.musicVolume + '%';
       if (setInput) setInput.textContent = 'INPUT: ' + String(save.inputPreference).toUpperCase();
+      var _tui = touchUI();
+      if (setCtlScheme) setCtlScheme.textContent = 'GERAK: ' + (_tui.scheme === 'arrows' ? 'PANAH' : 'JOYSTICK');
+      if (setCtlSize) setCtlSize.textContent = 'TOMBOL: ' + String(_tui.size || 'm').toUpperCase();
+      if (setCtlHand) setCtlHand.textContent = 'TANGAN: ' + (_tui.hand === 'left' ? 'KIRI' : 'KANAN');
     } catch (e) { /* abaikan */ }
   }
 
@@ -5943,6 +5959,50 @@
       save.inputPreference === 'auto' ? 'keyboard' :
       save.inputPreference === 'keyboard' ? 'touch' : 'auto';
     persistSave();
+    refreshSettingsUI();
+  }
+
+  /* ---- Edit kontroler landscape (Settings): skema/ukuran/tangan ----
+   * Tersimpan di save.touchUI (migrasi aman), diterapkan via class body
+   * oleh applyTouchUI(). M = default (tanpa class). */
+  var setCtlScheme = null, setCtlSize = null, setCtlHand = null;
+  function touchUI() {
+    try {
+      if (save.touchUI && typeof save.touchUI === 'object') return save.touchUI;
+    } catch (e) {}
+    return { scheme: 'joy', size: 'm', hand: 'right' };
+  }
+  function applyTouchUI() {
+    try {
+      var t = touchUI();
+      var b = (typeof document !== 'undefined') ? document.body : null;
+      if (!b || !b.classList) return;
+      if (t.scheme === 'arrows') b.classList.add('ctl-scheme-arrows');
+      else b.classList.remove('ctl-scheme-arrows');
+      if (t.size === 's') b.classList.add('ctl-size-s'); else b.classList.remove('ctl-size-s');
+      if (t.size === 'l') b.classList.add('ctl-size-l'); else b.classList.remove('ctl-size-l');
+      if (t.hand === 'left') b.classList.add('ctl-hand-left'); else b.classList.remove('ctl-hand-left');
+    } catch (e) { /* abaikan */ }
+  }
+  function cycleCtlScheme() {
+    if (!save.touchUI || typeof save.touchUI !== 'object') save.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
+    save.touchUI.scheme = (save.touchUI.scheme === 'arrows') ? 'joy' : 'arrows';
+    persistSave();
+    applyTouchUI();
+    refreshSettingsUI();
+  }
+  function cycleCtlSize() {
+    if (!save.touchUI || typeof save.touchUI !== 'object') save.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
+    save.touchUI.size = (save.touchUI.size === 's') ? 'm' : ((save.touchUI.size === 'm') ? 'l' : 's');
+    persistSave();
+    applyTouchUI();
+    refreshSettingsUI();
+  }
+  function cycleCtlHand() {
+    if (!save.touchUI || typeof save.touchUI !== 'object') save.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
+    save.touchUI.hand = (save.touchUI.hand === 'left') ? 'right' : 'left';
+    persistSave();
+    applyTouchUI();
     refreshSettingsUI();
   }
 
@@ -7645,6 +7705,9 @@
   setMusicUp = document.getElementById('set-music-vol-up');
   setMusicVal = document.getElementById('set-music-vol-val');
   setInput = document.getElementById('set-input');
+  setCtlScheme = document.getElementById('set-ctlscheme');
+  setCtlSize = document.getElementById('set-ctlsize');
+  setCtlHand = document.getElementById('set-ctlhand');
   btnResetProgress = document.getElementById('btn-reset-progress');
   btnSettingsBack = document.getElementById('btn-settings-back');
   resetEl = document.getElementById('reset-confirm');
@@ -7803,6 +7866,9 @@
   onClick(setMusicDown, function () { bumpVol('music', -10); });
   onClick(setMusicUp, function () { bumpVol('music', 10); });
   onClick(setInput, function () { cycleInput(); });
+  onClick(setCtlScheme, function () { cycleCtlScheme(); });
+  onClick(setCtlSize, function () { cycleCtlSize(); });
+  onClick(setCtlHand, function () { cycleCtlHand(); });
   onClick(btnSettingsBack, function () { settingsBack(); });
   // Reset progress: SELALU via dialog konfirmasi (anti kepencet di HP).
   onClick(btnResetProgress, function () {
@@ -7845,7 +7911,8 @@
   // Navigasi settings: Atas/Bawah antar kontrol, Escape kembali ke menu.
   var settingsNavIds = ['set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up',
     'set-music', 'set-music-vol-down', 'set-music-vol-up',
-    'set-input', 'btn-reset-progress', 'btn-settings-back'];
+    'set-input', 'set-ctlscheme', 'set-ctlsize', 'set-ctlhand',
+    'btn-reset-progress', 'btn-settings-back'];
   var resetNavIds = ['btn-reset-cancel', 'btn-reset-confirm'];
   // Navigasi shop: Kiri/Kanan ganti tab, Atas/Bawah ganti item,
   // Enter = BUY/EQUIP item terpilih, Esc kembali ke menu.
@@ -8024,6 +8091,7 @@
 
   loadSave(); // sebelum dunia/audio: settings + progres pulih dulu
   applyAudioSettings();
+  try { applyTouchUI(); } catch (e) {}
   loadLevelInternal(1);
   setupCanvas();
   toMenu(); // boot ke menu utama (game tidak jalan di background)

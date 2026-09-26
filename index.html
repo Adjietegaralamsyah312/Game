@@ -21,7 +21,7 @@
   <meta name="twitter:image:alt" content="Knight Platformer — ksatria, slime, dan skeleton di medan malam" />
   <title>Knight Platformer — Skeleton Campaign</title>
   <link rel="icon" type="image/png" href="assets/knight/idle_0.png" />
-  <link rel="stylesheet" href="style.css?v=1.4.0-10" />
+  <link rel="stylesheet" href="style.css?v=1.4.1" />
 </head>
 <body>
   <div id="wrap">
@@ -60,7 +60,7 @@
       <!-- Menu utama (Stage 5): PLAY / CAMPAIGN / CONTROLS / ABOUT -->
       <div id="mainmenu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mainmenu-title" aria-label="Menu Utama">
         <h2 id="mainmenu-title" class="game-title">KNIGHT<br />PLATFORMER</h2>
-        <p class="build-tag">v1.4.0 Achievement + Difficulty</p>
+        <p class="build-tag">v1.4.1 Achievement + Difficulty</p>
         <div id="menu-main" class="btn-col">
           <button id="btn-play" class="btn-primary">▶ PLAY</button>
           <button id="btn-campaign" class="btn-secondary">🗺 CAMPAIGN</button>
@@ -168,6 +168,18 @@
             <button id="set-input" class="btn-small">INPUT: AUTO</button>
           </div>
           <div class="set-row">
+            <span class="set-label">Skema gerak</span>
+            <button id="set-ctlscheme" class="btn-small" aria-label="Skema gerak landscape: joystick atau tombol panah">GERAK: JOYSTICK</button>
+          </div>
+          <div class="set-row">
+            <span class="set-label">Ukuran tombol</span>
+            <button id="set-ctlsize" class="btn-small" aria-label="Ukuran tombol sentuh">TOMBOL: M</button>
+          </div>
+          <div class="set-row">
+            <span class="set-label">Tangan dominan</span>
+            <button id="set-ctlhand" class="btn-small" aria-label="Tangan dominan untuk aksi">TANGAN: KANAN</button>
+          </div>
+          <div class="set-row">
             <span class="set-label">Data tersimpan</span>
             <button id="btn-reset-progress" class="btn-small btn-danger">RESET</button>
           </div>
@@ -266,12 +278,12 @@
         <button id="btn-pause" class="hidden touch-btn-pause" aria-label="Pause atau lanjutkan game">⏸</button>
         <button id="btn-skill" class="touch-btn skill" aria-label="Skill aktif (tombol Q di keyboard)"><span class="sk-glyph" aria-hidden="true">✦</span><span id="btn-skill-name" class="sk-name" aria-hidden="true">SKILL</span><span id="btn-skill-cd" class="sk-cd" aria-hidden="true"></span></button>
       </div>
-      <div class="touch-group">
-        <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>
-        <button id="btn-dash" class="touch-btn dash" aria-label="Dash (Dash Slash, mode Sword)">➤</button>
-        <button id="btn-block" class="touch-btn block" aria-label="Shield Block" title="Shield Block">SHIELD</button>
-        <button id="btn-jump" class="touch-btn jump" aria-label="Lompat">⤒</button>
-      </div>
+       <div class="touch-group touch-group-right">
+         <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>
+         <button id="btn-dash" class="touch-btn dash" aria-label="Dash (Dash Slash, mode Sword)">➤</button>
+         <button id="btn-block" class="touch-btn block" aria-label="Shield Block" title="Shield Block">SHIELD</button>
+         <button id="btn-jump" class="touch-btn jump" aria-label="Lompat">⤒</button>
+       </div>
     </div>
 
     <div id="achieve-toast" class="hidden" role="status" aria-live="polite" aria-label="Achievement unlocked">
@@ -286,6 +298,6 @@
   </div>
 
   <!-- Query v= samakan VERSION agar browser tak pakai game.js basi setelah update -->
-  <script src="game.js?v=1.4.0-9"></script>
+  <script src="game.js?v=1.4.1"></script>
 </body>
 </html>
