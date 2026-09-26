@@ -19,6 +19,12 @@
   default save + sanitasi 16 key
 - Navigasi keyboard menu mencakup Achievements/Skills; `Esc` tutup panel;
   panel achievements/skills overlay + fullscreen-scroll HP portrait
+- Hard isolation: Normal tulis/baca save, Hard tulis/baca hardProgress
+  (completion/unlock/best terpisah; coin+shop tetap shared); hapus derivasi
+  unlock Hard dari Normal + duplikat playCampaignLevel
+- Hard scaling lengkap: enemy cooldown dikoreksi (x, bukan /), boss/miniboss
+  damage x2.0 via bossDamage(), boss/miniboss cooldown x0.6 via diffCd,
+  miniboss HP ikut bossHp, playerDmg dilive-kan via skillDamageMult
 - 374 automated test (16 baru khusus skill), docs README diperbarui
 
 ## [1.4.0] — Achievement + Difficulty Mode

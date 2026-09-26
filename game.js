@@ -1955,7 +1955,8 @@
     for (var _k in baseSt) st[_k] = baseSt[_k];
     st.hp = Math.round(baseSt.hp * mult.enemyHp);
     if (st.dmg != null) st.dmg = Math.round(baseSt.dmg * mult.enemyDmg);
-    if (st.cooldown != null) st.cooldown = baseSt.cooldown / mult.enemyCooldown;
+    // Cooldown = durasi antar serangan: hard (<1) = lebih singkat/ketat.
+    if (st.cooldown != null) st.cooldown = baseSt.cooldown * mult.enemyCooldown;
     return {
       id: ++slimeUid,
       kind: kind,
@@ -2861,7 +2862,7 @@
         else setR(_r1, boss.x - bw + 8, boss.y - 8, bw, boss.h + 16);
         if (rectsOverlap(_r1, _r2)) {
           boss.struckPlayer = true;
-          playerTakeDamage(boss.kind === 'lich' ? 16 : BOSS_STRIKE_DMG, boss.x + boss.w / 2);
+          playerTakeDamage(bossDamage(boss.kind === 'lich' ? 16 : BOSS_STRIKE_DMG), boss.x + boss.w / 2);
         }
       }
       if (miniboss && !miniboss.dead && miniboss.state === 'slash' && !miniboss.struckPlayer) {
@@ -2870,7 +2871,7 @@
           else setR(_r1, miniboss.x - 38, miniboss.y - 8, 44, miniboss.h + 16);
           if (rectsOverlap(_r1, _r2)) {
             miniboss.struckPlayer = true;
-            playerTakeDamage(16, miniboss.x + miniboss.w / 2);
+            playerTakeDamage(bossDamage(16), miniboss.x + miniboss.w / 2);
           }
         }
       }
@@ -3292,12 +3293,20 @@
       state: 'idle', // idle|telegraph|strike|charge|shock|recovery|hurt|death
       animTime: 0, idleT: 0, teleT: 0, teleDur: 0.5,
       atkT: 0, recT: 0, recDur: 0.6,
-      pattern: 'strike', patIdx: 0, cooldown: 1.0,
+      pattern: 'strike', patIdx: 0, cooldown: 1.0 * mult.bossCooldown,
+      diffCd: mult.bossCooldown,
       hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
       enraged: false, dead: false,
       enraged: false, dead: false,
       introduced: false, dustT: 0, deathFxT: 0 // intro arena + debu charge/final (visual saja)
     };
+  }
+
+  /* Damage dari boss/miniboss ke player (scaling difficulty terpusat).
+   * Normal x1.0, Hard x2.0 (DIFFICULTY_CONFIG.bossDmg). */
+  function bossDamage(amount) {
+    try { return Math.max(1, Math.round(amount * getDifficultyMult().bossDmg)); }
+    catch (e) { return amount; }
   }
 
   function bossSeesPlayer(b) {
@@ -3421,7 +3430,7 @@
       b.atkT += dt;
       if (b.atkT < 0.2) b.vx = b.dir * 165 * spdMul;
       else b.vx = 0;
-      if (b.atkT >= 0.8) { b.state = 'recovery'; b.recT = 0; b.recDur = 0.6; b.cooldown = 1.0 * cdMul; }
+      if (b.atkT >= 0.8) { b.state = 'recovery'; b.recT = 0; b.recDur = 0.6; b.cooldown = 1.0 * cdMul * (b.diffCd || 1); }
     } else if (b.state === 'charge') {
       b.atkT += dt;
       if (b.atkT < 0.45 && !b.hitWall) {
@@ -3441,17 +3450,17 @@
           setR(_r2, player.x, player.y, player.w, player.h);
           if (rectsOverlap(_r1, _r2)) {
             b.struckPlayer = true;
-            playerTakeDamage(BOSS_CHARGE_DMG, bx);
+            playerTakeDamage(bossDamage(BOSS_CHARGE_DMG), bx);
           }
         }
       } else {
         b.vx = 0;
-        b.state = 'recovery'; b.recT = 0; b.recDur = 0.8; b.cooldown = 1.6 * cdMul;
+        b.state = 'recovery'; b.recT = 0; b.recDur = 0.8; b.cooldown = 1.6 * cdMul * (b.diffCd || 1);
       }
     } else if (b.state === 'shock') {
       b.atkT += dt;
       b.vx = 0;
-      if (b.atkT >= 0.3) { b.state = 'recovery'; b.recT = 0; b.recDur = 0.7; b.cooldown = 1.8 * cdMul; }
+      if (b.atkT >= 0.3) { b.state = 'recovery'; b.recT = 0; b.recDur = 0.7; b.cooldown = 1.8 * cdMul * (b.diffCd || 1); }
     } else if (b.state === 'recovery') {
       b.vx = 0;
       b.recT += dt;
@@ -3499,7 +3508,7 @@
         setR(_r2, player.x, player.y, player.w, player.h);
         if (rectsOverlap(_r1, _r2)) {
           sh.hitDone = true;
-          playerTakeDamage(sh.dmg, sh.x + sh.w / 2, 'shock');
+          playerTakeDamage(bossDamage(sh.dmg), sh.x + sh.w / 2, 'shock');
         }
       }
       if (sh.life <= 0 || sh.x < sh.minX || sh.x > sh.maxX) {
@@ -3539,17 +3548,20 @@
 
   function createMiniboss(spawn, arena) {
     var isSlimeMid = (currentLevel === 1);
+    var mmult = getDifficultyMult();
+    var mhp = Math.round(MINIBOSS_HP * mmult.bossHp);
     return {
       id: ++slimeUid, kind: 'miniboss', name: isSlimeMid ? 'Lightning Slime' : 'PANGLIMA TULANG',
       x: spawn.x, y: spawn.y, w: isSlimeMid ? 56 : 52, h: isSlimeMid ? 48 : 64,
       vx: 0, vy: 0, onGround: false, hitWall: false,
       spawnX: spawn.x, spawnY: spawn.y,
       arenaMin: arena.minX, arenaMax: arena.maxX,
-      dir: -1, hp: MINIBOSS_HP, maxHp: MINIBOSS_HP,
+      dir: -1, hp: mhp, maxHp: mhp,
       state: 'idle', // idle|telegraph|slash|dash|recovery|hurt|death
       animTime: 0, idleT: 0, teleT: 0, teleDur: 0.6,
       atkT: 0, recT: 0, recDur: 0.6,
-      pattern: 'slash', patIdx: 0, cooldown: 1.2,
+      pattern: 'slash', patIdx: 0, cooldown: 1.2 * mmult.bossCooldown,
+      diffCd: mmult.bossCooldown,
       hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
       enraged: false, dead: false, introduced: false, deathFxT: 0
     };
@@ -3672,7 +3684,7 @@
       else m.vx = 0;
       if (m.atkT >= 0.85) {
         m.state = 'recovery'; m.recT = 0; m.recDur = 0.6;
-        m.cooldown = 1.1 * cdMul;
+        m.cooldown = 1.1 * cdMul * (m.diffCd || 1);
       }
     } else if (m.state === 'dash') {
       m.atkT += dt;
@@ -3683,13 +3695,13 @@
           setR(_r2, player.x, player.y, player.w, player.h);
           if (rectsOverlap(_r1, _r2)) {
             m.struckPlayer = true;
-            playerTakeDamage(14, mx);
+            playerTakeDamage(bossDamage(14), mx);
           }
         }
       } else {
         m.vx = 0;
         m.state = 'recovery'; m.recT = 0; m.recDur = 0.8;
-        m.cooldown = 1.7 * cdMul;
+        m.cooldown = 1.7 * cdMul * (m.diffCd || 1);
       }
     } else if (m.state === 'recovery') {
       m.vx = 0;
@@ -3909,7 +3921,8 @@
       state: 'dormant', // dormant|idle|telegraph|strike|bolt|summon|recovery|hurt|death
       animTime: 0, idleT: 0, teleT: 0, teleDur: 0.5,
       atkT: 0, recT: 0, recDur: 0.6,
-      pattern: 'strike', patIdx: 0, cooldown: 1.2,
+      pattern: 'strike', patIdx: 0, cooldown: 1.2 * mult.bossCooldown,
+      diffCd: mult.bossCooldown,
       hurtT: 0, deathT: 0, iframes: 0, struckPlayer: false,
       phase: 1, phaseAnn: 1, enraged: false,
       dead: false, introduced: false, deathFxT: 0
@@ -4083,14 +4096,14 @@
       else b.vx = 0;
       if (b.atkT >= 0.8) {
         b.state = 'recovery'; b.recT = 0; b.recDur = 0.6;
-        b.cooldown = 1.1 * cdMul;
+        b.cooldown = 1.1 * cdMul * (b.diffCd || 1);
       }
     } else if (b.state === 'bolt' || b.state === 'summon') {
       b.atkT += dt;
       b.vx = 0;
       if (b.atkT >= 0.35) {
         b.state = 'recovery'; b.recT = 0; b.recDur = 0.7;
-        b.cooldown = (b.pattern === 'summon' ? 3.0 : 1.6) * cdMul;
+        b.cooldown = (b.pattern === 'summon' ? 3.0 : 1.6) * cdMul * (b.diffCd || 1);
       }
     } else if (b.state === 'recovery') {
       b.vx = 0;
@@ -4534,13 +4547,9 @@
         gameCompleted: false, level2Unlocked: false, level3Unlocked: false, level4Unlocked: false, level5Unlocked: false,
         bestTime: null, bestL1: null, bestL2: null, bestL3: null, bestL4: null, bestL5: null, bestCoins: 0
       };
-      // Derive hard unlock from normal completion (safe rule)
-      if (d.gameCompleted || d.level5Completed) {
-        d.hardProgress.level2Unlocked = true; d.hardProgress.level3Unlocked = true; d.hardProgress.level4Unlocked = true; d.hardProgress.level5Unlocked = true;
-      } else if (d.level4Completed) { d.hardProgress.level5Unlocked = true; }
-      else if (d.level3Completed) { d.hardProgress.level4Unlocked = true; }
-      else if (d.level2Completed) { d.hardProgress.level3Unlocked = true; }
-      else if (d.level1Completed) { d.hardProgress.level2Unlocked = true; }
+      // Isolasi: bucket Hard TIDAK diturunkan dari progres Normal.
+      // Hard L1 selalu terbuka; L2+ terbuka murni dari penyelesaian Hard.
+      // (Tombol mode Hard sendiri tetap digembok sampai campaign Normal tamat.)
     }
     // Set version to 5
     d.version = 5;
@@ -4683,18 +4692,22 @@
     if (levelComplete && levelN === 5 && !save.achievements.king_slayer) unlockAchievement('king_slayer');
     // No Death Clear: completed level without death increment since start
     if (levelComplete && !died && !save.achievements.no_death_clear) unlockAchievement('no_death_clear');
-    // Speed Runner: bestL1 <= 45
-    if (!save.achievements.speed_runner && save.bestL1 != null && save.bestL1 <= 45) unlockAchievement('speed_runner');
+    // Speed Runner: bestL1 <= 45 (bucket difficulty aktif).
+    var _bl1 = null;
+    try { _bl1 = progBucket().bestL1; } catch (e) { _bl1 = null; }
+    if (!save.achievements.speed_runner && _bl1 != null && _bl1 <= 45) unlockAchievement('speed_runner');
     // Collector: totalGoldShards >= 5
     if (!save.achievements.collector && save.totalGoldShards >= 5) unlockAchievement('collector');
     // Hard Clear: hard progress completed any level
     if (save.difficulty === 'hard' && levelComplete && !save.achievements.hard_clear) unlockAchievement('hard_clear');
-    // Campaign Complete: normal gameCompleted
+    // Campaign Complete: normal gameCompleted (deskripsi: Normal campaign).
     if (save.gameCompleted && !save.achievements.campaign_complete) unlockAchievement('campaign_complete');
-    // Master mode achievements: when gameCompleted and mode matches
-    if (save.gameCompleted && !save.achievements.master_of_sword && save.mode === 'SWORD') unlockAchievement('master_of_sword');
-    if (save.gameCompleted && !save.achievements.master_of_guardian && save.mode === 'GUARDIAN') unlockAchievement('master_of_guardian');
-    if (save.gameCompleted && !save.achievements.master_of_archer && save.mode === 'ARCHER') unlockAchievement('master_of_archer');
+    // Master mode achievements: campaign tamat (Normal ATAU Hard) + mode cocok.
+    var _gc = false;
+    try { _gc = !!(save.gameCompleted || (save.hardProgress && save.hardProgress.gameCompleted)); } catch (e) {}
+    if (_gc && !save.achievements.master_of_sword && save.mode === 'SWORD') unlockAchievement('master_of_sword');
+    if (_gc && !save.achievements.master_of_guardian && save.mode === 'GUARDIAN') unlockAchievement('master_of_guardian');
+    if (_gc && !save.achievements.master_of_archer && save.mode === 'ARCHER') unlockAchievement('master_of_archer');
   }
 
 
@@ -4710,9 +4723,11 @@
   }
   // Pengali damage serangan player: Sharp Edge +10%, Combo Master +15% saat
   // kombo, Dash Slash boost +50% selama 0.6 dtk setelah dash. Default 1.
+  // playerDmg difficulty ikut di sini agar DIFFICULTY_CONFIG sepenuhnya live.
   function skillDamageMult() {
     var m = 1;
     try {
+      m *= getDifficultyMult().playerDmg || 1;
       if ((save.mode || 'SWORD') === 'SWORD') {
         if (save.skills.unlocked.sharpEdge) m *= 1.10;
         if (save.skills.unlocked.comboMaster && player && player.combo) m *= 1.15;
@@ -4856,16 +4871,23 @@
     return true;
   }
 
-  // Progression unlock: skill terbuka mengikuti level tertinggi yang selesai.
-  // unlockedAtLevel 2 -> setelah L1, 3 -> setelah L2, 4 -> setelah L3.
+  // Level tertinggi selesai di KEDUA bucket (skill progression
+  // difficulty-agnostic: tamat Hard L1 pun membuka active skill).
   function highestCompletedLevel() {
     if (!save) return 0;
-    if (save.gameCompleted || save.level5Completed) return 5;
-    if (save.level4Completed) return 4;
-    if (save.level3Completed) return 3;
-    if (save.level2Completed) return 2;
-    if (save.level1Completed) return 1;
-    return 0;
+    function h(o) {
+      if (!o) return 0;
+      if (o.gameCompleted || o.level5Completed) return 5;
+      if (o.level4Completed) return 4;
+      if (o.level3Completed) return 3;
+      if (o.level2Completed) return 2;
+      if (o.level1Completed) return 1;
+      return 0;
+    }
+    var a = 0, b = 0;
+    try { a = h(save); } catch (e) {}
+    try { b = h(save.hardProgress); } catch (e) {}
+    return Math.max(a, b);
   }
 
   function checkSkillUnlocks(silent) {
@@ -4917,14 +4939,25 @@
   }
 
   // Campaign L1->L2->L3->L4->L5->COMPLETE (gate per level).
+  // Isolasi difficulty: Normal baca/tulis save, Hard baca/tulis
+  // save.hardProgress. Main Hard tak pernah mengubah completion/unlock/
+  // best Normal (dan sebaliknya). Ekonomi coin + shop tetap shared.
+  function isHardMode() {
+    return !!(save && save.difficulty === 'hard');
+  }
+  function progBucket() {
+    if (isHardMode() && save.hardProgress && typeof save.hardProgress === 'object') return save.hardProgress;
+    return save;
+  }
   function canPlayLevel(n) {
     n = Math.floor(Number(n));
     if (!(n >= 1)) return false;
     if (n <= 1) return true;
-    if (n === 2) return !!save.level2Unlocked;
-    if (n === 3) return !!save.level3Unlocked;
-    if (n === 4) return !!save.level4Unlocked;
-    if (n === 5) return !!save.level5Unlocked;
+    var p = progBucket();
+    if (n === 2) return !!p.level2Unlocked;
+    if (n === 3) return !!p.level3Unlocked;
+    if (n === 4) return !!p.level4Unlocked;
+    if (n === 5) return !!p.level5Unlocked;
     return false;
   }
 
@@ -5195,16 +5228,18 @@
                      4: 'level4Completed', 5: 'level5Completed' };
 
   function campBestText(n) {
-    var v = save[LEVEL_BEST[n]];
+    var v = null;
+    try { v = progBucket()[LEVEL_BEST[n]]; } catch (e) { v = null; }
     return (v == null || !isFinite(v)) ? '-/-' : Number(v).toFixed(1) + 's';
   }
 
   function refreshCampaignUI() {
     try {
       var doneCount = 0;
+      var P = progBucket();
       for (var n = 1; n <= 5; n++) {
         var open = canPlayLevel(n);
-        var done = !!save[LEVEL_DONE[n]];
+        var done = !!P[LEVEL_DONE[n]];
         if (done) doneCount++;
         var b = campBtns[n - 1], st = campStats[n - 1];
         if (b) b.textContent = (open ? '' : '🔒 ') + 'LEVEL ' + n + ' — ' + LEVEL_NAMES[n];
@@ -5349,21 +5384,6 @@
   function isSkillsOpen() {
     try { var sEl = document.getElementById('skills'); return !!(sEl && !sEl.classList.contains('hidden')); }
     catch (e) { return false; }
-  }
-
-  function playCampaignLevel(n) {
-    n = Math.floor(Number(n));
-    if (!(n >= 1 && n <= Levels.length)) return false;
-    if (!canPlayLevel(n)) {
-      showToast('Selesaikan level sebelumnya dulu!');
-      AudioManager.play('click');
-      return false;
-    }
-    // Set difficulty from menu selection if not already set; if playing from campaign menu, difficulty already set by button
-    if (!save.difficulty) save.difficulty = 'normal';
-    resetTotals();
-    startTrans(n);
-    return true;
   }
 
   function playCampaignLevel(n) {
@@ -5739,14 +5759,16 @@
   function refreshRecordsUI() {
     try {
       if (!aboutRecords) return;
-      var done = (save.level1Completed ? 1 : 0) + (save.level2Completed ? 1 : 0) +
-        (save.level3Completed ? 1 : 0) + (save.level4Completed ? 1 : 0) +
-        (save.level5Completed ? 1 : 0);
+      // Records mengikuti difficulty aktif (bucket Normal/Hard).
+      var R = progBucket();
+      var done = (R.level1Completed ? 1 : 0) + (R.level2Completed ? 1 : 0) +
+        (R.level3Completed ? 1 : 0) + (R.level4Completed ? 1 : 0) +
+        (R.level5Completed ? 1 : 0);
       aboutRecords.textContent =
-        'Best L1: ' + fmtTime(save.bestL1) + ' • Best L2: ' + fmtTime(save.bestL2) +
-        ' • Best L3: ' + fmtTime(save.bestL3) + ' • Best L4: ' + fmtTime(save.bestL4) +
-        ' • Best L5: ' + fmtTime(save.bestL5) +
-        ' • Best: ' + fmtTime(save.bestTime) + ' • Coin: ' + save.bestCoins +
+        'Best L1: ' + fmtTime(R.bestL1) + ' • Best L2: ' + fmtTime(R.bestL2) +
+        ' • Best L3: ' + fmtTime(R.bestL3) + ' • Best L4: ' + fmtTime(R.bestL4) +
+        ' • Best L5: ' + fmtTime(R.bestL5) +
+        ' • Best: ' + fmtTime(R.bestTime) + ' • Coin: ' + save.bestCoins +
         ' • Mati: ' + save.totalDeaths + ' • Selesai: ' + done + '/5';
     } catch (e) { /* abaikan */ }
   }
@@ -5829,27 +5851,29 @@
     if (currentLevel >= 5) { showGameComplete(); return; }
     gameState = 'levelcomplete';
     // Persistent per level: unlock berikutnya + best per level.
+    // Ditulis ke bucket aktif (Normal/Hard terisolasi).
+    var P = progBucket();
     if (currentLevel === 1) {
-      save.level1Completed = true;
-      save.level2Unlocked = true;
-      if (save.bestL1 == null || levelStats.time < save.bestL1) save.bestL1 = levelStats.time;
+      P.level1Completed = true;
+      P.level2Unlocked = true;
+      if (P.bestL1 == null || levelStats.time < P.bestL1) P.bestL1 = levelStats.time;
     } else if (currentLevel === 2) {
-      save.level2Completed = true;
-      save.level3Unlocked = true;
-      if (save.bestL2 == null || levelStats.time < save.bestL2) save.bestL2 = levelStats.time;
+      P.level2Completed = true;
+      P.level3Unlocked = true;
+      if (P.bestL2 == null || levelStats.time < P.bestL2) P.bestL2 = levelStats.time;
     } else if (currentLevel === 3) {
-      save.level3Completed = true;
-      save.level4Unlocked = true;
-      if (save.bestL3 == null || levelStats.time < save.bestL3) save.bestL3 = levelStats.time;
+      P.level3Completed = true;
+      P.level4Unlocked = true;
+      if (P.bestL3 == null || levelStats.time < P.bestL3) P.bestL3 = levelStats.time;
     } else if (currentLevel === 4) {
-      save.level4Completed = true;
-      save.level5Unlocked = true;
-      if (save.bestL4 == null || levelStats.time < save.bestL4) save.bestL4 = levelStats.time;
+      P.level4Completed = true;
+      P.level5Unlocked = true;
+      if (P.bestL4 == null || levelStats.time < P.bestL4) P.bestL4 = levelStats.time;
     } else {
       // Unreachable via completeCurrentLevel (L5 -> showGameComplete),
       // dipertahankan sebagai fallback aman bila dipanggil langsung.
-      save.level5Completed = true;
-      if (save.bestL5 == null || levelStats.time < save.bestL5) save.bestL5 = levelStats.time;
+      P.level5Completed = true;
+      if (P.bestL5 == null || levelStats.time < P.bestL5) P.bestL5 = levelStats.time;
     }
     persistSave();
     refreshRecordsUI();
@@ -5874,19 +5898,12 @@
     if (gameState !== 'playing') return;
     gameState = 'gamecomplete';
     // Persistent final: L5 selesai + game complete + best.
-    save.level5Completed = true;
-    save.gameCompleted = true;
-    if (save.difficulty === 'hard') {
-      save.hardProgress = save.hardProgress || {};
-      save.hardProgress.gameCompleted = true;
-      save.hardProgress.level5Completed = true;
-      save.hardProgress.level4Unlocked = true;
-      save.hardProgress.level3Unlocked = true;
-      save.hardProgress.level2Unlocked = true;
-      save.hardProgress.level5Unlocked = true;
-    }
-    if (save.bestTime == null || timeElapsed < save.bestTime) save.bestTime = timeElapsed;
-    if (save.bestL5 == null || levelStats.time < save.bestL5) save.bestL5 = levelStats.time;
+    // Ditulis ke bucket aktif (Normal/Hard terisolasi); coin tetap shared.
+    var P = progBucket();
+    P.level5Completed = true;
+    P.gameCompleted = true;
+    if (P.bestTime == null || timeElapsed < P.bestTime) P.bestTime = timeElapsed;
+    if (P.bestL5 == null || levelStats.time < P.bestL5) P.bestL5 = levelStats.time;
     if (runStats.coins > save.bestCoins) save.bestCoins = runStats.coins;
     persistSave();
     refreshRecordsUI();
@@ -5896,7 +5913,9 @@
       var txt = 'Coin: ' + runStats.coins + ' • Gold Shard: ' + (runStats.goldShards || 0) +
         ' • Musuh: ' + runStats.kills + ' • Mati: ' + deaths +
         ' • Waktu: ' + timeElapsed.toFixed(1) + ' dtk';
-      if (save.bestTime != null) txt += ' • Terbaik: ' + Number(save.bestTime).toFixed(1) + ' dtk';
+      var _pbt = null;
+      try { _pbt = progBucket().bestTime; } catch (e) { _pbt = null; }
+      if (_pbt != null) txt += ' • Terbaik: ' + Number(_pbt).toFixed(1) + ' dtk';
       if (gameclearStats) gameclearStats.textContent = txt;
       gameclearEl.classList.remove('hidden');
     }
@@ -8122,6 +8141,9 @@
     resetSave: resetSave,
     saveNow: persistSave,
     canPlayLevel: canPlayLevel,
+    isHardMode: isHardMode,
+    progBucket: function () { try { return JSON.parse(JSON.stringify(progBucket())); } catch (e) { return null; } },
+    bossDamage: bossDamage,
     openSettings: openSettings,
     nextLevel: nextLevel,
     isSimActive: isSimActive,

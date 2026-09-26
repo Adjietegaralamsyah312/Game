@@ -317,7 +317,7 @@ node test.js
 git diff --check
 ```
 
-374 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system) —
+386 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 

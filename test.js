@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 374; // total test (358 + 16 skill system)
+const EXPECTED_TOTAL = 386; // total test (374 + 12 hard/runtime plan.md)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1025,13 +1025,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('374 automated test'), 'README harus sebut 374 test, cek jumlah');
+  ok(readme.includes('386 automated test'), 'README harus sebut 386 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 374);
+  eq(EXPECTED_TOTAL, 386);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -3541,7 +3541,12 @@ test('276 shop preview dari data (bukan palsu)', () => {
   G.setShopSel('silver');
   const ren = G.getShopRender();
   eq(ren.sel, 'silver');
-  ok(ren.preview && ren.preview.stats.length === 5, 'stat bar ada');
+  // 4 bar sesuai shopStatBars (Damage/Attack Speed/Range/Defense) — dan
+  // nilainya WAJIB sama dengan data item silver (bukan hardcode palsu).
+  ok(ren.preview && ren.preview.stats.length === 4, 'stat bar ada');
+  eq(JSON.stringify(ren.preview.stats),
+    JSON.stringify([['Damage', 17, 22], ['Attack Speed', 1.15, 1.3], ['Range', 12, 12], ['Defense', 0, 1]]),
+    'stat dari data silver');
   ok(elements['shop-prev-name'].textContent.includes('Silver'), 'nama preview');
   ok(elements['shop-prev-price'].textContent.includes('1200'), 'harga preview');
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
@@ -4759,6 +4764,171 @@ test('374 efek active: dash, bash, multiShot', () => {
   ok(G._activateActiveSkill(), 'multi ok');
   eq(G.getPlayerShots().length - before, 3, '3 panah');
   resetSkills(); G.setMode('SWORD');
+});
+function seedDifficulty(levels, diff) {
+  const s = G.getSave();
+  (levels || []).forEach((L) => { s['level' + L + 'Completed'] = true; });
+  if ((levels || []).indexOf(5) !== -1) s.gameCompleted = true;
+  s.version = 5;
+  s.difficulty = diff || 'normal';
+  testStorage._map.set('knightSaveV1', JSON.stringify(s));
+  G.reloadSave();
+}
+// ---------- 12 TEST HARD ISOLATION/SCALING/FLOW + RUNTIME (§9-12 plan.md) ----------
+test('375 isolasi: normal L3 tidak membuka hard L3', () => {
+  resetSkills();
+  seedDifficulty([1, 2, 3], 'hard'); // normal L1-3 done, bucket hard kosong
+  eq(G.canPlayLevel(3), false, 'hard L3 tetap locked');
+  eq(G.canPlayLevel(1), true, 'hard L1 selalu terbuka');
+  const hb = G.progBucket();
+  eq(!!hb.level3Completed, false, 'hard bucket bersih');
+  eq(G.getSave().level3Completed, true, 'normal utuh');
+  resetSkills();
+});
+test('376 isolasi: hard L1 tidak menulis normal', () => {
+  resetSkills();
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 5, difficulty: 'hard' }));
+  G.reloadSave();
+  completeL1Flow(); // main hard L1 -> tulis bucket hard saja
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1'));
+  eq(raw.hardProgress.level1Completed, true, 'hard tercatat');
+  eq(raw.hardProgress.level2Unlocked, true, 'hard L2 terbuka');
+  eq(raw.level1Completed || false, false, 'normal tak tersentuh');
+  eq(raw.bestL1 == null, true, 'best normal tak tersentuh');
+  ok(raw.hardProgress.bestL1 != null, 'best hard tercatat');
+  resetSkills();
+});
+test('377 scaling enemy hard: HP x2 dmg x1.8 cd x0.75', () => {
+  resetSkills(); G.forceStartLevel(1);
+  const n0 = G.getEnemies()[0].st;
+  const base = { hp: n0.hp, dmg: n0.dmg, cd: n0.cooldown };
+  seedDifficulty([], 'hard'); G.forceStartLevel(1);
+  const h0 = G.getEnemies()[0].st;
+  eq(h0.hp, Math.round(base.hp * 2), 'hp x2');
+  eq(h0.dmg, Math.round(base.dmg * 1.8), 'dmg x1.8');
+  ok(Math.abs(h0.cooldown / base.cd - 0.75) < 1e-9, 'cd x0.75, got ' + (h0.cooldown / base.cd));
+  resetSkills();
+});
+test('378 scaling boss hard: HP x2.5 + diffCd + damage x2', () => {
+  resetSkills(); G.forceStartLevel(2);
+  const nb = G.getBoss();
+  eq(nb.diffCd, 1, 'normal diffCd 1');
+  const nhp = nb.maxHp;
+  seedDifficulty([], 'hard'); G.forceStartLevel(2);
+  const hb = G.getBoss();
+  eq(hb.maxHp, Math.round(nhp * 2.5), 'boss hp x2.5');
+  eq(hb.diffCd, 0.6, 'boss cd x0.6');
+  resetSkills(); // normal kembali
+  eq(G.bossDamage(10), 10, 'normal x1');
+  seedDifficulty([], 'hard');
+  eq(G.bossDamage(10), 20, 'hard x2');
+  eq(G.bossDamage(18), 36, 'charge 18 -> 36');
+  resetSkills();
+});
+test('379 cooldown boss hard terpakai saat recovery', () => {
+  resetSkills(); G.forceStartLevel(2);
+  let b = G.getBoss();
+  b.state = 'strike'; b.atkT = 0.79; b.iframes = 0;
+  for (let i = 0; i < 3; i++) G.step(1 / 60);
+  ok(Math.abs(b.cooldown - 1.0) < 0.08, 'normal cd ~1.0, got ' + b.cooldown);
+  seedDifficulty([], 'hard'); G.forceStartLevel(2);
+  b = G.getBoss();
+  b.state = 'strike'; b.atkT = 0.79; b.iframes = 0;
+  for (let i = 0; i < 3; i++) G.step(1 / 60);
+  ok(Math.abs(b.cooldown - 0.6) < 0.08, 'hard cd ~0.6, got ' + b.cooldown);
+  resetSkills();
+});
+test('380 retry/respawn pertahankan difficulty + reset wajar', () => {
+  resetSkills();
+  seedDifficulty([1], 'hard'); G.forceStartLevel(1);
+  G._setSkillEnergy(10);
+  G.respawn();
+  eq(G.getSave().difficulty, 'hard', 'difficulty tetap hard');
+  eq(G._skillState().energy, 100, 'energi penuh lagi');
+  eq(JSON.stringify(G._skillState().cooldowns), '{}', 'cooldown bersih');
+  G.restart();
+  eq(G.getSave().difficulty, 'hard', 'restart tak ganti difficulty');
+  resetSkills();
+});
+test('381 achievement idempotent: double complete stabil', () => {
+  resetSkills();
+  completeL1Flow();
+  const n1 = Object.keys(G.getSave().achievements).filter((k) => G.getSave().achievements[k] === true).length;
+  completeL1Flow(); // replay L1
+  const n2 = Object.keys(G.getSave().achievements).filter((k) => G.getSave().achievements[k] === true).length;
+  eq(n2, n1, 'count stabil ' + n1);
+  ok(G.getSave().achievements.first_clear === true, 'tetap true');
+  resetSkills();
+});
+test('382 speed_runner dari timer best aktual', () => {
+  resetSkills();
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 5, bestL1: 40 }));
+  G.reloadSave();
+  completeL1Flow(); // run lambat, tapi best 40s <= 45
+  eq(G.getSave().achievements.speed_runner, true, 'best 40s memenuhi');
+  resetSkills();
+});
+test('383 dash kembali normal + boost & i-frame berakhir', () => {
+  resetSkills();
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  const pl = G.getPlayer();
+  pl.iframes = 0;
+  ok(G._activateActiveSkill());
+  for (let i = 0; i < 90; i++) G.step(1 / 60);
+  ok(['idle', 'run', 'jump', 'fall'].includes(pl.state), 'state normal lagi: ' + pl.state);
+  eq(pl.skillBoostT || 0, 0, 'boost habis');
+  eq(pl.iframes, 0, 'i-frame habis');
+  resetSkills();
+});
+test('384 HUD skill baca runtime tanpa error', () => {
+  resetSkills();
+  noThrow(() => G.drawOnce(), 'draw fresh');
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  ok(G._activateActiveSkill());
+  noThrow(() => G.drawOnce(), 'draw saat cooldown+energi turun');
+  ok(G._skillState().energy < 100, 'HUD baca energi turun');
+  resetSkills();
+});
+test('385 migrasi v1 ke v5: progres lestari + skill default', () => {
+  resetSkills();
+  testStorage._map.set('knightSaveV1', JSON.stringify({
+    version: 1, bestL1: 50, totalCoins: 100, totalShards: 25,
+    level1Completed: true, level2Unlocked: true, sfxVolume: 80
+  }));
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.version, 5);
+  eq(s.bestL1, 50, 'best lestari');
+  eq(s.totalCoins, 125, 'coin+shard gabung');
+  eq(s.level1Completed, true, 'campaign lestari');
+  eq(s.sfxVolume, 80, 'setting lestari');
+  eq(s.skills.unlocked.dashSlash, true, 'retroaktif skill L1');
+  eq(s.owned.rusty, true, 'starter shop default');
+  eq(s.mode, 'SWORD', 'mode default aman');
+  resetSkills();
+});
+test('386 flow hard end-to-end: unlock, clear, best terisolasi', () => {
+  resetSkills();
+  // Veteran normal-complete buka mode hard.
+  const v = G.getSave();
+  v.level1Completed = v.level2Completed = v.level3Completed = v.level4Completed = v.level5Completed = true;
+  v.gameCompleted = true; v.version = 5;
+  testStorage._map.set('knightSaveV1', JSON.stringify(v));
+  G.reloadSave();
+  G.toMenu(); G.openCampaign();
+  ok(!elements['btn-diff-hard'].disabled, 'tombol hard terbuka');
+  // Isolasi: save fresh mode hard, bucket normal kosong total.
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 5, difficulty: 'hard' }));
+  G.reloadSave();
+  completeL1Flow();
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1'));
+  eq(raw.hardProgress.level1Completed, true, 'hard tercatat');
+  eq(raw.achievements.hard_clear, true, 'hard_clear unlock');
+  eq(raw.level1Completed || false, false, 'normal bersih');
+  eq(raw.bestL1 == null, true, 'best normal bersih');
+  resetSkills();
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
