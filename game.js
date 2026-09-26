@@ -4363,7 +4363,11 @@
         master_of_guardian: false,
         master_of_archer: false,
         hard_clear: false,
-        campaign_complete: false
+        campaign_complete: false,
+        skill_apprentice: false,
+        skill_master: false,
+        ability_expert: false,
+        triple_master: false
       },
       hardProgress: {
         level1Completed: false, level2Completed: false, level3Completed: false, level4Completed: false, level5Completed: false,
@@ -4424,7 +4428,8 @@
     var defAch = { first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
       collector: false, no_death_clear: false, speed_runner: false,
       master_of_sword: false, master_of_guardian: false, master_of_archer: false,
-      hard_clear: false, campaign_complete: false };
+      hard_clear: false, campaign_complete: false,
+      skill_apprentice: false, skill_master: false, ability_expert: false, triple_master: false };
     for (var _ak in defAch) { if (d.achievements[_ak] === undefined) d.achievements[_ak] = defAch[_ak]; }
     d.hardProgress = (o.hardProgress && typeof o.hardProgress === 'object') ? o.hardProgress : {
       level1Completed: false, level2Completed: false, level3Completed: false, level4Completed: false, level5Completed: false,
@@ -4501,7 +4506,8 @@
         first_blood: false, first_clear: false, boss_slayer: false, king_slayer: false,
         collector: false, no_death_clear: false, speed_runner: false,
         master_of_sword: false, master_of_guardian: false, master_of_archer: false,
-        hard_clear: false, campaign_complete: false
+        hard_clear: false, campaign_complete: false,
+        skill_apprentice: false, skill_master: false, ability_expert: false, triple_master: false
       };
       for (var ak in defAch) {
         if (achDefs[ak] === undefined) achDefs[ak] = defAch[ak];
@@ -4546,6 +4552,10 @@
     // idempotent). Tak menyentuh knightSaveV1, progresi, best, atau fallback.
     try { storeDel('knightBestV1'); } catch (e) { /* abaikan */ }
     applyAudioSettings(); // audio selalu ikut save yang aktif
+    // Retroaktif: save lama yang sudah tamat level tapi skill masih locked
+    // langsung dibuka sesuai progression (tanpa reset progres lain).
+    try { if (checkSkillUnlocks() > 0) persistSave(); } catch (e) {}
+    try { checkSkillAchievements(); } catch (e) {}
     return save;
   }
 
@@ -4723,12 +4733,80 @@
 
   function unlockSkill(id) {
     if (!save || !save.skills || !save.skills.unlocked) return false;
+    if (!SKILLS[id]) return false;
     if (save.skills.unlocked[id] === true) return false;
     save.skills.unlocked[id] = true;
+    // Auto-equip: active pertama jadi aktif, passive masuk loadout
+    try {
+      var def = SKILLS[id];
+      if (def.type === 'active') {
+        var cur = save.skills.active;
+        if (!cur || !SKILLS[cur] || SKILLS[cur].mode !== save.mode) {
+          if (def.mode === save.mode) save.skills.active = id;
+        }
+      } else if (def.type === 'passive') {
+        if (!save.skills.passives) save.skills.passives = [];
+        if (save.skills.passives.indexOf(id) === -1) save.skills.passives.push(id);
+      }
+    } catch (e) {}
     persistSave();
     try { AudioManager.play('click'); } catch (e) {}
     if (save.achievements && !save.achievements.skill_apprentice) unlockAchievement('skill_apprentice');
+    checkSkillAchievements();
     return true;
+  }
+
+  // Progression unlock: skill terbuka mengikuti level tertinggi yang selesai.
+  // unlockedAtLevel 2 -> setelah L1, 3 -> setelah L2, 4 -> setelah L3.
+  function highestCompletedLevel() {
+    if (!save) return 0;
+    if (save.gameCompleted || save.level5Completed) return 5;
+    if (save.level4Completed) return 4;
+    if (save.level3Completed) return 3;
+    if (save.level2Completed) return 2;
+    if (save.level1Completed) return 1;
+    return 0;
+  }
+
+  function checkSkillUnlocks() {
+    if (!save || !save.skills || !save.skills.unlocked) return 0;
+    var highest = highestCompletedLevel();
+    if (highest < 1) return 0;
+    var opened = 0;
+    for (var sid in SKILLS) {
+      var s = SKILLS[sid];
+      if (!s || !s.unlockedAtLevel) continue;
+      if (save.skills.unlocked[sid] === true) continue;
+      if (s.unlockedAtLevel <= highest + 1) {
+        if (unlockSkill(sid)) opened++;
+      }
+    }
+    return opened;
+  }
+
+  function checkSkillAchievements() {
+    if (!save || !save.skills || !save.skills.unlocked || !save.achievements) return;
+    var u = save.skills.unlocked;
+    // Skill Master: semua active terbuka (dashSlash, shieldBash, multiShot)
+    var allActive = (u.dashSlash === true && u.shieldBash === true && u.multiShot === true);
+    if (allActive && !save.achievements.skill_master) unlockAchievement('skill_master');
+    // Ability Expert: satu mode lengkap (active + 2 passive mode tsb)
+    var modes = {
+      SWORD: ['dashSlash', 'sharpEdge', 'comboMaster'],
+      GUARDIAN: ['shieldBash', 'fortifiedGuard', 'sturdy'],
+      ARCHER: ['multiShot', 'quickDraw', 'piercingArrow']
+    };
+    var expert = false;
+    for (var m in modes) {
+      var set = modes[m];
+      if (u[set[0]] === true && u[set[1]] === true && u[set[2]] === true) { expert = true; break; }
+    }
+    if (expert && !save.achievements.ability_expert) unlockAchievement('ability_expert');
+    // Triple Master: progression ketiga mode terbuka (min 1 skill per mode)
+    var swordAny = (u.dashSlash === true || u.sharpEdge === true || u.comboMaster === true);
+    var guardAny = (u.shieldBash === true || u.fortifiedGuard === true || u.sturdy === true);
+    var archerAny = (u.multiShot === true || u.quickDraw === true || u.piercingArrow === true);
+    if (swordAny && guardAny && archerAny && !save.achievements.triple_master) unlockAchievement('triple_master');
   }
 
   function applyAudioSettings() {
@@ -5054,20 +5132,54 @@
     toMenu();
     try { if (document.getElementById('btn-skills')) document.getElementById('btn-skills').focus({ preventScroll: true }); } catch (e) {}
   }
+  function equipActiveSkill(id) {
+    if (!save || !save.skills || !save.skills.unlocked) return false;
+    var def = SKILLS[id];
+    if (!def || def.type !== 'active') return false;
+    if (def.mode !== (save.mode || 'SWORD')) return false;
+    if (save.skills.unlocked[id] !== true) return false;
+    save.skills.active = id;
+    persistSave();
+    try { AudioManager.play('click'); } catch (e) {}
+    return true;
+  }
+
   function refreshSkillsUI() {
     var list = document.getElementById('skills-list');
+    var status = document.getElementById('skills-status');
     if (!list) return;
     list.innerHTML = '';
     var mode = (save && save.mode) ? save.mode : 'SWORD';
+    if (status) status.textContent = 'Mode: ' + mode + ' — Enter/click = equip active skill';
     for (var sid in SKILLS) {
       var s = SKILLS[sid];
       if (s.mode !== mode) continue;
       var unlocked = !!(save && save.skills && save.skills.unlocked && save.skills.unlocked[sid]);
       var equippedActive = (save && save.skills && save.skills.active === sid);
+      var equippedPassive = !!(save && save.skills && save.skills.passives && save.skills.passives.indexOf(sid) !== -1);
       var item = document.createElement('div');
       item.className = 'achieve-item ' + (unlocked ? 'unlocked' : 'locked');
-      item.innerHTML = '<h4>' + (equippedActive ? '▶ ' : '') + s.name + '</h4><p>' + s.desc + (unlocked ? ' • Cost: ' + (s.energyCost || 0) + ' • CD: ' + (s.cooldown || 0) + 's' : ' [LOCKED]') + '</p>';
+      var mark = equippedActive ? '▶ ' : (equippedPassive ? '● ' : '');
+      var extra = unlocked
+        ? ' • Cost: ' + (s.energyCost || 0) + ' • CD: ' + (s.cooldown || 0) + 's' + (s.type === 'active' ? ' • Enter/click: equip' : ' • passive aktif')
+        : ' [LOCKED — selesaikan Level ' + ((s.unlockedAtLevel || 2) - 1) + ']';
+      item.innerHTML = '<h4>' + mark + s.name + '</h4><p>' + s.desc + extra + '</p>';
+      // Klik = equip active skill yang sudah unlock (sama aksi dengan Enter)
+      (function (id, canEquip) {
+        if (!canEquip) return;
+        try {
+          if (item.addEventListener) {
+            item.style.cursor = 'pointer';
+            item.addEventListener('click', function () {
+              if (equipActiveSkill(id)) refreshSkillsUI();
+            });
+          }
+        } catch (e) {}
+      })(sid, unlocked && s.type === 'active');
       list.appendChild(item);
+    }
+    if (list.children.length === 0) {
+      list.innerHTML = '<div style="color:#aaa;font-size:13px">No skills for mode ' + mode + '.</div>';
     }
   }
 
@@ -5644,6 +5756,7 @@
     }
     AudioManager.play('win');
     AudioManager.updateMusicState(); // BGM gameplay berhenti
+    checkSkillUnlocks();
     checkAchievements(true, currentLevel, deaths > 0, levelStats.time, false, false);
   }
 
@@ -5682,6 +5795,7 @@
     }
     AudioManager.play('win');
     AudioManager.updateMusicState(); // BGM gameplay berhenti
+    checkSkillUnlocks();
     checkAchievements(true, 5, deaths > 0, timeElapsed, true, true);
   }
 
@@ -7793,6 +7907,10 @@
     _refreshSkillsUI: refreshSkillsUI,
     _openAchievements: openAchievements,
     _openSkills: openSkills,
+    _unlockSkill: unlockSkill,
+    _equipActiveSkill: equipActiveSkill,
+    _checkSkillUnlocks: checkSkillUnlocks,
+    _checkSkillAchievements: checkSkillAchievements,
     reloadSave: loadSave,
     resetSave: resetSave,
     saveNow: persistSave,

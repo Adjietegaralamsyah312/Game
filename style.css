@@ -166,7 +166,9 @@ canvas#game {
 #reset-confirm,
 #campaign,
 #shop,
-#pause {
+#pause,
+#achievements,
+#skills {
   position: absolute;
   inset: 0;
   display: flex;
@@ -1002,7 +1004,8 @@ canvas#game {
   font-weight: bold;
   font-size: 13px;
 }
-#achieve-list {
+#achieve-list,
+#skills-list {
   max-height: 320px;
   overflow-y: auto;
   gap: 8px;
