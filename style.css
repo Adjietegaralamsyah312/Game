@@ -612,12 +612,60 @@ canvas#game {
   .touch-group {
     gap: 10px;
   }
-  /* Grup tengah (pause + skill + map) sebaris horizontal: bar cukup
+  /* Grup tengah (pause + skill) sebaris horizontal: bar cukup
      lebar penuh sehingga tak perlu menumpuk vertikal dan jump tak ketutup. */
   .touch-group-center {
     flex-direction: row;
     align-items: center;
     gap: 8px;
+  }
+}
+
+/* --- Landscape touch: canvas dominan + controller overlay (MMORPG) ---
+ * Canvas memakai viewport semaksimal mungkin (16:9, tanpa stretch);
+ * controller overlay transparan di atas game sehingga canvas tak menciut.
+ * Hanya pointer kasar + landscape. Desktop dan portrait tidak kena. */
+@media (orientation: landscape) and (pointer: coarse) {
+  #wrap {
+    gap: 6px;
+  }
+  #canvas-container {
+    width: min(calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)), calc((100dvh - 24px) * 16 / 9));
+  }
+  #touch-controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    background: transparent;
+    pointer-events: none;
+  }
+  #touch-controls button,
+  #touch-controls #joystick-zone {
+    pointer-events: auto;
+  }
+  /* Panah kiri/kanan diganti joystick di layout sentuh
+     (keyboard A/D dan desktop tak tersentuh). */
+  #touch-controls #btn-left,
+  #touch-controls #btn-right {
+    display: none;
+  }
+  /* Pause kecil di kanan atas, di luar bar bawah. */
+  #touch-controls #btn-pause {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    z-index: 60;
+    width: 44px;
+    height: 44px;
+    margin: 0;
   }
 }
 

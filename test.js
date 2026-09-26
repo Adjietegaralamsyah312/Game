@@ -228,7 +228,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 401; // total test (386 + 15 controller MMORPG)
+const EXPECTED_TOTAL = 406; // total test (401 + 5 layout landscape)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1027,13 +1027,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('401 automated test'), 'README harus sebut 401 test, cek jumlah');
+  ok(readme.includes('406 automated test'), 'README harus sebut 406 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 401);
+  eq(EXPECTED_TOTAL, 406);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4312,11 +4312,11 @@ test('340 BACK bermargin aman + safe-area', () => {
 test('341 z-index audit: tanpa absolute liar', () => {
   const absCount = (css.match(/position:\s*absolute/g) || []).length;
   eq(absCount, 2, 'hanya overlay base + stack img, got ' + absCount);
-  // Hierarki stacking terkunci allowlist: base 5, dialog fullscreen 50,
-  // toast 9999 (tidak ada lapisan lain).
+  // Hierarki stacking terkunci allowlist: base 5, controller overlay 40,
+  // dialog fullscreen 50, pause overlay 60, toast 9999 (tidak ada lapisan lain).
   const zvals = (css.match(/z-index:\s*(\d+)/g) || []).map((s) => s.replace(/[^0-9]/g, ''));
-  ok(zvals.length === 3, 'lapisan wajar, got ' + zvals.length);
-  zvals.forEach((z) => ok(['5', '50', '9999'].includes(z), 'z-index di luar allowlist: ' + z));
+  ok(zvals.length === 5, 'lapisan wajar, got ' + zvals.length);
+  zvals.forEach((z) => ok(['5', '40', '50', '60', '9999'].includes(z), 'z-index di luar allowlist: ' + z));
 });
 test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
   srcHas('shop-name'); srcHas('shop-desc'); srcHas('shop-price');
@@ -5121,6 +5121,62 @@ test('401 skill per mode: DASH/BASH/MULTI', () => {
   G.toMenu();
   eq(elements['btn-skill-name'].textContent, 'MULTI');
   resetSkills(); G.setMode('SWORD');
+});
+test('402 canvas landscape viewport-aware', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  ok(land.length >= 1, 'blok landscape coarse hilang');
+  const all = land.map((b) => b.body).join('\n');
+  ok(all.includes('#canvas-container') && all.includes('100dvh') && all.includes('16 / 9'), 'canvas dari viewport');
+  ok(all.includes('100vw'), 'canvas pakai lebar viewport');
+  ok(!/width:\s*455px/.test(all), 'tanpa fixed kecil');
+  ok(css.includes('aspect-ratio: 16 / 9'), 'rasio utuh');
+});
+test('403 controller overlay transparan', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  ok(/#touch-controls\s*{[^}]*position:\s*fixed/.test(all), 'bar overlay');
+  ok(/#touch-controls\s*{[^}]*pointer-events:\s*none/.test(all), 'layer tembus');
+  ok(all.includes('pointer-events: auto'), 'kontrol bisa disentuh');
+});
+test('404 panah sembunyi di mobile, keyboard utuh', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  ok(/#btn-left[\s\S]*?display:\s*none/.test(all), 'kiri sembunyi di mobile');
+  ok(/#btn-right[\s\S]*?display:\s*none/.test(all), 'kanan sembunyi di mobile');
+  resetSkills(); G.forceStartLevel(1);
+  G.input.left = false;
+  fireWin('keydown', { code: 'KeyA', preventDefault() {} });
+  eq(G.input.left, true, 'keyboard A tetap jalan');
+  fireWin('keyup', { code: 'KeyA', preventDefault() {} });
+  eq(G.input.left, false, 'keyup lepas');
+  resetSkills();
+});
+test('405 pause kecil kanan-atas landscape', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  ok(/#btn-pause\s*{[^}]*position:\s*fixed/.test(all), 'pause overlay');
+  ok(/#btn-pause\s*{[^}]*width:\s*44px/.test(all), 'pause 44px');
+  ok(/safe-area-inset-/.test(all), 'safe area');
+});
+test('406 aksi landscape tampil + ter-wire', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  ['#joystick-zone', '#btn-attack', '#btn-skill', '#btn-dash', '#btn-jump'].forEach((sel) => {
+    const esc = sel.replace('#', '\\#');
+    ok(!new RegExp(esc + '\\s*{[^}]*display:\\s*none').test(all), sel + ' jangan disembunyikan');
+  });
+  resetSkills(); G.forceStartLevel(1);
+  G.input.skillPressed = false;
+  elements['btn-skill'].dispatch('pointerdown', { pointerId: 61, cancelable: true, preventDefault() {} });
+  eq(G.input.skillPressed, true, 'skill tetap jalur sama');
+  elements['btn-skill'].dispatch('pointerup', { pointerId: 61, cancelable: true, preventDefault() {} });
+  G.input.skillPressed = false;
+  resetSkills();
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

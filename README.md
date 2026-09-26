@@ -223,14 +223,11 @@ Portrait dan landscape sama-sama playable:
   **⤒** lompat, **❖** serang, **✦** skill, **🛡** block (Guardian),
   **⏸** pause; joystick analog sembunyi (ruang sempit),
   tombol kompak ≥44px (pause 40px), dialog fullscreen + scroll.
-- **Landscape**: kontroler MMORPG — **joystick analog kiri** (pointerdown →
-  gerak, pointermove → arah/kuat dengan dead zone + radius dibatasi,
-  pointerup/cancel → netral; satu pointerId anti double; mengisi
-  `Input.joyX` yang menyatu dengan `left`/`right`, tanpa movement system
-  kedua, tanpa mengunci tombol lain); **kanan**: ❖ ATTACK (combat
-  existing), ✦ SKILL (nama skill mode aktif + badge cooldown LIVE + redup
-  saat locked), ➤ DASH (SWORD + Dash Slash unlock; satu jalur
-  `activateActiveSkill()` dengan Q), ⤒ JUMP, 🛡 block (Guardian saja).
+- **Landscape**: canvas dominan 16:9 dari viewport (`100vw`/`100dvh`,
+  tanpa stretch) + kontroler MMORPG **overlay** transparan (canvas tak
+  menciut): **joystick analog kiri**, **kanan**: ❖ ATTACK, ✦ SKILL, ➤ DASH,
+  ⤒ JUMP, 🛡 block; panah ◀ ▶ diganti joystick (keyboard A/D utuh);
+  pause kecil 44px kanan-atas; safe-area `env()`.
 - HUD canvas: LV + NORMAL/HARD, HP, bar energi + status cooldown skill.
 - Safe area `env()` + `touch-action: none`; input di-reset saat blur/
   tab-hidden/rotasi; desktop/laptop (pointer halus) tak tampil joystick,
@@ -338,7 +335,7 @@ node test.js
 git diff --check
 ```
 
-401 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG) —
+406 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 

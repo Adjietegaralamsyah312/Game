@@ -30,6 +30,9 @@
   cooldown LIVE, tombol MAP (info level real), overlay ROTATE portrait
   (auto-pause, fullscreen opsional guarded), HUD LV + difficulty,
   safe-area; 401 automated test
+- Layout landscape overlay: canvas 16:9 viewport-aware dominan, kontroler
+  fixed transparan (pointer-events), panah diganti joystick di sentuh,
+  pause 44px kanan-atas; 406 automated test
 - Portrait + landscape playable (HP & laptop): rotate-wall dilepas,
   portrait pakai kontroler klasik (joystick hanya landscape; tombol
   tetap ≥44px, dialog fullscreen + scroll)
