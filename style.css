@@ -156,6 +156,18 @@ canvas#game {
   background: #b23a3a;
 }
 
+/* Tombol skill aktif (✦): sebaris pause di tengah, tak menutup gerak/serang. */
+#btn-skill {
+  border-color: #c9a227;
+  background: rgba(120, 90, 20, 0.55);
+  color: #ffe9a8;
+}
+#btn-skill:active,
+#btn-skill.pressed {
+  background: #8a6d1f;
+  transform: scale(0.95);
+}
+
 /* --- Overlay Game Over / Win / Menu / Clear / Settings / Campaign / Pause --- */
 #gameover,
 #levelcomplete,

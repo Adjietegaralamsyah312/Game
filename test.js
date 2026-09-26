@@ -80,7 +80,7 @@ const mockCtx = new Proxy({}, {
 });
 const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
-  'btn-jump', 'btn-attack', 'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
+  'btn-jump', 'btn-attack', 'btn-skill', 'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
   // Stage 5: menu + clear screens
   'mainmenu', 'menu-main', 'menu-controls', 'menu-about',
   'btn-play', 'btn-controls', 'btn-about', 'btn-back-controls', 'btn-back-about',
@@ -226,7 +226,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 358; // total test (348 + 10 bash/stamina/visibility + 0 extra)
+const EXPECTED_TOTAL = 374; // total test (358 + 16 skill system)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1025,13 +1025,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('358 automated test'), 'README harus sebut 358 test, cek jumlah');
+  ok(readme.includes('374 automated test'), 'README harus sebut 374 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 358);
+  eq(EXPECTED_TOTAL, 374);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4482,6 +4482,283 @@ test('358 versi 1.4.0 + save v4 utuh', () => {
   eq(G.getSave().version, 5);
   eq(G.version, '1.4.0');
   G.resetSave();
+});
+
+// ---------- 16 TEST SKILL SYSTEM (plant.md §25) ----------
+function seedProgress(levels) {
+  const s = G.getSave();
+  (levels || []).forEach((L) => { s['level' + L + 'Completed'] = true; });
+  if ((levels || []).indexOf(5) !== -1) s.gameCompleted = true;
+  s.version = 5;
+  testStorage._map.set('knightSaveV1', JSON.stringify(s));
+  G.reloadSave();
+}
+function resetSkills() {
+  G.resetSave(); G.forceStartLevel(1);
+  try { G._setSkillEnergy(100); G._updateSkillCooldowns(9999); } catch (e) {}
+}
+test('359 registry skill valid + data-driven', () => {
+  const defs = G._skillsDefs();
+  eq(Object.keys(defs).length, 9, 'harus 9 skill');
+  const seen = {};
+  Object.keys(defs).forEach((id) => {
+    const d = defs[id];
+    eq(d.id, id, 'id konsisten');
+    ok(!seen[id], 'id unik'); seen[id] = true;
+    ok(d.mode === 'SWORD' || d.mode === 'GUARDIAN' || d.mode === 'ARCHER', 'mode valid: ' + id);
+    ok(d.type === 'active' || d.type === 'passive', 'type valid: ' + id);
+    ok(d.name && d.desc, 'nama+deskripsi: ' + id);
+    if (d.type === 'active') { ok(d.cooldown > 0, 'cooldown: ' + id); ok(d.energyCost > 0, 'cost: ' + id); }
+    ok(d.unlockedAtLevel >= 2 && d.unlockedAtLevel <= 4, 'unlock level 2-4: ' + id);
+  });
+  srcHas('const SKILLS =');
+});
+test('360 default locked + save 16 achievement', () => {
+  resetSkills();
+  const s = G.getSave();
+  Object.keys(G._skillsDefs()).forEach((id) => eq(s.skills.unlocked[id], false, id + ' default locked'));
+  eq(s.skills.active, null, 'active null');
+  eq(Object.keys(s.achievements).length, 16, 'achievement 16 key');
+  eq(G._skillState().energy, 100, 'energi penuh');
+  resetSkills();
+});
+test('361 progres L1 buka 3 active + apprentice (alur nyata)', () => {
+  resetSkills();
+  completeL1Flow(); // finish L1 -> showLevelComplete -> checkSkillUnlocks
+  const s = G.getSave();
+  eq(s.skills.unlocked.dashSlash, true);
+  eq(s.skills.unlocked.shieldBash, true);
+  eq(s.skills.unlocked.multiShot, true);
+  eq(s.skills.unlocked.sharpEdge, false, 'passive lv3 belum');
+  eq(s.achievements.skill_apprentice, true, 'apprentice');
+  ok(s.skills.active !== null, 'active auto-equip');
+  ok(s.skills.passives.length === 0, 'belum ada passive');
+  resetSkills();
+});
+test('362 progres L2/L3 buka passive + ability_expert', () => {
+  resetSkills();
+  seedProgress([1, 2]);
+  let s = G.getSave();
+  eq(s.skills.unlocked.sharpEdge, true);
+  eq(s.skills.unlocked.fortifiedGuard, true);
+  eq(s.skills.unlocked.quickDraw, true);
+  eq(s.skills.unlocked.comboMaster, false, 'lv4 belum');
+  eq(s.achievements.ability_expert, false, 'belum lengkap 1 mode');
+  seedProgress([1, 2, 3]);
+  s = G.getSave();
+  eq(s.skills.unlocked.comboMaster, true);
+  eq(s.skills.unlocked.sturdy, true);
+  eq(s.skills.unlocked.piercingArrow, true);
+  eq(s.achievements.ability_expert, true, 'sword lengkap');
+  resetSkills();
+});
+test('363 skill persist reload (unlock + loadout)', () => {
+  resetSkills();
+  ok(G._unlockSkill('dashSlash'), 'unlock ok');
+  ok(G._equipActiveSkill('dashSlash'), 'equip ok');
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.skills.unlocked.dashSlash, true, 'unlock persist');
+  eq(s.skills.active, 'dashSlash', 'active persist');
+  resetSkills();
+});
+test('364 migrasi v4 tanpa skill + retroaktif', () => {
+  resetSkills();
+  testStorage._map.set('knightSaveV1', JSON.stringify({
+    version: 4, level1Completed: true, level2Unlocked: true,
+    owned: { rusty: true, buckler: true, makeshift: true },
+    eqSword: 'rusty', eqShield: 'buckler', eqBow: 'makeshift', mode: 'SWORD'
+  }));
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.version, 5);
+  eq(s.skills.unlocked.dashSlash, true, 'retroaktif L1');
+  eq(s.skills.unlocked.sharpEdge, false, 'L2 belum');
+  eq(s.achievements.skill_apprentice, true, 'apprentice retroaktif');
+  eq(s.level1Completed, true, 'progres lama utuh');
+  resetSkills();
+});
+test('365 equip: valid ok, invalid/mode-salah/locked ditolak', () => {
+  resetSkills();
+  eq(G._equipActiveSkill('nope'), false, 'unknown ditolak');
+  eq(G._equipActiveSkill('shieldBash'), false, 'locked ditolak');
+  eq(G._equipActiveSkill('sharpEdge'), false, 'passive bukan active');
+  ok(G._unlockSkill('dashSlash'), 'unlock dash');
+  eq(G._equipActiveSkill('dashSlash'), true, 'equip valid');
+  eq(G._equipActiveSkill('shieldBash'), false, 'locked tetap ditolak');
+  ok(G._unlockSkill('shieldBash'), 'unlock bash');
+  eq(G._equipActiveSkill('shieldBash'), false, 'beda mode ditolak (SWORD)');
+  eq(G.getSave().skills.active, 'dashSlash', 'active tak berubah');
+  resetSkills();
+});
+test('366 aktivasi: konsumsi energi + cooldown + anti-spam', () => {
+  resetSkills(); // SWORD, dashSlash auto? belum unlock -> unlock manual
+  eq(G._activateActiveSkill(), false, 'tanpa active = false');
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  eq(G._skillState().energy, 100);
+  ok(G._activateActiveSkill(), 'aktivasi pertama ok');
+  eq(G._skillState().energy, 75, 'energi -25');
+  ok(G._skillState().cooldowns.dashSlash > 0, 'cooldown jalan');
+  eq(G._activateActiveSkill(), false, 'spam saat cooldown ditolak');
+  resetSkills();
+});
+test('367 aktivasi ditolak saat energi kurang', () => {
+  resetSkills();
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  G._setSkillEnergy(10);
+  eq(G._activateActiveSkill(), false, 'energi 10 < 25 ditolak');
+  eq(G._skillState().energy, 10, 'energi tak berkurang saat gagal');
+  resetSkills();
+});
+test('368 cooldown tick tak negatif + energi regen', () => {
+  resetSkills();
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  ok(G._activateActiveSkill());
+  G._updateSkillCooldowns(9999);
+  eq(G._skillState().cooldowns.dashSlash, 0, 'cooldown nol, tak negatif');
+  eq(G._skillState().energy, 100, 'regen penuh');
+  ok(G._activateActiveSkill(), 'bisa aktivasi lagi setelah cd');
+  resetSkills();
+});
+test('369 damage mult pasif: sharpEdge + comboMaster', () => {
+  resetSkills();
+  eq(G._skillDamageMult(), 1, 'default x1');
+  ok(G._hasPassive('sharpEdge') === false, 'belum unlock');
+  seedProgress([1, 2]); // sharpEdge unlock
+  eq(G._hasPassive('sharpEdge'), true, 'sharpEdge aktif di SWORD');
+  eq(G._skillDamageMult(), 1.10, 'sharpEdge x1.10');
+  G.getPlayer().combo = true;
+  seedProgress([1, 2, 3]); // comboMaster unlock
+  const m = G._skillDamageMult();
+  ok(Math.abs(m - 1.265) < 1e-9, 'combo x1.265, got ' + m);
+  G.setMode('GUARDIAN');
+  eq(G._hasPassive('sharpEdge'), false, 'mode beda = nonaktif');
+  resetSkills(); G.setMode('SWORD');
+});
+test('370 pasif guardian: sturdy -10% + fortified hemat 20%', () => {
+  resetSkills(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  // Tanpa pasif: belakang full damage.
+  pl.hp = 100; pl.iframes = 0; pl.facing = 1; pl.state = 'idle'; pl.blockStam = 2;
+  G.hurtPlayer(30, pl.x - 200);
+  eq(pl.hp, 70, 'tanpa sturdy full');
+  // Sturdy: -10%.
+  seedProgress([1, 2, 3]); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const pl2 = G.getPlayer();
+  pl2.hp = 100; pl2.iframes = 0; pl2.facing = 1; pl2.state = 'idle'; pl2.blockStam = 2;
+  G.hurtPlayer(30, pl2.x - 200);
+  eq(pl2.hp, 73, 'sturdy 30 -> 27');
+  // Fortified: drop stamina ~20% lebih kecil.
+  resetSkills(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const a = G.getPlayer();
+  a.hp = 100; a.iframes = 0; a.facing = 1; a.state = 'block'; a.blockStam = 2;
+  G.hurtPlayer(30, a.x + 200);
+  const drop1 = 2 - a.blockStam;
+  seedProgress([1, 2]); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const b = G.getPlayer();
+  b.hp = 100; b.iframes = 0; b.facing = 1; b.state = 'block'; b.blockStam = 2;
+  G.hurtPlayer(30, b.x + 200);
+  const drop2 = 2 - b.blockStam;
+  ok(drop2 < drop1, 'fortified lebih hemat');
+  ok(Math.abs(drop2 / drop1 - 0.8) < 0.01, 'hemat 20%, ratio=' + (drop2 / drop1));
+  resetSkills(); G.setMode('SWORD');
+});
+test('371 pasif archer: quickDraw + piercing', () => {
+  resetSkills(); G.setMode('ARCHER'); G.forceStartLevel(1);
+  // Bidik normal: hitung frame sampai panah keluar.
+  let pl = G.getPlayer();
+  pl.attackCooldown = 0; G.input.attackPressed = true;
+  let f1 = 0;
+  const n0 = G.getPlayerShots().length;
+  while (G.getPlayerShots().length === n0 && f1 < 60) { G.step(1 / 60); f1++; }
+  seedProgress([1, 2]); G.setMode('ARCHER'); G.forceStartLevel(1); // quickDraw unlock
+  pl = G.getPlayer();
+  pl.attackCooldown = 0; G.input.attackPressed = true;
+  let f2 = 0;
+  const n1 = G.getPlayerShots().length;
+  while (G.getPlayerShots().length === n1 && f2 < 60) { G.step(1 / 60); f2++; }
+  ok(f2 < f1, 'quickDraw lebih cepat: ' + f1 + ' -> ' + f2);
+  // Piercing: panah normal 0, unlock -> 1.
+  resetSkills(); G.setMode('ARCHER'); G.forceStartLevel(1);
+  G.firePlayerArrow();
+  let shots = G.getPlayerShots();
+  eq(shots[shots.length - 1].pierce, 0, 'tanpa pasif 0');
+  seedProgress([1, 2, 3]); G.setMode('ARCHER'); G.forceStartLevel(1); // piercing unlock
+  G.firePlayerArrow();
+  shots = G.getPlayerShots();
+  eq(shots[shots.length - 1].pierce, 1, 'piercing +1');
+  resetSkills(); G.setMode('SWORD');
+});
+test('372 achievement master + triple', () => {
+  resetSkills();
+  completeL1Flow();
+  const s = G.getSave();
+  eq(s.achievements.skill_master, true, '3 active = master');
+  eq(s.achievements.triple_master, true, '3 mode = triple');
+  resetSkills();
+});
+test('373 input semua via: touch + Q + Esc + nav', () => {
+  resetSkills(); G.forceStartLevel(1);
+  // Touch: tombol skill ada di HTML + ter-wire + set flag.
+  ok(/id="btn-skill"/.test(html), 'html ada btn-skill');
+  const bs = elements['btn-skill'];
+  ok(bs, 'mock ada btn-skill');
+  ok((bs.listeners['pointerdown'] || []).length >= 1, 'skill pointerdown ter-wire');
+  G.input.skillPressed = false;
+  bs.dispatch('pointerdown', { pointerId: 31, cancelable: true, preventDefault() {} });
+  eq(G.input.skillPressed, true, 'touch set flag');
+  bs.dispatch('pointerup', { pointerId: 31, cancelable: true, preventDefault() {} });
+  // Keyboard Q.
+  G.input.skillPressed = false;
+  fireWin('keydown', { code: 'KeyQ', preventDefault() {} });
+  eq(G.input.skillPressed, true, 'Q set flag');
+  G.input.skillPressed = false;
+  // Nav keyboard mencakup achievements + skills.
+  srcHas("var menuNavIds = ['btn-play', 'btn-campaign', 'btn-achievements', 'btn-skills'");
+  // Esc menutup panel.
+  G.toMenu();
+  G._openAchievements();
+  eq(G._isAchievementsOpen(), true);
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G._isAchievementsOpen(), false, 'Esc tutup achievements');
+  G._openSkills();
+  eq(G._isSkillsOpen(), true);
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G._isSkillsOpen(), false, 'Esc tutup skills');
+  resetSkills();
+});
+test('374 efek active: dash, bash, multiShot', () => {
+  resetSkills(); // SWORD
+  ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
+  const pl = G.getPlayer();
+  pl.iframes = 0;
+  ok(G._activateActiveSkill(), 'dash ok');
+  ok(pl.skillBoostT > 0, 'boost window');
+  ok(pl.iframes > 0, 'i-frame singkat');
+  ok(G._skillDamageMult() > 1.4, 'boost x1.5');
+  // Shield bash: lukai slime dekat.
+  resetSkills(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  ok(G._unlockSkill('shieldBash'));
+  ok(G._equipActiveSkill('shieldBash'));
+  const p2 = G.getPlayer();
+  p2.x = 1150; p2.y = 402; p2.facing = 1; p2.iframes = 0;
+  const foe = G.getEnemies()[0];
+  foe.x = p2.x + 60; foe.y = 448; foe.hp = 30; foe.iframes = 0; foe.dead = false; foe.state = 'chase';
+  const hp0 = foe.hp;
+  ok(G._activateActiveSkill(), 'bash ok');
+  ok(foe.hp < hp0, 'bash damage, hp ' + hp0 + ' -> ' + foe.hp);
+  // MultiShot: 3 panah.
+  resetSkills(); G.setMode('ARCHER'); G.forceStartLevel(1);
+  ok(G._unlockSkill('multiShot'));
+  ok(G._equipActiveSkill('multiShot'));
+  const before = G.getPlayerShots().length;
+  ok(G._activateActiveSkill(), 'multi ok');
+  eq(G.getPlayerShots().length - before, 3, '3 panah');
+  resetSkills(); G.setMode('SWORD');
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

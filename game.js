@@ -1478,21 +1478,24 @@
         // Skeleton defender (heavy) menyerang -> perisai hancur lebih cepat.
         // Deteksi sederhana: jika serangan dari depan pada jarak dekat (< 80px)
         // dalam state block sementara stamina rendah, anggap serangan berat.
+        // Fortified Guard (passive): biaya stamina block -20%.
+        var stamScale = 1;
+        try { if (hasPassive('fortifiedGuard')) stamScale = 0.8; } catch (e) {}
         var distToHit = Math.abs((player.x + player.w / 2) - fromX);
         var isDefenderHit = (distToHit < 80 && player.blockStam < 1.0);
         if (isDefenderHit) {
-          player.blockStam = Math.max(0, player.blockStam - 0.7); // serangan berat
+          player.blockStam = Math.max(0, player.blockStam - 0.7 * stamScale); // serangan berat
           player.blockBreak = true;
           player.blockBreakT = 1.2; // crack visual lebih lama
         } else {
-          player.blockStam = Math.max(0, player.blockStam - 0.2); // serangan biasa
+          player.blockStam = Math.max(0, player.blockStam - 0.2 * stamScale); // serangan biasa
         }
         if (isDefenderHit) {
-          player.blockStam = Math.max(0, player.blockStam - 0.7); // serangan berat
+          player.blockStam = Math.max(0, player.blockStam - 0.7 * stamScale); // serangan berat
           player.blockBreak = true;
           player.blockBreakT = 1.0; // crack visual lebih lama
         } else {
-          player.blockStam = Math.max(0, player.blockStam - 0.15); // serangan biasa
+          player.blockStam = Math.max(0, player.blockStam - 0.15 * stamScale); // serangan biasa
         }
         var sh = shieldStats();
         player.iframes = 0.1;
@@ -1516,6 +1519,8 @@
       }
     }
     // Serangan sendiri tidak bisa di-interrupt oleh hurt yang baru? tetap bisa — prioritaskan hurt.
+    // Sturdy (passive Guardian): damage yang lolos -10%.
+    try { if (hasPassive('sturdy')) amount = amount * 0.9; } catch (e) {}
     player.hp -= amount;
     AudioManager.play('hurt');
     triggerScreenShake(SHAKE_HURT, 0.25);
@@ -1709,6 +1714,8 @@
       player.vx = move * PLAYER_SPEED * 0.5;
       var _bw0 = bowStats();
       var _aimDur = 0.25 / ((_bw0 && _bw0.attackSpeed > 0) ? _bw0.attackSpeed : 1);
+      // Quick Draw (passive Archer): bidik 15% lebih cepat.
+      try { if (hasPassive('quickDraw')) _aimDur *= 0.85; } catch (e) {}
       if (!player.shotFired && player.aimT >= _aimDur) {
         player.shotFired = true;
         firePlayerArrow();
@@ -2052,11 +2059,7 @@
     if (s.dead || s.state === 'death' || s.iframes > 0) return false;
     // Skill passive modifier (light, data-driven, safe)
     var dmgMult = 1;
-    try {
-      if (save && save.skills && save.skills.unlocked) {
-        if (save.mode === 'SWORD' && save.skills.unlocked.sharpEdge) dmgMult = 1.10;
-      }
-    } catch (e) {}
+    try { dmgMult = skillDamageMult(); } catch (e) {}
     amount = amount * dmgMult;
     // Stage 9: Defender guard frontal (hanya saat siaga, bukan mid-attack).
     // Tanpa guard stats -> jalur klasik persis (nol perubahan perilaku lama).
@@ -2582,6 +2585,12 @@
       hitIds: {},
       bowId: bw ? bw.id : 'makeshift'
     });
+    // Piercing Arrow (passive Archer): panah menembus +1 musuh.
+    try {
+      if (hasPassive('piercingArrow') && playerShots.length) {
+        playerShots[playerShots.length - 1].pierce += 1;
+      }
+    } catch (e) {}
     burst(player.x + player.w / 2 + dir * 24, player.y + player.h / 2, 3, '#e8dfc9', 90, 0.2, 2, 150);
   }
 
@@ -3303,6 +3312,7 @@
     if (boss && boss.kind === 'lich') return hurtLich(amount, fromX);
     var b = boss;
     if (!b || b.dead || b.state === 'death' || b.iframes > 0) return false;
+    try { amount = amount * skillDamageMult(); } catch (e) {}
     b.hp -= amount;
     b.iframes = 0.3;
     burst(b.x + b.w / 2, b.y + b.h / 2, 8, '#ffffff', 180, 0.3, 3, 250);
@@ -3555,6 +3565,7 @@
   function hurtMiniboss(amount, fromX) {
     var m = miniboss;
     if (!m || m.dead || m.state === 'death' || m.iframes > 0) return false;
+    try { amount = amount * skillDamageMult(); } catch (e) {}
     m.hp -= amount;
     m.iframes = 0.3;
     burst(m.x + m.w / 2, m.y + m.h / 2, 7, '#ffffff', 170, 0.3, 3, 250);
@@ -3928,6 +3939,7 @@
   function hurtLich(amount, fromX) {
     var b = boss;
     if (!b || b.kind !== 'lich' || b.dead || b.state === 'death' || b.iframes > 0) return false;
+    try { amount = amount * skillDamageMult(); } catch (e) {}
     b.hp -= amount;
     b.iframes = 0.3;
     burst(b.x + b.w / 2, b.y + b.h / 2, 8, '#ffffff', 180, 0.3, 3, 250);
@@ -4554,7 +4566,7 @@
     applyAudioSettings(); // audio selalu ikut save yang aktif
     // Retroaktif: save lama yang sudah tamat level tapi skill masih locked
     // langsung dibuka sesuai progression (tanpa reset progres lain).
-    try { if (checkSkillUnlocks() > 0) persistSave(); } catch (e) {}
+    try { if (checkSkillUnlocks(true) > 0) persistSave(); } catch (e) {}
     try { checkSkillAchievements(); } catch (e) {}
     return save;
   }
@@ -4687,6 +4699,29 @@
 
 
   /* Skill Activation */
+  /* Skill passive helpers (data-driven, moderat, mode-terkunci) */
+  function hasPassive(id) {
+    try {
+      var def = SKILLS[id];
+      if (!def || def.type !== 'passive') return false;
+      if ((save.mode || 'SWORD') !== def.mode) return false;
+      return !!(save && save.skills && save.skills.unlocked && save.skills.unlocked[id] === true);
+    } catch (e) { return false; }
+  }
+  // Pengali damage serangan player: Sharp Edge +10%, Combo Master +15% saat
+  // kombo, Dash Slash boost +50% selama 0.6 dtk setelah dash. Default 1.
+  function skillDamageMult() {
+    var m = 1;
+    try {
+      if ((save.mode || 'SWORD') === 'SWORD') {
+        if (save.skills.unlocked.sharpEdge) m *= 1.10;
+        if (save.skills.unlocked.comboMaster && player && player.combo) m *= 1.15;
+      }
+      if (player && player.skillBoostT > 0) m *= 1.5;
+    } catch (e) {}
+    return m;
+  }
+
   function activateActiveSkill() {
     if (!save || !save.skills) return false;
     var mode = save.mode || 'SWORD';
@@ -4694,8 +4729,7 @@
     if (!skillId) return false;
     var def = SKILLS[skillId];
     if (!def || def.mode !== mode || def.type !== 'active') return false;
-    if (def.unlocked === false) return false;
-    // Check save unlocked state
+    // Otoritas unlock = save (flag statis SKILLS selalu false by design).
     var unlocked = (save.skills.unlocked && save.skills.unlocked[skillId] === true);
     if (!unlocked) return false;
     // Energy check
@@ -4713,14 +4747,77 @@
     // Activation effect (simple)
     if (skillId === 'dashSlash') {
       // Brief dash + damage boost (simulated via player velocity and state)
-      try { player.vx = (player.dir || 1) * 300; player.state = 'run'; } catch (e) {}
+      try {
+        player.vx = (player.dir || 1) * 300; player.state = 'run';
+        // Window invulnerability sangat singkat (anti one-shot saat dash),
+        // + buff damage 0.6 dtk (dihitung di skillDamageMult).
+        player.iframes = Math.max(player.iframes || 0, 0.2);
+        player.skillBoostT = 0.6;
+        burst(player.x + player.w / 2, player.y + player.h / 2, 6, '#ffd23f', 160, 0.3, 3, 250);
+      } catch (e) {}
     } else if (skillId === 'shieldBash') {
-      try { applySwordEffect(null, null, miniboss || boss); } catch (e) {}
+      // Shield Bash: damage area depan + knockback (musuh, miniboss, boss).
+      try {
+        var facing = player.dir || 1;
+        var cxf = player.x + player.w / 2 + facing * 55;
+        var cyf = player.y + player.h / 2;
+        var R = 95, hitAny = false;
+        var k2;
+        for (k2 = 0; k2 < enemies.length; k2++) {
+          var en = enemies[k2];
+          if (!en || en.dead || en.state === 'death') continue;
+          var ecx = en.x + en.w / 2, ecy = en.y + en.h / 2;
+          if (Math.abs(ecx - cxf) <= R && Math.abs(ecy - cyf) <= 70) {
+            if (slimeTakeDamage(en, 10, player.x + player.w / 2, 520)) hitAny = true;
+          }
+        }
+        if (miniboss && !miniboss.dead && miniboss.state !== 'death' &&
+            Math.abs((miniboss.x + miniboss.w / 2) - cxf) <= R + 20 &&
+            Math.abs((miniboss.y + miniboss.h / 2) - cyf) <= 90) {
+          if (hurtMiniboss(10, player.x + player.w / 2)) hitAny = true;
+        }
+        if (boss && !boss.dead && boss.state !== 'death' &&
+            Math.abs((boss.x + boss.w / 2) - cxf) <= R + 20 &&
+            Math.abs((boss.y + boss.h / 2) - cyf) <= 90) {
+          if (hurtBoss(10, player.x + player.w / 2)) hitAny = true;
+        }
+        burst(cxf, cyf, 10, '#cfe3ff', 220, 0.4, 4, 300);
+        triggerScreenShake(SHAKE_HIT, 0.15);
+        AudioManager.play('block');
+        if (!hitAny) AudioManager.play('attack');
+      } catch (e) {}
     } else if (skillId === 'multiShot') {
-      // Fire extra projectile (simulated via existing playerShots)
-      try { playerShots.push({ x: player.x + 40, y: player.y + 20, vx: 400, vy: 0, kind: 'arrow' }); } catch (e) {}
+      // Multi Shot: 3 panah sekaligus, damage per panah 70% (tetap balance).
+      try { fireSkillArrows(3, 0.7); AudioManager.play('bowShot'); } catch (e) {}
     }
     return true;
+  }
+
+  // Panah skill: bentuk sama seperti panah player (pool, hitIds anti double-hit).
+  function fireSkillArrows(n, dmgScale) {
+    if (typeof victoryArmed !== 'undefined' && victoryArmed) return 0;
+    var bw = null;
+    try { bw = bowStats(); } catch (e) { bw = null; }
+    var dir = (player && player.facing) || 1;
+    var baseDmg = Math.max(1, Math.round(((bw && bw.damage) || 10) * (dmgScale || 1)));
+    var fired = 0, i;
+    for (i = 0; i < n; i++) {
+      if (playerShots.length >= PLAYER_SHOTS_MAX) break;
+      playerShots.push({
+        x: dir === 1 ? player.x + player.w + i * 6 : player.x - 14 - i * 6,
+        y: player.y + player.h - 32,
+        w: 14, h: 6,
+        vx: dir * ((bw && bw.projectileSpeed) || 380), vy: 0,
+        life: ((bw && bw.range) || 420) / ((bw && bw.projectileSpeed) || 380),
+        dmg: baseDmg,
+        pierce: 0,
+        electric: false, windy: false,
+        hitIds: {},
+        bowId: bw ? bw.id : 'makeshift'
+      });
+      fired++;
+    }
+    return fired;
   }
 
   function updateSkillCooldowns(dt) {
@@ -4729,9 +4826,11 @@
     }
     // Energy recovery
     skillEnergy = Math.min(100, skillEnergy + 8 * dt);
+    // Dash damage boost window (0.6 dtk, single-thread aman via dt)
+    try { if (typeof player !== 'undefined' && player && player.skillBoostT > 0) player.skillBoostT = Math.max(0, player.skillBoostT - dt); } catch (e) {}
   }
 
-  function unlockSkill(id) {
+  function unlockSkill(id, silent) {
     if (!save || !save.skills || !save.skills.unlocked) return false;
     if (!SKILLS[id]) return false;
     if (save.skills.unlocked[id] === true) return false;
@@ -4751,6 +4850,7 @@
     } catch (e) {}
     persistSave();
     try { AudioManager.play('click'); } catch (e) {}
+    if (!silent) { try { showToast('Skill unlocked: ' + (SKILLS[id] ? SKILLS[id].name : id)); } catch (e) {} }
     if (save.achievements && !save.achievements.skill_apprentice) unlockAchievement('skill_apprentice');
     checkSkillAchievements();
     return true;
@@ -4768,7 +4868,7 @@
     return 0;
   }
 
-  function checkSkillUnlocks() {
+  function checkSkillUnlocks(silent) {
     if (!save || !save.skills || !save.skills.unlocked) return 0;
     var highest = highestCompletedLevel();
     if (highest < 1) return 0;
@@ -4778,7 +4878,7 @@
       if (!s || !s.unlockedAtLevel) continue;
       if (save.skills.unlocked[sid] === true) continue;
       if (s.unlockedAtLevel <= highest + 1) {
-        if (unlockSkill(sid)) opened++;
+        if (unlockSkill(sid, silent)) opened++;
       }
     }
     return opened;
@@ -4922,6 +5022,7 @@
     Input.left = false; Input.right = false;
     Input.jumpHeld = false; Input.jumpPressed = false;
     Input.attackPressed = false; Input.restartPressed = false;
+    Input.skillPressed = false;
     Input.blockHeld = false;
   }
 
@@ -5159,6 +5260,7 @@
       var equippedPassive = !!(save && save.skills && save.skills.passives && save.skills.passives.indexOf(sid) !== -1);
       var item = document.createElement('div');
       item.className = 'achieve-item ' + (unlocked ? 'unlocked' : 'locked');
+      try { item.id = 'skill-' + sid; item._skillId = sid; item.tabIndex = 0; } catch (e) {}
       var mark = equippedActive ? '▶ ' : (equippedPassive ? '● ' : '');
       var extra = unlocked
         ? ' • Cost: ' + (s.energyCost || 0) + ' • CD: ' + (s.cooldown || 0) + 's' + (s.type === 'active' ? ' • Enter/click: equip' : ' • passive aktif')
@@ -5897,6 +5999,10 @@
     victoryT = 0;
     finalPhase = 'slime'; // L5 respawn = ulangi gauntlet dari slime
     finalT = 0;
+    // Skill: cooldown direset wajar + energi penuh (loadout/unlock tetap).
+    skillCooldowns = {};
+    skillEnergy = 100;
+    try { if (player) player.skillBoostT = 0; } catch (e) {}
     clearParticles();
     clearBonePiles(); // retry fresh: pile ikut reset dengan musuh
     clearGooPiles(); // genangan ikut reset dengan musuh
@@ -6838,6 +6944,27 @@
         ctx.fillStyle = '#c6ccea';
         ctx.fillText('BLOCK', bx, by + bh + 34);
       }
+      // Skill: bar energi + status cooldown (hanya bila ada skill terbuka).
+      var _skAny = false;
+      if (save.skills && save.skills.unlocked) {
+        for (var _uk in save.skills.unlocked) {
+          if (save.skills.unlocked[_uk] === true) { _skAny = true; break; }
+        }
+      }
+      if (_skAny) {
+        var _ey = by + bh + (_eqm.mode === 'GUARDIAN' ? 46 : 24);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(bx - 4, _ey - 3, 120, 13);
+        ctx.fillStyle = '#20264d';
+        ctx.fillRect(bx, _ey - 1, 112, 8);
+        ctx.fillStyle = '#7df9ff';
+        ctx.fillRect(bx, _ey - 1, Math.round(112 * clamp(skillEnergy / 100, 0, 1)), 8);
+        var _cdt = 0;
+        try { _cdt = (save.skills.active && skillCooldowns[save.skills.active]) || 0; } catch (e2) { _cdt = 0; }
+        ctx.fillStyle = '#c6ccea';
+        ctx.font = '11px monospace';
+        ctx.fillText('SKL ' + Math.round(skillEnergy) + (_cdt > 0 ? ' • CD ' + _cdt.toFixed(1) + 's' : ' • Q/✦'), bx, _ey + 19);
+      }
     } catch (e) { /* abaikan */ }
 
     // --- Progress level (tengah atas): player, checkpoint, goal/boss ---
@@ -7405,6 +7532,10 @@
   bindHoldButton('btn-attack',
     function () { Input.attackPressed = true; },
     function () { /* edge-trigger, tidak perlu off */ });
+  // Skill aktif: Q di keyboard, tombol ✦ di touch — satu fungsi aktivasi.
+  bindHoldButton('btn-skill',
+    function () { Input.skillPressed = true; },
+    function () { /* edge-trigger, tidak perlu off */ });
   if (btnBlockEl) {
     btnBlockEl.style.display = '';
     btnBlockEl.style.visibility = 'visible';
@@ -7647,9 +7778,37 @@
         return;
       }
       if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown' && e.code !== 'Enter') return;
-      if (e.code === 'Enter') return; // aktivasi native via fokus tombol
       if (e.preventDefault) e.preventDefault();
-      focusNavId(['btn-skills-back'], e.code === 'ArrowDown');
+      // Enter = equip skill aktif yang terfokus (locked ditolak + toast).
+      if (e.code === 'Enter') {
+        try {
+          var ae2 = null;
+          try { ae2 = document.activeElement; } catch (eA) { ae2 = null; }
+          var sid2 = ae2 && ae2._skillId;
+          if (sid2) {
+            if (equipActiveSkill(sid2)) {
+              refreshSkillsUI();
+            } else {
+              var locked2 = !(save.skills.unlocked && save.skills.unlocked[sid2] === true);
+              var need2 = (SKILLS[sid2] && SKILLS[sid2].unlockedAtLevel) || 2;
+              showToast(locked2 ? ('Locked — selesaikan Level ' + (need2 - 1)) : 'Pasif selalu aktif / sudah equipped');
+            }
+            try {
+              var re2 = document.getElementById('skill-' + sid2);
+              if (re2 && re2.focus) re2.focus({ preventScroll: true });
+            } catch (eR) {}
+          }
+        } catch (e3) {}
+        return;
+      }
+      // ↑/↓: siklus item skill mode aktif + tombol BACK.
+      var smode = (save && save.mode) || 'SWORD';
+      var sids = [];
+      for (var sk in SKILLS) {
+        if (SKILLS[sk] && SKILLS[sk].mode === smode) sids.push('skill-' + sk);
+      }
+      sids.push('btn-skills-back');
+      focusNavId(sids, e.code === 'ArrowDown');
       return;
     }
     // Campaign overlay di atas menu: Esc kembali, panah navigasi level.
@@ -7945,6 +8104,18 @@
     _isSkillsOpen: isSkillsOpen,
     _unlockSkill: unlockSkill,
     _equipActiveSkill: equipActiveSkill,
+    _activateActiveSkill: activateActiveSkill,
+    _hasPassive: hasPassive,
+    _skillDamageMult: skillDamageMult,
+    _updateSkillCooldowns: updateSkillCooldowns,
+    _skillState: function () {
+      try { return { energy: skillEnergy, cooldowns: JSON.parse(JSON.stringify(skillCooldowns)) }; }
+      catch (e) { return { energy: 100, cooldowns: {} }; }
+    },
+    _setSkillEnergy: function (n) {
+      try { skillEnergy = Math.max(0, Math.min(100, Number(n) || 0)); return skillEnergy; }
+      catch (e) { return 100; }
+    },
     _checkSkillUnlocks: checkSkillUnlocks,
     _checkSkillAchievements: checkSkillAchievements,
     reloadSave: loadSave,

@@ -21,14 +21,14 @@
   <meta name="twitter:image:alt" content="Knight Platformer — ksatria, slime, dan skeleton di medan malam" />
   <title>Knight Platformer — Skeleton Campaign</title>
   <link rel="icon" type="image/png" href="assets/knight/idle_0.png" />
-  <link rel="stylesheet" href="style.css?v=1.4.0-5" />
+  <link rel="stylesheet" href="style.css?v=1.4.0-6" />
 </head>
 <body>
   <div id="wrap">
     <h1>Knight Platformer <span>skeleton campaign</span></h1>
     <p class="hint">
       <b>A / D</b> atau <b>◀ / ▶</b> bergerak &nbsp;•&nbsp; <b>Space</b> lompat
-      &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>K</b> block &nbsp;•&nbsp; <b>R</b> respawn
+      &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>Q</b> skill &nbsp;•&nbsp; <b>K</b> block &nbsp;•&nbsp; <b>R</b> respawn
     </p>
     <p id="mission" class="mission">L1: coin • checkpoint • capai <b>FINISH</b>.</p>
 
@@ -72,8 +72,8 @@
           <button id="btn-about" class="btn-secondary">ℹ ABOUT</button>
         </div>
         <div id="menu-controls" class="hidden btn-col" aria-label="Kontrol game">
-          <p class="menu-lines">⌨ <b>A/D</b> gerak • <b>Space</b> lompat<br /><b>J/X</b> serang • <b>K</b> block (Guardian) • <b>R</b> respawn • <b>P/Esc</b> pause</p>
-          <p class="menu-lines">📱 <b>◀ ▶</b> gerak • <b>⤒</b> lompat • <b>❖</b> serang • <b>🛡</b> block</p>
+          <p class="menu-lines">⌨ <b>A/D</b> gerak • <b>Space</b> lompat<br /><b>J/X</b> serang • <b>Q</b> skill • <b>K</b> block (Guardian) • <b>R</b> respawn • <b>P/Esc</b> pause</p>
+          <p class="menu-lines">📱 <b>◀ ▶</b> gerak • <b>⤒</b> lompat • <b>❖</b> serang • <b>✦</b> skill • <b>🛡</b> block</p>
           <button id="btn-back-controls" class="btn-secondary">← BACK</button>
         </div>
         <div id="menu-about" class="hidden btn-col" aria-label="Tentang game">
@@ -261,6 +261,7 @@
       </div>
       <div class="touch-group touch-group-center">
         <button id="btn-pause" class="hidden touch-btn-pause" aria-label="Pause atau lanjutkan game">⏸</button>
+        <button id="btn-skill" class="touch-btn skill" aria-label="Skill aktif (tombol Q di keyboard)">✦</button>
       </div>
       <div class="touch-group">
         <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>
@@ -281,6 +282,6 @@
   </div>
 
   <!-- Query v= samakan VERSION agar browser tak pakai game.js basi setelah update -->
-  <script src="game.js?v=1.4.0-4"></script>
+  <script src="game.js?v=1.4.0-6"></script>
 </body>
 </html>

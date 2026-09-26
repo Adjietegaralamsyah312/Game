@@ -1,5 +1,26 @@
 # Changelog — Knight Platformer
 
+## [Unreleased] — Skill / Ability System (lihat plant.md)
+
+- 9 skill data-driven (`SKILLS`): 3 active (Dash Slash / Shield Bash / Multi
+  Shot) + 6 passive (Sharp Edge / Combo Master / Fortified Guard / Sturdy /
+  Quick Draw / Piercing Arrow), terikat mode SWORD/GUARDIAN/ARCHER
+- Progression unlock: active setelah L1, passive lv3 setelah L2, passive lv4
+  setelah L3 (+ retroaktif untuk save lama, tanpa reset progres)
+- Aktivasi: `Q` / tombol sentuh **✦** (satu fungsi); energi 0–100 regen
+  8/detik + cooldown per skill (anti-spam); mati/respawn reset cooldown +
+  energi penuh
+- Pasif terintegrasi combat nyata: melee/boss/miniboss mult, hemat stamina
+  block, reduksi damage, bidik cepat, panah tembus (tetap balance, boss
+  challenge utuh di Normal + Hard)
+- Loadout persist (active + passives), auto-equip, menu SKILLS bisa klik/
+  `Enter`, HUD bar energi + cooldown, toast notifikasi unlock
+- 4 achievement skill (Apprentice/Master/Ability Expert/Triple Master);
+  default save + sanitasi 16 key
+- Navigasi keyboard menu mencakup Achievements/Skills; `Esc` tutup panel;
+  panel achievements/skills overlay + fullscreen-scroll HP portrait
+- 374 automated test (16 baru khusus skill), docs README diperbarui
+
 ## [1.4.0] — Achievement + Difficulty Mode
 
 - Achievement System persistent (12 achievements: First Blood, First Clear, Boss Slayer, King Slayer, Collector, No Death Clear, Speed Runner, Sword Master, Guardian Master, Archer Master, Hard Clear, Campaign Complete)

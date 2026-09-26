@@ -115,6 +115,27 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
   baseline Rusty = damage 12 / speed 1.0 (kompatibel penuh)
 - Save schema v4 (migrasi aman v1/v2/v3 → v4, progres/coins/settings lestari)
 
+## Skill / Ability System
+
+Data-driven (`SKILLS` di `game.js`), terikat 3 mode, persistent di save
+(`skills.unlocked` + `active` + `passives`, migrasi v1–v4 aman + retroaktif):
+
+| Mode | Active (unlock L1) | Passive (unlock L2) | Passive (unlock L3) |
+|---|---|---|---|
+| SWORD | **Dash Slash** (25⚡, CD 5s: dash + i-frame 0.2s + buff damage 1.5x 0.6s) | **Sharp Edge** (+10% melee) | **Combo Master** (+15% saat kombo) |
+| GUARDIAN | **Shield Bash** (30⚡, CD 6s: AoE depan + knockback) | **Fortified Guard** (biaya stamina block −20%) | **Sturdy** (damage lolos −10%) |
+| ARCHER | **Multi Shot** (35⚡, CD 5s: 3 panah @70%) | **Quick Draw** (bidik 15% lebih cepat) | **Piercing Arrow** (panah +1 tembus) |
+
+- Aktivasi: **`Q`** (desktop) / tombol **✦** (touch) — satu fungsi yang sama;
+  butuh energi cukup + cooldown selesai + skill ter-unlock (anti-spam).
+  Energi 0–100 regen 8/detik; cooldown tick di game loop (tak negatif, tak
+  persist); mati/respawn = cooldown reset + energi penuh (unlock/loadout utuh).
+- Loadout: active auto-equip saat terbuka (klik/`Enter` di menu SKILLS untuk
+  ganti); passive otomatis aktif permanen per mode; HUD tampilkan bar energi +
+  sisa cooldown.
+- Achievement skill: **Skill Apprentice** (skill pertama), **Skill Master**
+  (3 active), **Ability Expert** (1 mode lengkap), **Triple Master** (3 mode).
+
 ## Fitur v1.0
 
 - Menu utama (PLAY / CAMPAIGN / CONTROLS / SETTINGS / ABOUT, keyboard + sentuh)
@@ -183,6 +204,7 @@ localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 | `A` / `D` atau `←` / `→` | Bergerak kiri / kanan |
 | `Space` / `W` / `↑` | Lompat (tahan = lebih tinggi) |
 | `J` / `X` | Serang pedang / bidik panah (Archer) |
+| `Q` | Skill aktif (butuh unlock + energi + cooldown) |
 | `K` / `Shift` | Block perisai (Guardian, tahan) |
 | `R` | Respawn checkpoint (saat playing maupun Game Over) |
 | `Enter` | Next / main lagi (kontekstual) |
@@ -191,7 +213,7 @@ localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 
 ## Kontrol mobile (Android)
 
-Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **🛡** block, **⏸** pause.
+Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **✦** skill, **🛡** block, **⏸** pause.
 Multi-touch (gerak + lompat/serang bersamaan). Semua dialog touch-friendly.
 Layout portrait + landscape pendek (dialog fullscreen, canvas 16:9).
 
@@ -295,7 +317,7 @@ node test.js
 git diff --check
 ```
 
-358 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina) —
+374 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
