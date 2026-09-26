@@ -606,12 +606,20 @@ canvas#game {
   #canvas-container #campaign,
   #canvas-container #shop,
   #canvas-container #pause,
+  #canvas-container #achievements,
+  #canvas-container #skills,
   #canvas-container #reset-confirm {
     position: fixed;
     inset: 0;
     z-index: 50;
     overflow-y: auto;
     border-radius: 0;
+  }
+  /* List panjang (16 achievement): mulai dari atas agar judul tak kepotong
+   * saat konten lebih tinggi dari viewport (flex center + overflow = clip atas). */
+  #canvas-container #achievements,
+  #canvas-container #skills {
+    justify-content: flex-start;
   }
 }
 /* Shop pengecualian: SATU scroller saja (#shop-body). Outer #shop harus
@@ -876,6 +884,10 @@ canvas#game {
   #shop .tiny {
     display: none;
   }
+  #achievements .tiny,
+  #skills .tiny {
+    display: none;
+  }
   #shop-msg {
     min-height: 0;
     font-size: 12px;
@@ -1006,10 +1018,11 @@ canvas#game {
 }
 #achieve-list,
 #skills-list {
-  max-height: 320px;
+  max-height: min(320px, 52vh);
   overflow-y: auto;
   gap: 8px;
   align-items: stretch;
+  width: min(560px, 92vw);
 }
 .achieve-item {
   background: rgba(20,24,50,0.9);
