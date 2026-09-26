@@ -190,7 +190,8 @@ canvas#game {
 #campaign.hidden,
 #shop.hidden,
 #pause.hidden,
-#achievements.hidden {
+#achievements.hidden,
+#skills.hidden {
   display: none;
 }
 

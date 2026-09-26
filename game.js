@@ -4822,7 +4822,8 @@
   /* ---- Overlay & panel ---- */
   function hideAllOverlays() {
     var els = [overlayEl, winOverlayEl, menuEl, lvlclearEl, gameclearEl,
-               settingsEl, resetEl, campaignEl, pauseEl, shopEl, achievementsEl];
+               settingsEl, resetEl, campaignEl, pauseEl, shopEl, achievementsEl,
+               document.getElementById('skills')];
     for (var i = 0; i < els.length; i++) {
       if (els[i]) els[i].classList.add('hidden');
     }
@@ -5041,6 +5042,7 @@
   function openSkills() {
     try {
       hideAllOverlays();
+      if (menuEl) menuEl.classList.remove('hidden');
       showMenuPanel('main');
       var sEl = document.getElementById('skills');
       if (sEl) sEl.classList.remove('hidden');
@@ -7785,6 +7787,12 @@
     getSave: function () {
       return JSON.parse(JSON.stringify(save));
     },
+    _achieveDefs: function () { return ACHIEVEMENT_DEFS; },
+    _skillsDefs: function () { return SKILLS; },
+    _refreshAchievementsUI: refreshAchievementsUI,
+    _refreshSkillsUI: refreshSkillsUI,
+    _openAchievements: openAchievements,
+    _openSkills: openSkills,
     reloadSave: loadSave,
     resetSave: resetSave,
     saveNow: persistSave,
