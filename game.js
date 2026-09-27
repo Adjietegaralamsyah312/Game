@@ -13,7 +13,7 @@
  *           J/X = serang | R = respawn checkpoint (playing) / Enter = lanjut |
  *           P/Esc = pause/resume (saat playing)
  * Sentuh  : tombol ◀ ▶ ⤒ + ATTACK (❖) via Pointer Events + tombol pause ⏸
- * Misi    : L1/L3 capai FINISH | L2 kalahkan RAJA SLIME |
+ * Misi    : L1/L3 kalahkan MINIBOS | L2 kalahkan RAJA SLIME |
  *           L4 kalahkan RAJA LICH | L5 kalahkan KEDUA RAJA.
  * L5 final gauntlet resets to the beginning on death (by design).
  * ========================================================================== */
@@ -60,6 +60,7 @@
   var GRAVITY = 2500;
   var MAX_FALL = 840;
   var PLAYER_SPEED = 210;
+  var DASH_SPEED = 340, DASH_TIME = 0.35; // ponytail: dash lebih panjang, tidak terlalu panjang // dash skill: cepat + sedang (~85px)
   var JUMP_FORCE = 800;
   var JUMP_CUT = 240;      // kecepatan sisa saat tombol lompat dilepas
   var COYOTE_TIME = 0.10;
@@ -121,6 +122,17 @@
   // menggambar backing store raksasa). Logika/collision tetap world-space.
   var RENDER_SCALE_MAX = 2;
   var renderScale = 1;
+
+  /* ---- Kualitas render (Settings, berpengaruh nyata) ----
+   * Resolusi: faktor backing store (low 0.5 / medium 0.75 / high 1).
+   * Grafik low: partikel burst 1/3, tanpa screen shake, setengah bintang. */
+  var RES_SCALE = { low: 0.5, medium: 0.75, high: 1 };
+  function resFactor() {
+    try { return RES_SCALE[save.resolution] || 1; } catch (e) { return 1; }
+  }
+  function gfxLow() {
+    try { return save.graphics === 'low'; } catch (e) { return false; }
+  }
 
   /* ============================ 2. UTILS ============================ */
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -1132,23 +1144,11 @@
     name: 'Level 1',
     playerSpawn: { x: 80, y: 300 },
     platforms: [
-      // --- Tanah (segmen + celah) ---
+      // --- Tanah (segmen + celah); platform melayang dihapus ---
       { x: 0,    y: 480, w: 520,  h: 60 },  // starting area
       { x: 610,  y: 480, w: 440,  h: 60 },  // tengah (setelah celah 1)
       { x: 1140, y: 480, w: 610,  h: 60 },  // arena combat
       { x: 1750, y: 480, w: 650,  h: 60 },  // final (sampai ujung dunia)
-      // --- Platform bertingkat (rute atas, opsional) ---
-      // NOTE: jangan menggantung di koridor lompatan celah (lepas landas
-      // x~482 dan x~1002 butuh langit bersih sampai kaki y~352).
-      { x: 180,  y: 372, w: 150, h: 20 },   // start -> naik (108px)
-      { x: 300,  y: 300, w: 140, h: 20 },   // lanjutan (+72px, di kiri koridor)
-      { x: 650,  y: 365, w: 150, h: 20 },   // atas segmen tengah
-      { x: 820,  y: 290, w: 140, h: 20 },   // (+75px, di kiri koridor celah 2)
-      { x: 1180, y: 375, w: 150, h: 20 },   // tepi arena (105px dari tanah)
-      { x: 1400, y: 300, w: 140, h: 20 },   // tengah arena (+75px)
-      { x: 1620, y: 335, w: 130, h: 20 },   // headroom arena (bawah 355)
-      { x: 1850, y: 365, w: 140, h: 20 },   // final (115px dari tanah)
-      { x: 2080, y: 290, w: 140, h: 20 }    // tinggi dekat goal (+75px)
     ],
     enemySpawns: [
       { type: 'slime', x: 1230, y: 448, minX: 1180, maxX: 1360 }, // arena kiri
@@ -1159,20 +1159,13 @@
       { x: 1160, baseY: 480, w: 34, h: 96, activated: false }, // awal arena
       { x: 1790, baseY: 480, w: 34, h: 96, activated: false }  // sebelum final
     ],
-    goal: { x: 2280, baseY: 480, w: 70, h: 120 },
+    goal: null, // L1: minibos tumbang = finish (tanpa gerbang FINISH)
     bossSpawn: null,
     bossArena: null,
     treasures: [{ x: 300, y: 444 }],
     // Coin: mudah = eksplorasi, menengah = traversal,
     // sulit = risk/reward (HARD di atas celah — diambil sambil lompat).
-    coins: [
-      { x: 250, y: 430 },   // tanah start (mudah)
-      { x: 350, y: 258 },   // atas platform 300,300 (menengah)
-      { x: 565, y: 378 },   // atas CELAH 1: lompat untuk mengambil (sulit)
-      { x: 1250, y: 430 },  // arena combat (lawan Slime)
-      { x: 1470, y: 258 },  // atas platform arena (menengah)
-      { x: 2200, y: 430 }   // dekat goal (menengah)
-    ],
+    coins: [], // pickup dihapus — coin hanya dari kill (5/10/20, hard x2)
     miniSpawn: { x: 1750, y: 440 },
     miniArena: { minX: 1600, maxX: 1900 }
   };
@@ -1195,17 +1188,6 @@
       { x: 1100, y: 480, w: 420,  h: 60 },  // arena heavy encounter
       { x: 1520, y: 480, w: 300,  h: 60 },  // pendakian
       { x: 1910, y: 480, w: 490,  h: 60 },  // arena boss
-      // Rute atas opsional (langkah <=115px, di luar koridor celah).
-      { x: 150,  y: 372, w: 140, h: 20 },
-      { x: 560,  y: 365, w: 140, h: 20 },
-      { x: 730,  y: 290, w: 130, h: 20 },
-      { x: 1140, y: 372, w: 140, h: 20 },
-      { x: 1330, y: 297, w: 130, h: 20 },
-      { x: 1560, y: 365, w: 130, h: 20 },
-      { x: 1690, y: 290, w: 120, h: 20 },
-      { x: 2050, y: 365, w: 140, h: 20 }    // pijakan taktik di arena boss
-      // NOTE: langkah dari tanah 115px (batas lompat riil ~121px).
-      // Jangan di atas y=365 — tak terjangkau dan jadi dekorasi mati.
     ],
     enemySpawns: [
       { type: 'fast',  x: 700,  y: 448, minX: 560,  maxX: 960  }, // solo: tekanan mobilitas
@@ -1220,16 +1202,7 @@
     bossSpawn: { x: 2150, y: 380 },
     bossArena: { minX: 1930, maxX: 2360 },
     treasures: [{ x: 300, y: 444 }],
-    coins: [
-      { x: 250, y: 430 },   // start
-      { x: 465, y: 380 },   // bibir celah 1 (risiko kecil)
-      { x: 795, y: 250 },   // atas platform tinggi
-      { x: 1055, y: 380 },  // bibir celah 2
-      { x: 1395, y: 257 },  // atas platform arena
-      { x: 1750, y: 250 },  // pendakian atas
-      { x: 1865, y: 380 },  // bibir celah 3
-      { x: 2250, y: 430 }   // sudut arena boss
-    ]
+    coins: [], // pickup dihapus — coin hanya dari kill
   };
   var Level3 = {
     name: 'Level 3',
@@ -1239,15 +1212,6 @@
       { x: 610,  y: 480, w: 440,  h: 60 },
       { x: 1140, y: 480, w: 610,  h: 60 },
       { x: 1840, y: 480, w: 560,  h: 60 },
-      { x: 180,  y: 372, w: 150, h: 20 },
-      { x: 300,  y: 300, w: 140, h: 20 },
-      { x: 650,  y: 365, w: 150, h: 20 },
-      { x: 820,  y: 290, w: 140, h: 20 },
-      { x: 1180, y: 375, w: 150, h: 20 },
-      { x: 1400, y: 300, w: 140, h: 20 },
-      { x: 1620, y: 335, w: 130, h: 20 },
-      { x: 1920, y: 365, w: 140, h: 20 },
-      { x: 2120, y: 290, w: 140, h: 20 }
     ],
     enemySpawns: [
       { type: 'skeletonSword',    x: 700,  y: 424, minX: 620,  maxX: 950  },
@@ -1261,7 +1225,7 @@
       { x: 1160, baseY: 480, w: 34, h: 96, activated: false },
       { x: 1860, baseY: 480, w: 34, h: 96, activated: false }
     ],
-    goal: { x: 2280, baseY: 480, w: 70, h: 120 },
+    goal: null, // L3: minibos tumbang = finish (tanpa gerbang FINISH)
     bossSpawn: null,
     bossArena: null,
     bossKind: null,
@@ -1272,14 +1236,7 @@
     lichArena: null,
     treasures: [{ x: 300, y: 444 }],
     musicSet: 1,
-    coins: [
-      { x: 250, y: 430 },
-      { x: 350, y: 258 },
-      { x: 565, y: 378 },
-      { x: 1250, y: 430 },
-      { x: 1470, y: 258 },
-      { x: 2200, y: 430 }
-    ]
+    coins: [], // pickup dihapus — coin hanya dari kill
   };
   /* Level 4 (Stage 9): LICH DOMAIN — escalation L3 + RAJA LICH.
    * Backbone skeleton tetap, placement lebih cerdas (choke defender,
@@ -1294,14 +1251,6 @@
       { x: 1100, y: 480, w: 420,  h: 60 },
       { x: 1520, y: 480, w: 300,  h: 60 },
       { x: 1910, y: 480, w: 490,  h: 60 },
-      { x: 150,  y: 372, w: 140, h: 20 },
-      { x: 560,  y: 365, w: 140, h: 20 },
-      { x: 730,  y: 290, w: 130, h: 20 },
-      { x: 1140, y: 372, w: 140, h: 20 },
-      { x: 1330, y: 297, w: 130, h: 20 },
-      { x: 1560, y: 365, w: 130, h: 20 },
-      { x: 1690, y: 290, w: 120, h: 20 },
-      { x: 2050, y: 365, w: 140, h: 20 }
     ],
     enemySpawns: [
       { type: 'skeletonSword',    x: 700,  y: 424, minX: 560,  maxX: 960  },
@@ -1326,16 +1275,7 @@
     lichArena: null,
     treasures: [{ x: 1770, y: 444 }],
     musicSet: 1,
-    coins: [
-      { x: 250, y: 430 },
-      { x: 465, y: 380 },
-      { x: 795, y: 250 },
-      { x: 1055, y: 380 },
-      { x: 1395, y: 257 },
-      { x: 1750, y: 250 },
-      { x: 1865, y: 380 },
-      { x: 2250, y: 430 }
-    ]
+    coins: [], // pickup dihapus — coin hanya dari kill
   };
   /* Level 5 (Stage 9): FINAL CONVERGENCE — slime + skeleton + kedua raja.
    * Progression: mixed intro -> slime-focused -> skeleton-focused ->
@@ -1350,14 +1290,6 @@
       { x: 1100, y: 480, w: 420,  h: 60 },
       { x: 1520, y: 480, w: 300,  h: 60 },
       { x: 1910, y: 480, w: 490,  h: 60 },
-      { x: 150,  y: 372, w: 140, h: 20 },
-      { x: 560,  y: 365, w: 140, h: 20 },
-      { x: 730,  y: 290, w: 130, h: 20 },
-      { x: 1140, y: 372, w: 140, h: 20 },
-      { x: 1330, y: 297, w: 130, h: 20 },
-      { x: 1560, y: 365, w: 130, h: 20 },
-      { x: 1690, y: 290, w: 120, h: 20 },
-      { x: 2050, y: 365, w: 140, h: 20 }
     ],
     enemySpawns: [
       { type: 'slime',            x: 650,  y: 448, minX: 560,  maxX: 900  },
@@ -1382,16 +1314,7 @@
     lichArena: { minX: 1930, maxX: 2360 },
     treasures: [{ x: 1150, y: 444 }],
     musicSet: 2,
-    coins: [
-      { x: 250, y: 430 },
-      { x: 465, y: 380 },
-      { x: 795, y: 250 },
-      { x: 1055, y: 380 },
-      { x: 1395, y: 257 },
-      { x: 1750, y: 250 },
-      { x: 1865, y: 380 },
-      { x: 2250, y: 430 }
-    ]
+    coins: [], // pickup dihapus — coin hanya dari kill
   };
   // L1/L2 butuh field Stage 9 agar loader generik aman (null = nonaktif).
   Level1.bossKind = Level1.bossKind || null;
@@ -1415,14 +1338,14 @@
   // Stage 9: indeks mood BGM aktif (0 slime, 1 dungeon, 2 final).
   // Diganti saat load level; scheduler lanjut mulus tanpa restart.
   var musicSetIdx = 0;
-  // Copy misi per level: jujur terhadap kondisi menang aktual (Option A).
-  // L1/L3 menang via FINISH (combat opsional); L2/L4/L5 via boss.
+  // Copy misi per level: jujur terhadap kondisi menang aktual.
+  // L1/L3: minibos tumbang = finish; L2/L4/L5 via raja.
   var MISSION_COPY = {
-    1: 'L1: coin • checkpoint • capai <b>FINISH</b>',
-    2: 'L2: lewati celah • coin • checkpoint • kalahkan <b>RAJA SLIME</b>',
-    3: 'L3: coin • checkpoint • capai <b>FINISH</b>',
-    4: 'L4: coin • checkpoint • kalahkan <b>RAJA LICH</b>',
-    5: 'L5: coin • kalahkan <b>KEDUA RAJA</b>'
+    1: 'L1: kalahkan <b>LIGHTNING SLIME</b> • checkpoint',
+    2: 'L2: lewati celah • checkpoint • kalahkan <b>RAJA SLIME</b>',
+    3: 'L3: kalahkan <b>PANGLIMA TULANG</b> • checkpoint',
+    4: 'L4: checkpoint • kalahkan <b>RAJA LICH</b>',
+    5: 'L5: kalahkan <b>KEDUA RAJA</b>'
   };
   // Pointer level aktif — seluruh sistem (fisika, kamera, render) membaca
   // dari sini sehingga ganti level = tukar pointer + reset state.
@@ -1507,6 +1430,7 @@
       w: PLAYER_W, h: PLAYER_H, vx: 0, vy: 0,
       facing: 1, onGround: false, hitWall: false,
       hp: PLAYER_MAX_HP,
+      dashT: 0, dashDir: 1, // dash skill: timer + arah (vx dipertahankan)
       state: 'idle',      // idle|run|jump|fall|attack|hurt|death|block|aim
       animTime: 0,
       coyote: 0, jumpBuf: 0,
@@ -1588,13 +1512,6 @@
         } else {
           player.blockStam = Math.max(0, player.blockStam - 0.2 * stamScale); // serangan biasa
         }
-        if (isDefenderHit) {
-          player.blockStam = Math.max(0, player.blockStam - 0.7 * stamScale); // serangan berat
-          player.blockBreak = true;
-          player.blockBreakT = 1.0; // crack visual lebih lama
-        } else {
-          player.blockStam = Math.max(0, player.blockStam - 0.15 * stamScale); // serangan biasa
-        }
         var sh = shieldStats();
         player.iframes = 0.1;
         AudioManager.play('block');
@@ -1619,7 +1536,10 @@
     // Serangan sendiri tidak bisa di-interrupt oleh hurt yang baru? tetap bisa — prioritaskan hurt.
     // Sturdy (passive Guardian): damage yang lolos -10%.
     try { if (hasPassive('sturdy')) amount = amount * 0.9; } catch (e) {}
-    player.hp -= amount;
+    // HP selalu bulat >= 0: damage pecahan/invalid dibulatkan agar
+    // indikator tak tampil desimal/NaN (bug HP abnormal).
+    if (!isFinite(amount) || amount <= 0) return;
+    player.hp = Math.max(0, Math.round(player.hp - amount));
     AudioManager.play('hurt');
     triggerScreenShake(SHAKE_HURT, 0.25);
     // Feedback jelas saat terkena: cipratan merah (pool bounded).
@@ -1630,6 +1550,7 @@
       player.animTime = 0;
       player.deathT = 0;
       player.vx = 0;
+      player.dashT = 0; // dash batal saat mati
       // C1: stale attackBox tidak boleh hidup setelah death.
       player.attackBox = null;
       player.queued = false;
@@ -1654,6 +1575,7 @@
     player.didStrikeHit = {};
     var dir = (player.x + player.w / 2) < fromX ? -1 : 1;
     player.vx = dir * PLAYER_KNOCKBACK_X;
+    player.dashT = 0; // dash batal saat kena hit (knockback menang)
     player.vy = -PLAYER_KNOCKBACK_Y;
     player.onGround = false;
   }
@@ -1862,8 +1784,13 @@
     }
     wantAttack = false; // abaikan spam saat cooldown
 
-    // --- Gerak normal ---
-    player.vx = move * PLAYER_SPEED;
+    // --- Gerak normal (dash skill menimpa selama dashT > 0) ---
+    if (player.dashT > 0) {
+      player.dashT -= dt;
+      player.vx = player.dashDir * DASH_SPEED;
+    } else {
+      player.vx = move * PLAYER_SPEED;
+    }
 
     if (player.onGround) player.coyote = COYOTE_TIME;
     else player.coyote = Math.max(0, player.coyote - dt);
@@ -3007,7 +2934,10 @@
   }
 
   function burst(x, y, n, color, speed, life, size, grav) {
-    for (var k = 0; k < n; k++) {
+    // Grafik rendah: sepertiga partikel (min 1, efek tetap terlihat).
+    var nn = n;
+    try { if (save.graphics === 'low') nn = Math.max(1, Math.round(n / 3)); } catch (e) {}
+    for (var k = 0; k < nn; k++) {
       var a = Math.random() * Math.PI * 2;
       var sp = speed * (0.4 + Math.random() * 0.6);
       spawnParticle(x, y, Math.cos(a) * sp, Math.sin(a) * sp - speed * 0.35,
@@ -3052,6 +2982,8 @@
   function triggerScreenShake(amount, duration) {
     // Reduced motion: shake visual dinonaktifkan, gameplay tidak berubah.
     if (reducedMotion) return;
+    // Grafik rendah: tanpa screen shake (hemat fill-rate di HP lemah).
+    try { if (save.graphics === 'low') return; } catch (e) {}
     var a = amount > SHAKE_MAX ? SHAKE_MAX : amount;
     if (a >= shake.mag || shake.t >= shake.dur) {
       shake.mag = a;
@@ -3261,9 +3193,9 @@
   function playerCenterX() { return player.x + player.w / 2; }
 
   function getProgress() {
-    // Level tanpa goal fisik (L2/L4/L5): progres menuju arena boss/lich.
+    // Level tanpa goal fisik: progres menuju arena bos/lich/minibos.
     if (!Level.goal) {
-      var bs = Level.bossSpawn || Level.lichSpawn;
+      var bs = Level.bossSpawn || Level.lichSpawn || Level.miniSpawn;
       if (bs) {
         return clamp((playerCenterX() - Level.playerSpawn.x) / (bs.x - Level.playerSpawn.x), 0, 1);
       }
@@ -3735,7 +3667,10 @@
         runStats.kills++;
         levelStats.kills++;
         if (!save.achievements.first_blood) unlockAchievement('first_blood');
+        // Reward minibos: +10 coin (hard x2); minibos tumbang = finish.
+        coinReward(10);
         showToast(currentLevel === 1 ? 'LIGHTNING SLIME TUMBANG!' : 'PANGLIMA TULANG TUMBANG!');
+        showLevelComplete();
       }
       return;
     }
@@ -4314,6 +4249,20 @@
     return n;
   }
 
+  /* ---- Reward coin dari kill (pengganti pickup): monster 5,
+   * minibos 10, raja 20; mode hard x2. Masuk run + persistent
+   * (shop pakai save.totalCoins), pola clamp ikut pickup dulu. */
+  function coinReward(base) {
+    var mult = 1;
+    try { if (save.difficulty === 'hard') mult = 2; } catch (e) {}
+    var n = Math.max(1, Math.round(base * mult));
+    runStats.coins += n;
+    levelStats.coins += n;
+    save.totalCoins = Math.min(1e9, Math.floor(saveNum(save.totalCoins, 0, 0, 1e9)) + n);
+    persistSave();
+    return n;
+  }
+
   function updateCoins(dt) {
     for (var i = 0; i < coins.length; i++) {
       var s = coins[i];
@@ -4469,9 +4418,7 @@
       sfxEnabled: true, sfxVolume: 100,
       musicEnabled: true, musicVolume: 70,
       inputPreference: 'auto',
-      // Kontroler sentuh landscape (dibaca applyTouchUI): skema gerak,
-      // ukuran tombol, tangan dominan. Default = joystick + M + kanan.
-      touchUI: { scheme: 'joy', size: 'm', hand: 'right' },
+      resolution: 'high', graphics: 'high',
       // Weapon Shop (v4): starter owned, agar game tetap playable
       // tanpa membeli apa pun.
       owned: { rusty: true, buckler: true, makeshift: true },
@@ -4599,15 +4546,10 @@
     d.musicVolume = Math.round(saveNum(o.musicVolume, 70, 0, 100));
     d.inputPreference = (o.inputPreference === 'keyboard' || o.inputPreference === 'touch')
       ? o.inputPreference : 'auto';
-    // touchUI: migrasi aman — hilang/rusak -> default (tanpa reset lain).
-    d.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
-    try {
-      if (o.touchUI && typeof o.touchUI === 'object') {
-        if (o.touchUI.scheme === 'arrows') d.touchUI.scheme = 'arrows';
-        if (o.touchUI.size === 's' || o.touchUI.size === 'l') d.touchUI.size = o.touchUI.size;
-        if (o.touchUI.hand === 'left') d.touchUI.hand = 'left';
-      }
-    } catch (e) {}
+    // Kualitas render: nilai asing -> default high (tanpa reset lain).
+    d.resolution = (o.resolution === 'low' || o.resolution === 'medium' || o.resolution === 'high')
+      ? o.resolution : 'high';
+    d.graphics = (o.graphics === 'low') ? 'low' : 'high';
     // Shop v4: validasi id terhadap SHOP_ITEMS (unknown -> default starter).
     // v1/v2/v3 tidak punya shop -> default starter (progres lain utuh).
     d.owned = { rusty: true, buckler: true, makeshift: true };
@@ -4872,19 +4814,22 @@
     skillCooldowns[skillId] = def.cooldown || 5;
     // Activation effect (simple)
     if (skillId === 'dashSlash') {
-      // Brief dash + damage boost (simulated via player velocity and state)
+      // Dash beneran: kunci vx selama DASH_TIME via dashT (fisika normal
+      // tak boleh menimpa). State/anim dibiarkan agar natural di udara.
       try {
-        player.vx = (player.dir || 1) * 300; player.state = 'run';
-        // Window invulnerability sangat singkat (anti one-shot saat dash),
+        player.dashDir = player.facing || 1;
+        player.dashT = DASH_TIME;
+        player.vx = player.dashDir * DASH_SPEED;
+        // Window invulnerability menutup seluruh dash (anti one-shot),
         // + buff damage 0.6 dtk (dihitung di skillDamageMult).
-        player.iframes = Math.max(player.iframes || 0, 0.2);
+        player.iframes = Math.max(player.iframes || 0, DASH_TIME + 0.03);
         player.skillBoostT = 0.6;
         burst(player.x + player.w / 2, player.y + player.h / 2, 6, '#ffd23f', 160, 0.3, 3, 250);
       } catch (e) {}
     } else if (skillId === 'shieldBash') {
       // Shield Bash: damage area depan + knockback (musuh, miniboss, boss).
       try {
-        var facing = player.dir || 1;
+        var facing = player.facing || 1;
         var cxf = player.x + player.w / 2 + facing * 55;
         var cyf = player.y + player.h / 2;
         var R = 95, hitAny = false;
@@ -5249,6 +5194,7 @@
     gameState = 'playing';
     hideAllOverlays();
     refreshBlockBtn();
+    refreshPauseBtn(); // tombol pause/fullscreen sinkron langsung, tak tunggu frame
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     AudioManager.updateMusicState(); // BGM gameplay tanpa overlap
@@ -5264,6 +5210,7 @@
     gameState = 'playing';
     hideAllOverlays();
     refreshBlockBtn();
+    refreshPauseBtn(); // cermin production: tombol sinkron langsung
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     AudioManager.updateMusicState();
@@ -5284,6 +5231,7 @@
     clearInput();
     refreshBlockBtn();
     try { refreshSkillBtn(); } catch (e) {}
+    refreshPauseBtn(); // sembunyikan pause/fullscreen di menu
     setPaused(false);
     camera.x = 120; // vista menu
     refreshRecordsUI();
@@ -5300,7 +5248,7 @@
   var btnSettings = null;
   var setSfx = null, setSfxDown = null, setSfxUp = null, setSfxVal = null;
   var setMusic = null, setMusicDown = null, setMusicUp = null, setMusicVal = null;
-  var setInput = null, btnResetProgress = null, btnSettingsBack = null;
+  var setInput = null, setResolution = null, setGraphics = null, btnResetProgress = null, btnSettingsBack = null;
   var resetEl = null, btnResetCancel = null, btnResetConfirm = null;
   var aboutRecords = null;
 
@@ -5781,6 +5729,7 @@
    * Pause membekukan simulasi (frame return dini), men-suspend audio,
    * membersihkan input agar tidak bocor saat resume. Satu rAF tetap. */
   var pauseEl = null, btnPause = null;
+  var btnFullscreen = null;
   var btnResume = null, btnPauseRespawn = null, btnPauseMenu = null;
   var btnBlockEl = null;
 
@@ -5852,6 +5801,7 @@
 
   function refreshPauseBtn() {
     try {
+      refreshFullscreenBtn();
       if (!btnPause) return;
       if (gameState === 'playing') {
         btnPause.classList.remove('hidden');
@@ -5863,6 +5813,50 @@
     } catch (e) { /* abaikan */ }
   }
 
+  /* ---- Fullscreen landscape: tombol ⛶ + tombol F + auto saat main. ----
+   * Fullscreen API butuh user gesture: dipicu dari klik/tombol.
+   * Gagal diam-diam (headless/deny) tanpa merusak game. */
+  function fsEl() {
+    try {
+      var d = (typeof document !== 'undefined') ? document : null;
+      if (!d) return null;
+      return d.fullscreenElement || d.webkitFullscreenElement || null;
+    } catch (e) { return null; }
+  }
+  function isFullscreen() { return !!fsEl(); }
+  function refreshFullscreenBtn() {
+    try {
+      if (!btnFullscreen) return;
+      if (gameState === 'playing') {
+        btnFullscreen.classList.remove('hidden');
+        btnFullscreen.setAttribute('aria-label', isFullscreen() ? 'Keluar layar penuh' : 'Layar penuh');
+      } else {
+        btnFullscreen.classList.add('hidden');
+      }
+    } catch (e) { /* abaikan */ }
+  }
+  function toggleFullscreen() {
+    try {
+      var d = (typeof document !== 'undefined') ? document : null;
+      if (!d) return false;
+      if (fsEl()) {
+        var ex = d.exitFullscreen || d.webkitExitFullscreen;
+        if (ex) { var r = ex.call(d); if (r && r.catch) r.catch(function () {}); }
+        return false;
+      }
+      // Minta fullscreen di #wrap (kanvas + kontrol + dialog ikut tampil).
+      // Aturan :fullscreen menempel di elemen ini; documentElement sebagai
+      // fallback bila #wrap tak ada (aturan kanvas tetap berlaku).
+      var root = null;
+      try { root = d.getElementById && d.getElementById('wrap'); } catch (e) { root = null; }
+      if (!root) root = d.documentElement || d.body;
+      var rq = root && (root.requestFullscreen || root.webkitRequestFullscreen);
+      if (!rq) return false;
+      var p = rq.call(root);
+      if (p && p.catch) p.catch(function () {});
+      return true;
+    } catch (e) { return false; }
+  }
   function isPauseOpen() {
     try { return !!(pauseEl && !pauseEl.classList.contains('hidden')); }
     catch (e) { return false; }
@@ -5919,10 +5913,9 @@
       if (setMusic) setMusic.textContent = 'MUSIC: ' + (save.musicEnabled ? 'ON' : 'OFF');
       if (setMusicVal) setMusicVal.textContent = save.musicVolume + '%';
       if (setInput) setInput.textContent = 'INPUT: ' + String(save.inputPreference).toUpperCase();
-      var _tui = touchUI();
-      if (setCtlScheme) setCtlScheme.textContent = 'GERAK: ' + (_tui.scheme === 'arrows' ? 'PANAH' : 'JOYSTICK');
-      if (setCtlSize) setCtlSize.textContent = 'TOMBOL: ' + String(_tui.size || 'm').toUpperCase();
-      if (setCtlHand) setCtlHand.textContent = 'TANGAN: ' + (_tui.hand === 'left' ? 'KIRI' : 'KANAN');
+      if (setResolution) setResolution.textContent = 'RESOLUSI: ' +
+        (save.resolution === 'low' ? 'RENDAH' : save.resolution === 'medium' ? 'SEDANG' : 'TINGGI');
+      if (setGraphics) setGraphics.textContent = 'GRAFIK: ' + (save.graphics === 'low' ? 'RENDAH' : 'TINGGI');
     } catch (e) { /* abaikan */ }
   }
 
@@ -5962,47 +5955,18 @@
     refreshSettingsUI();
   }
 
-  /* ---- Edit kontroler landscape (Settings): skema/ukuran/tangan ----
-   * Tersimpan di save.touchUI (migrasi aman), diterapkan via class body
-   * oleh applyTouchUI(). M = default (tanpa class). */
-  var setCtlScheme = null, setCtlSize = null, setCtlHand = null;
-  function touchUI() {
-    try {
-      if (save.touchUI && typeof save.touchUI === 'object') return save.touchUI;
-    } catch (e) {}
-    return { scheme: 'joy', size: 'm', hand: 'right' };
-  }
-  function applyTouchUI() {
-    try {
-      var t = touchUI();
-      var b = (typeof document !== 'undefined') ? document.body : null;
-      if (!b || !b.classList) return;
-      if (t.scheme === 'arrows') b.classList.add('ctl-scheme-arrows');
-      else b.classList.remove('ctl-scheme-arrows');
-      if (t.size === 's') b.classList.add('ctl-size-s'); else b.classList.remove('ctl-size-s');
-      if (t.size === 'l') b.classList.add('ctl-size-l'); else b.classList.remove('ctl-size-l');
-      if (t.hand === 'left') b.classList.add('ctl-hand-left'); else b.classList.remove('ctl-hand-left');
-    } catch (e) { /* abaikan */ }
-  }
-  function cycleCtlScheme() {
-    if (!save.touchUI || typeof save.touchUI !== 'object') save.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
-    save.touchUI.scheme = (save.touchUI.scheme === 'arrows') ? 'joy' : 'arrows';
+  function cycleResolution() {
+    save.resolution =
+      save.resolution === 'high' ? 'low' :
+      save.resolution === 'low' ? 'medium' : 'high';
     persistSave();
-    applyTouchUI();
+    setupCanvas(); // terapkan langsung ke backing store
     refreshSettingsUI();
   }
-  function cycleCtlSize() {
-    if (!save.touchUI || typeof save.touchUI !== 'object') save.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
-    save.touchUI.size = (save.touchUI.size === 's') ? 'm' : ((save.touchUI.size === 'm') ? 'l' : 's');
+
+  function cycleGraphics() {
+    save.graphics = (save.graphics === 'low') ? 'high' : 'low';
     persistSave();
-    applyTouchUI();
-    refreshSettingsUI();
-  }
-  function cycleCtlHand() {
-    if (!save.touchUI || typeof save.touchUI !== 'object') save.touchUI = { scheme: 'joy', size: 'm', hand: 'right' };
-    save.touchUI.hand = (save.touchUI.hand === 'left') ? 'right' : 'left';
-    persistSave();
-    applyTouchUI();
     refreshSettingsUI();
   }
 
@@ -6095,7 +6059,7 @@
       if (lvlclearStats) {
         lvlclearStats.textContent = 'Level ' + currentLevel + ' • Waktu: ' +
           levelStats.time.toFixed(1) + ' dtk • Musuh: ' +
-          levelStats.kills + ' • Coin: ' + coinGot() + '/' + coins.length;
+          levelStats.kills + ' • Coin: ' + runStats.coins;
       }
       lvlclearEl.classList.remove('hidden');
     }
@@ -6169,6 +6133,8 @@
     runStats.kills++;
     levelStats.kills++;
     if (!save.achievements.first_blood) unlockAchievement('first_blood');
+    // Reward raja: +20 coin (hard x2).
+    coinReward(20);
     // Final L5: slime tumbang -> interlude -> lich (bukan victory dulu).
     // Intro lich hanya sekali via dormant (tanpa toast/suara ganda di sini).
     if (currentLevel === 5 && finalPhase === 'slime') {
@@ -6303,8 +6269,9 @@
   }
 
   /* ========================= 13. RENDER SETUP =========================
-   * Backing store = 960x540 * renderScale (DPR dibatasi RENDER_SCALE_MAX).
-   * Semua kode game memakai koordinat logis — collision tidak berubah.
+   * Backing store = 960x540 * renderScale (DPR dibatasi RENDER_SCALE_MAX,
+   * dikali faktor Resolusi Settings). Semua kode game memakai koordinat
+   * logis — collision tidak berubah.
    * =================================================================== */
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
@@ -6316,8 +6283,7 @@
       dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
       if (!(dpr > 0) || !isFinite(dpr)) dpr = 1;
     } catch (e) { dpr = 1; }
-    renderScale = Math.min(dpr, RENDER_SCALE_MAX);
-    if (!(renderScale >= 1)) renderScale = 1;
+    renderScale = clamp(Math.min(dpr, RENDER_SCALE_MAX) * resFactor(), 0.5, RENDER_SCALE_MAX);
     try {
       canvas.width = Math.round(VIEW_W * renderScale);
       canvas.height = Math.round(VIEW_H * renderScale);
@@ -6347,6 +6313,7 @@
     ctx.fillRect(Math.round(762 - cx * PAR_FAR), 62, 10, 10);
     ctx.fillStyle = '#8f97d6';
     for (i = 0; i < decorFar.length; i++) {
+      if (gfxLow() && (i % 2 === 1)) continue; // grafik rendah: setengah bintang
       sx = Math.round(decorFar[i].x - cx * PAR_FAR);
       if (sx < -4 || sx > VIEW_W + 4) continue;
       var sz = decorFar[i].s;
@@ -7156,7 +7123,8 @@
     ctx.fillRect(bx + 24, by, Math.round((bw - 24) * pct), 4);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 14px monospace';
-    ctx.fillText(player.hp + '/' + PLAYER_MAX_HP, bx + 34, by + bh / 2 + 1);
+    // Angka HP selalu bulat wajar (save lama pecahan tetap tampil utuh).
+    ctx.fillText(Math.max(0, Math.round(player.hp)) + '/' + PLAYER_MAX_HP, bx + 34, by + bh / 2 + 1);
     // Shop: mode + equipment aktif (teks, bukan warna saja).
     // Guardian: bar stamina block (batas anti-turtle, regen saat lepas).
     try {
@@ -7213,10 +7181,10 @@
     ctx.fillRect(px, py, pw, ph);
     ctx.fillStyle = '#5a68b0';
     ctx.fillRect(px, py, Math.round(pw * prog), ph);
-    // Ujung kanan: goal fisik (L1/L3) atau arena boss/lich (L2/L4/L5).
+    // Ujung kanan: goal fisik atau arena boss/lich/minibos.
     var endX = Level.goal ? (Level.goal.x + Level.goal.w / 2)
-                          : ((Level.bossSpawn || Level.lichSpawn) ?
-                             (Level.bossSpawn || Level.lichSpawn).x :
+                          : ((Level.bossSpawn || Level.lichSpawn || Level.miniSpawn) ?
+                             (Level.bossSpawn || Level.lichSpawn || Level.miniSpawn).x :
                              Level.playerSpawn.x + 1);
     var span = Math.max(1, endX - Level.playerSpawn.x);
     var i, mx;
@@ -7248,7 +7216,7 @@
     ctx.fillText('FOE x' + alive, VIEW_W - 118, 25);
 
     // --- Coin level + Gold Shard treasure (kanan; kecil agar tak tutup game) ---
-    // Baris 1: progres collectible COIN "got/total LVn" (completion = ini).
+    // Baris 1: total coin run (dari kill) + nomor level.
     // Baris 2: resource GOLD SHARD dari treasure (terpisah, bukan completion).
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(VIEW_W - 150, 44, 138, 44);
@@ -7260,7 +7228,8 @@
     }
     ctx.fillStyle = '#fff2c9';
     ctx.font = 'bold 12px monospace';
-    ctx.fillText('COIN ' + coinGot() + '/' + coins.length + ' LV' + currentLevel, VIEW_W - 124, 57);
+    // Baris 1: total coin run (dari kill) + nomor level.
+    ctx.fillText('COIN ' + runStats.coins + ' LV' + currentLevel, VIEW_W - 124, 57);
     // Gold Shard terpisah dari coin level (sistem treasure sendiri).
     var gimg = foeImg(sprites.reward, 0);
     if (gimg) ctx.drawImage(gimg, VIEW_W - 140, 70, 14, 14);
@@ -7480,6 +7449,9 @@
         runStats.kills++;
         levelStats.kills++;
         if (!save.achievements.first_blood) unlockAchievement('first_blood');
+        // Reward kill monster: +5 coin (hard x2) + cipratan emas.
+        coinReward(5);
+        burst(enemies[r].x + enemies[r].w / 2, enemies[r].y, 6, '#ffd23f', 120, 0.4, 3, 200);
         enemies[r] = enemies[enemies.length - 1];
         enemies.pop();
       }
@@ -7705,9 +7677,8 @@
   setMusicUp = document.getElementById('set-music-vol-up');
   setMusicVal = document.getElementById('set-music-vol-val');
   setInput = document.getElementById('set-input');
-  setCtlScheme = document.getElementById('set-ctlscheme');
-  setCtlSize = document.getElementById('set-ctlsize');
-  setCtlHand = document.getElementById('set-ctlhand');
+  setResolution = document.getElementById('set-resolution');
+  setGraphics = document.getElementById('set-graphics');
   btnResetProgress = document.getElementById('btn-reset-progress');
   btnSettingsBack = document.getElementById('btn-settings-back');
   resetEl = document.getElementById('reset-confirm');
@@ -7748,6 +7719,7 @@
   shopBackBtn = document.getElementById('shop-back');
   pauseEl = document.getElementById('pause');
   btnPause = document.getElementById('btn-pause');
+  btnFullscreen = document.getElementById('btn-fullscreen');
   btnResume = document.getElementById('btn-resume');
   btnPauseRespawn = document.getElementById('btn-pause-respawn');
   btnPauseMenu = document.getElementById('btn-pause-menu');
@@ -7866,9 +7838,8 @@
   onClick(setMusicDown, function () { bumpVol('music', -10); });
   onClick(setMusicUp, function () { bumpVol('music', 10); });
   onClick(setInput, function () { cycleInput(); });
-  onClick(setCtlScheme, function () { cycleCtlScheme(); });
-  onClick(setCtlSize, function () { cycleCtlSize(); });
-  onClick(setCtlHand, function () { cycleCtlHand(); });
+  onClick(setResolution, function () { cycleResolution(); });
+  onClick(setGraphics, function () { cycleGraphics(); });
   onClick(btnSettingsBack, function () { settingsBack(); });
   // Reset progress: SELALU via dialog konfirmasi (anti kepencet di HP).
   onClick(btnResetProgress, function () {
@@ -7894,6 +7865,13 @@
     if (gameState !== 'playing') return;
     togglePause();
   });
+  onClick(btnFullscreen, function () { toggleFullscreen(); });
+  try {
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('fullscreenchange', refreshFullscreenBtn);
+      document.addEventListener('webkitfullscreenchange', refreshFullscreenBtn);
+    }
+  } catch (e) { /* abaikan */ }
   onClick(btnResume, function () { resumeGame(); });
   onClick(btnPauseRespawn, function () {
     if (pauseEl) pauseEl.classList.add('hidden');
@@ -7911,7 +7889,7 @@
   // Navigasi settings: Atas/Bawah antar kontrol, Escape kembali ke menu.
   var settingsNavIds = ['set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up',
     'set-music', 'set-music-vol-down', 'set-music-vol-up',
-    'set-input', 'set-ctlscheme', 'set-ctlsize', 'set-ctlhand',
+    'set-input', 'set-resolution', 'set-graphics',
     'btn-reset-progress', 'btn-settings-back'];
   var resetNavIds = ['btn-reset-cancel', 'btn-reset-confirm'];
   // Navigasi shop: Kiri/Kanan ganti tab, Atas/Bawah ganti item,
@@ -7961,6 +7939,11 @@
       // Explicit pause: P toggle, Esc toggle (valid: pause <-> resume).
       if (e.code === 'KeyP') {
         togglePause();
+        if (e.preventDefault) e.preventDefault();
+        return;
+      }
+      if (e.code === 'KeyF') {
+        toggleFullscreen();
         if (e.preventDefault) e.preventDefault();
         return;
       }
@@ -8091,7 +8074,6 @@
 
   loadSave(); // sebelum dunia/audio: settings + progres pulih dulu
   applyAudioSettings();
-  try { applyTouchUI(); } catch (e) {}
   loadLevelInternal(1);
   setupCanvas();
   toMenu(); // boot ke menu utama (game tidak jalan di background)
@@ -8206,6 +8188,8 @@
     getTime: function () { return timeElapsed; },
     isPaused: function () { return paused; },
     setPaused: setPaused,
+    toggleFullscreen: toggleFullscreen,
+    isFullscreen: isFullscreen,
     handleVisibility: onVisibility,
     clampDt: clampDt,
     getAssetErrors: function () { return assetErrors; },
@@ -8404,6 +8388,7 @@
         return particleCount;
       },
       shake: function (a, d) { triggerScreenShake(a, d); },
+      shakeMag: function () { return shake.mag; },
       shakeOffset: function () { return { x: shake.ox, y: shake.oy }; },
       audio: AudioManager
     }
