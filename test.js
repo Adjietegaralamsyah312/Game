@@ -4213,6 +4213,13 @@ test('330 landscape + desktop regresi nol', () => {
   ok(/#shop \.tiny\s*{\s*display:\s*none/.test(css), 'landscape ramping');
   ok(/#shop-prev-stack,\s*\n?\s*#shop-prev-img/.test(css) || css.includes('#shop-prev-img'), 'stack base ada');
   ok(/\.touch-btn\s*{[^}]*clamp\(64px/.test(css), 'desktop sentuh utuh');
+  const shortLandscape = css.slice(css.indexOf('Dialog landscape pendek'));
+  ['#campaign', '#gameover', '#lvlclear', '#gameclear', '#pause', '#reset-confirm'].forEach((id) => {
+    ok(shortLandscape.includes('#canvas-container ' + id), id + ' tercakup landscape pendek');
+  });
+  ok(/@media \(orientation: landscape\) and \(pointer: coarse\) and \(max-height: 500px\)/.test(shortLandscape), 'breakpoint landscape pendek eksplisit');
+  ok(/box-sizing:\s*border-box/.test(shortLandscape), 'dialog box sizing stabil');
+  ok(/overflow-x:\s*hidden/.test(shortLandscape), 'dialog tanpa horizontal overflow');
 });
 test('331 save v4 + harga/stat utuh', () => {
   G.resetSave();
