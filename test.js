@@ -4359,7 +4359,12 @@ test('346 keenam tombol ter-wire tanpa error', () => {
 test('347 tombol segaris: jump/attack/block sama + base utuh', () => {
   ok(/\.touch-btn\s*{[^}]*clamp\(64px,\s*18vw,\s*84px\)/.test(css), 'base utuh');
   ok(/\.touch-btn\.jump,\s*\n?\s*\.touch-btn\.attack,\s*\n?\s*\.touch-btn\.block\s*{[^}]*clamp\(72px,\s*20vw,\s*96px\)/.test(css), 'trio segaris');
-  ok(css.includes('width: 64px') && css.includes('width: 72px'), 'landscape fix utuh');
+  const blocks = __mediaBlocks(css);
+  const landscape = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const rules = landscape.map((b) => b.body).join('\n');
+  ok(/#touch-controls\.touch-group-right\s+#btn-attack|#touch-controls \.touch-group-right #btn-attack/.test(rules), 'orb attack punya aturan khusus');
+  ok(/#touch-controls \.touch-group-right #btn-jump/.test(rules), 'jump satelit punya aturan khusus');
+  ok(/#touch-controls \.touch-group-right #btn-block/.test(rules), 'block satelit punya aturan khusus');
   ok(/@media \(pointer: coarse\)\s*{[^}]*min-width:\s*64px/.test(css), 'coarse utuh');
 });
 test('348 versi 1.4.1 + save v4 utuh', () => {
