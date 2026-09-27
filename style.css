@@ -488,19 +488,11 @@ canvas#game {
   color: #d6dbff;
 }
 
-/* Di desktop dengan mouse presisi, kecilkan tombol tapi tetap tampil
-   (agar bisa diklik/dites). Di HP tampil besar. */
+/* Desktop mouse/keyboard: controller sentuh disembunyikan total
+   (keyboard existing tetap berfungsi). */
 @media (hover: hover) and (pointer: fine) {
-  .touch-btn {
-    width: 60px;
-    height: 60px;
-    font-size: 22px;
-    opacity: 0.85;
-  }
-  .touch-btn.jump,
-  .touch-btn.attack {
-    width: 68px;
-    height: 68px;
+  #touch-controls {
+    display: none;
   }
 }
 
@@ -567,16 +559,10 @@ canvas#game {
   }
 }
 
-/* --- HP landscape pendek: mode ringkas (canvas + kontrol muat tanpa scroll) ---
- * Hanya layar sentuh kasar + tinggi kecil. Desktop (pointer halus) tidak kena.
- * Canvas 16:9 dipertahankan: lebar diturunkan dari sisa tinggi viewport. */
+/* --- HP landscape pendek (tinggi <=500px): cluster dirapatkan ---
+ * Blok overlay utama di bawah mengatur canvas + posisi; di sini hanya
+ * skala tombol diperkecil agar muat di layar sangat pendek. */
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  #wrap {
-    gap: 6px;
-    padding-top: max(8px, env(safe-area-inset-top));
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-  }
-  /* Sembunyikan teks header agar tinggi untuk permainan + kontrol. */
   h1,
   .hint,
   .mission,
@@ -586,52 +572,46 @@ canvas#game {
   #canvas-container {
     width: min(100%, calc((100dvh - 140px) * 16 / 9));
   }
-  /* Bar kontrol selebar layar (bukan dikunci selebar canvas) agar 7 tombol
-     muat tanpa kepotong di tepi; canvas tetap 16:9 dari sisa tinggi. */
+  /* Bar kontrol ikut aturan lebar yang sama (overlay, tanpa scroll). */
   #touch-controls {
     width: 100%;
     max-width: 960px;
   }
-  #touch-controls {
-    margin-top: 0;
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
   /* Target sentuh tetap >=64px, tidak bertumpuk. */
-  .touch-btn {
+  #touch-controls .touch-group-right .touch-btn {
     width: 64px;
     height: 64px;
-    font-size: 22px;
+    font-size: 20px;
   }
-  .touch-btn.jump,
-  .touch-btn.attack,
-  .touch-btn.block {
+  #touch-controls .touch-group-right #btn-attack {
     width: 72px;
     height: 72px;
   }
-  .touch-group {
-    gap: 10px;
-  }
-  /* Grup tengah (pause + skill) sebaris horizontal: bar cukup
-     lebar penuh sehingga tak perlu menumpuk vertikal dan jump tak ketutup. */
-  .touch-group-center {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
+  #touch-controls .touch-group-right {
+    gap: 6px;
   }
 }
 
-/* --- Landscape touch: canvas dominan + controller overlay (RPG/MMORPG) ---
- * Canvas memakai viewport semaksimal mungkin (16:9, tanpa stretch);
- * controller overlay transparan di atas game sehingga canvas tak menciut.
- * Layout: joystick kiri-bawah, aksi kanan-bawah, pause kanan-atas. */
+/* --- Landscape touch: SATU sistem overlay RPG (canvas dominan) ---
+ * Canvas memakai viewport semaksimal mungkin (16:9, tanpa stretch,
+ * kontrol overlay sehingga canvas tak menciut, halaman tak scroll).
+ * Kiri-bawah: joystick analog. Kanan-bawah: cluster aksi grid
+ * (attack primer + skill/dash di dekatnya, jump di samping, block kecil).
+ * Kanan-atas: pause kecil gaya HUD. */
 @media (orientation: landscape) and (pointer: coarse) {
+  html, body {
+    height: 100dvh;
+    overflow: hidden;
+  }
   #wrap {
-    gap: 6px;
+    gap: 0;
+    height: 100dvh;
+    overflow: hidden;
+    justify-content: center;
     padding-top: max(6px, env(safe-area-inset-top));
     padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
-  /* Sembunyikan teks header agar tinggi untuk permainan + kontrol. */
+  /* Sembunyikan teks header agar tinggi untuk permainan. */
   h1,
   .hint,
   .mission,
@@ -639,14 +619,12 @@ canvas#game {
     display: none;
   }
   #canvas-container {
-    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc((100dvh - 48px) * 16 / 9));
+    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 8px), calc((100dvh - 16px) * 16 / 9));
     aspect-ratio: 16 / 9;
   }
   #touch-controls {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 40;
     width: 100%;
     max-width: none;
@@ -663,111 +641,81 @@ canvas#game {
   #touch-controls #btn-right {
     display: none;
   }
-  /* Pause kecil di kanan atas */
+  /* Pause kecil gaya HUD di kanan atas */
   #touch-controls #btn-pause {
     position: fixed;
     top: max(8px, env(safe-area-inset-top));
-    right: max(12px, env(safe-area-inset-right));
+    right: max(10px, env(safe-area-inset-right));
     z-index: 60;
     width: 44px;
     height: 44px;
     margin: 0;
+    font-size: 16px;
+    opacity: 0.9;
   }
-  /* Skill di kanan atas, di bawah pause */
-  #touch-controls #btn-skill {
-    position: fixed;
-    top: max(56px, calc(8px + env(safe-area-inset-top)));
-    right: max(12px, env(safe-area-inset-right));
-    z-index: 60;
-    width: 52px;
-    height: 52px;
-    margin: 0;
-  }
-  /* Joystick analog kiri bawah */
-  #joystick-zone {
-    position: fixed;
-    left: max(12px, env(safe-area-inset-left));
-    bottom: max(16px, env(safe-area-inset-bottom));
-    z-index: 50;
-  }
-  /* Tombol aksi kanan bawah: attack, dash, block, jump */
-  #touch-controls .touch-group-right {
-    position: fixed;
-    right: max(16px, env(safe-area-inset-right));
-    bottom: max(48px, calc(48px + env(safe-area-inset-bottom)));
-    z-index: 50;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
-  }
-  /* Parent groups kosong secara visual karena elemen di dalamnya
-     sudah diposisikan fixed secara terpisah di atas. */
-}
-
-/* --- Layout HP pendek landscape (max-height) --- */
-@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  #wrap {
-    gap: 6px;
-    padding-top: max(8px, env(safe-area-inset-top));
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-  }
-  /* Sembunyikan teks header agar tinggi untuk permainan + kontrol. */
-  h1,
-  .hint,
-  .mission,
-  .footer {
-    display: none;
-  }
-  #canvas-container {
-    width: min(100%, calc((100dvh - 140px) * 16 / 9));
-  }
-  /* Bar kontrol selebar layar - joystick kiri, aksi kanan, pause kanan atas */
-  #touch-controls {
-    width: 100%;
-    max-width: none;
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  /* Joystick kiri bawah */
+  /* Joystick analog kecil proporsional di kiri bawah (safe-area). */
   #joystick-zone {
     position: fixed;
     left: max(10px, env(safe-area-inset-left));
-    bottom: max(8px, env(safe-area-inset-bottom));
-    z-index: 50;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: clamp(84px, 24vmin, 112px);
+    height: clamp(84px, 24vmin, 112px);
   }
-  /* Aksi kanan bawah */
+  /* Knob proporsional terhadap base (36%), tetap relative agar
+     audit absolute tak bertambah; base persegi jadi margin-% pas. */
+  #joystick-zone #joystick-knob {
+    width: 36%;
+    height: 36%;
+    margin-left: -18%;
+    margin-top: -18%;
+  }
+  /* Cluster aksi kanan bawah: attack primer + skill/dash dekat,
+     jump di samping, block defensif kecil. Rapat, tak penuhi layar. */
   #touch-controls .touch-group-right {
     position: fixed;
     right: max(10px, env(safe-area-inset-right));
-    bottom: max(48px, calc(48px + env(safe-area-inset-bottom)));
-    z-index: 50;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: auto auto auto;
+    grid-template-areas:
+      "skill attack dash"
+      "block jump  attack";
+    gap: clamp(6px, 1.6vmin, 10px);
     align-items: center;
   }
-  /* Pause kanan atas */
-  #touch-controls #btn-pause {
-    position: fixed;
-    top: max(8px, env(safe-area-inset-top));
-    right: max(12px, env(safe-area-inset-right));
-    z-index: 60;
-    width: 44px;
-    height: 44px;
-    margin: 0;
+  #touch-controls .touch-group-right #btn-attack {
+    grid-area: attack;
+    width: clamp(56px, 17vmin, 68px);
+    height: clamp(56px, 17vmin, 68px);
+    font-size: clamp(22px, 7vmin, 30px);
   }
-  #touch-controls #btn-skill {
-    position: fixed;
-    top: max(56px, calc(8px + env(safe-area-inset-top)));
-    right: max(12px, env(safe-area-inset-right));
-    z-index: 60;
-    width: 52px;
-    height: 52px;
-    margin: 0;
+  #touch-controls .touch-group-right #btn-jump {
+    grid-area: jump;
+    width: clamp(52px, 15vmin, 62px);
+    height: clamp(52px, 15vmin, 62px);
+    font-size: clamp(20px, 6vmin, 26px);
+  }
+  #touch-controls .touch-group-right #btn-skill {
+    grid-area: skill;
+    width: clamp(48px, 13.5vmin, 56px);
+    height: clamp(48px, 13.5vmin, 56px);
+  }
+  #touch-controls .touch-group-right #btn-dash {
+    grid-area: dash;
+    width: clamp(48px, 13.5vmin, 56px);
+    height: clamp(48px, 13.5vmin, 56px);
+    font-size: clamp(18px, 5.5vmin, 24px);
+  }
+  #touch-controls .touch-group-right #btn-block {
+    grid-area: block;
+    width: clamp(44px, 12vmin, 52px);
+    height: clamp(44px, 12vmin, 52px);
+    font-size: clamp(9px, 2.6vmin, 12px);
   }
 }
+
+/* (Blok duplikat landscape-pendek dihapus — sudah menyatu di dua
+ * blok landscape di atas agar tak saling override.) */
 
 /* --- Dialog overlay fullscreen di layar sentuh kecil ---
  * Canvas HP pendek (~200px) + overflow:hidden memotong tombol menu/gameover

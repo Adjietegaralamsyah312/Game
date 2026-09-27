@@ -100,7 +100,7 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'mission', 'btn-settings', 'settings',
   'set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up', 'set-sfx-vol-val',
   'set-music', 'set-music-vol-down', 'set-music-vol-up', 'set-music-vol-val',
-  'set-input', 'btn-reset-progress', 'btn-settings-back',
+  'set-input', 'set-ctlscheme', 'set-ctlsize', 'set-ctlhand', 'btn-reset-progress', 'btn-settings-back',
   'reset-confirm', 'btn-reset-cancel', 'btn-reset-confirm', 'about-records',
   // Weapon Shop + block
   'btn-shop', 'shop', 'shop-coin',
@@ -4164,7 +4164,7 @@ test('321 keyboard + no-x-overflow setelah fix', () => {
 test('322 save + versi schema tak berubah', () => {
   G.resetSave();
   eq(G.getSave().version, 5);
-  eq(G.version, '1.4.0');
+  eq(G.version, '1.4.1');
   G.resetSave();
 });
 
@@ -4381,10 +4381,10 @@ test('347 tombol segaris: jump/attack/block sama + base utuh', () => {
   ok(css.includes('width: 64px') && css.includes('width: 72px'), 'landscape fix utuh');
   ok(/@media \(pointer: coarse\)\s*{[^}]*min-width:\s*64px/.test(css), 'coarse utuh');
 });
-test('348 versi 1.4.0 + save v4 utuh', () => {
+test('348 versi 1.4.1 + save v4 utuh', () => {
   G.resetSave();
   eq(G.getSave().version, 5);
-  eq(G.version, '1.4.0');
+  eq(G.version, '1.4.1');
   G.resetSave();
 });
 
@@ -4493,10 +4493,10 @@ test('357 belakang tetap full damage + depan kebal', () => {
   eq(pl.hp, 70, 'depan kebal');
   G.resetSave(); G.forceStartLevel(1);
 });
-test('358 versi 1.4.0 + save v4 utuh', () => {
+test('358 versi 1.4.1 + save v4 utuh', () => {
   G.resetSave();
   eq(G.getSave().version, 5);
-  eq(G.version, '1.4.0');
+  eq(G.version, '1.4.1');
   G.resetSave();
 });
 
