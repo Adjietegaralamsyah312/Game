@@ -1176,8 +1176,10 @@ canvas#game {
   }
   #shop-preview .shop-mode-row {
     position: sticky;
-    bottom: 0;
+    top: 0;
+    order: -1;
     background: #1c2247;
+    touch-action: manipulation;
   }
   #shop-preview .shop-mode-row .btn-small {
     min-height: 40px;
