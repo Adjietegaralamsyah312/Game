@@ -1037,6 +1037,19 @@ canvas#game {
   gap: 6px;
   align-items: center;
 }
+#shop-preview .shop-mode-row {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid #39406e;
+}
+#shop-preview .shop-mode-row .btn-small {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 #shop-preview h3 {
   font-size: clamp(13px, 3vw, 16px);
   line-height: 1.3;
@@ -1160,6 +1173,16 @@ canvas#game {
     max-width: 44vw;
     padding: 6px 8px;
     gap: 4px;
+  }
+  #shop-preview .shop-mode-row {
+    position: sticky;
+    bottom: 0;
+    background: #1c2247;
+  }
+  #shop-preview .shop-mode-row .btn-small {
+    min-height: 40px;
+    padding: 6px 3px;
+    font-size: 11px;
   }
   #shop-prev-stack,
   #shop-prev-img,
