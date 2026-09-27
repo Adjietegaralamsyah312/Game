@@ -215,6 +215,14 @@ canvas#game {
   display: none;
 }
 
+/* Settings 8 baris (resolusi+grafik) bisa melebihi tinggi kanvas kecil:
+ * boleh scroll + safe center agar baris atas tak terpotong (fallback
+ * browser lama: center biasa, perilaku lama tanpa regresi). */
+#settings {
+  overflow-y: auto;
+  justify-content: safe center;
+}
+
 #gameover h2 {
   font-size: clamp(28px, 6vw, 52px);
   letter-spacing: 4px;
@@ -653,13 +661,30 @@ canvas#game {
     font-size: 16px;
     opacity: 0.9;
   }
-  /* Joystick analog kecil proporsional di kiri bawah (safe-area). */
+  /* Fullscreen di bawah pause (tanpa z-index tambahan: tak overlap). */
+  #touch-controls #btn-fullscreen {
+    position: fixed;
+    top: max(58px, calc(env(safe-area-inset-top) + 50px));
+    right: max(10px, env(safe-area-inset-right));
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    font-size: 16px;
+    opacity: 0.9;
+  }
+  /* Joystick analog ala-Diablo di kiri bawah (safe-area): bundar
+     gelap translusen, knob proporsional 36% dari base. */
   #joystick-zone {
     position: fixed;
     left: max(10px, env(safe-area-inset-left));
     bottom: max(10px, env(safe-area-inset-bottom));
-    width: clamp(84px, 24vmin, 112px);
-    height: clamp(84px, 24vmin, 112px);
+    width: clamp(110px, 30vmin, 150px);
+    height: clamp(110px, 30vmin, 150px);
+  }
+  #touch-controls #joystick-base {
+    border: 2px solid rgba(201, 162, 39, 0.5);
+    background: rgba(8, 8, 16, 0.5);
+    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.7);
   }
   /* Knob proporsional terhadap base (36%), tetap relative agar
      audit absolute tak bertambah; base persegi jadi margin-% pas. */
@@ -668,10 +693,12 @@ canvas#game {
     height: 36%;
     margin-left: -18%;
     margin-top: -18%;
+    background: radial-gradient(circle at 35% 30%, rgba(120, 100, 60, 0.95), rgba(20, 16, 10, 0.95));
+    border: 2px solid rgba(201, 162, 39, 0.9);
   }
-  /* Cluster aksi kanan bawah: attack primer + skill/dash dekat,
-     jump di samping, block defensif kecil. Rapat, tak penuhi layar.
-     Areas harus rectangular (attack L-shape = invalid, browser abaikan). */
+  /* Cluster orb ala-Diablo kanan bawah: attack orb primer menjulang
+     2 baris di kolom kanan (rectangular = valid), satelit skill/dash/
+     jump/block mengitarinya. Rapat, tak penuhi layar. */
   #touch-controls .touch-group-right {
     position: fixed;
     right: max(10px, env(safe-area-inset-right));
@@ -679,32 +706,48 @@ canvas#game {
     display: grid;
     grid-template-columns: auto auto auto;
     grid-template-areas:
-      "skill attack dash"
-      "block jump  .";
+      "skill dash  attack"
+      "jump  block attack";
     gap: clamp(6px, 1.6vmin, 10px);
     align-items: center;
   }
+  /* Orb: gelap translusen + border emas + glow dalam. */
+  #touch-controls .touch-group-right .touch-btn {
+    background: radial-gradient(circle at 35% 30%, rgba(92, 78, 52, 0.9), rgba(8, 8, 16, 0.92));
+    border: 2px solid rgba(201, 162, 39, 0.85);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 14px rgba(0, 0, 0, 0.65);
+    color: #ffe9a8;
+  }
+  #touch-controls .touch-group-right .touch-btn:active,
+  #touch-controls .touch-group-right .touch-btn.pressed {
+    transform: scale(0.93);
+    box-shadow: 0 0 14px rgba(201, 162, 39, 0.5), inset 0 0 18px rgba(0, 0, 0, 0.8);
+  }
+  /* Orb primer: paling besar + aksen merah-emosi. */
   #touch-controls .touch-group-right #btn-attack {
     grid-area: attack;
-    width: clamp(56px, 17vmin, 68px);
-    height: clamp(56px, 17vmin, 68px);
-    font-size: clamp(22px, 7vmin, 30px);
+    width: clamp(64px, 20vmin, 88px);
+    height: clamp(64px, 20vmin, 88px);
+    font-size: clamp(26px, 8vmin, 36px);
+    border-width: 3px;
+    border-color: rgba(224, 82, 82, 0.9);
+    color: #ffd9d9;
   }
   #touch-controls .touch-group-right #btn-jump {
     grid-area: jump;
-    width: clamp(52px, 15vmin, 62px);
-    height: clamp(52px, 15vmin, 62px);
+    width: clamp(48px, 13.5vmin, 58px);
+    height: clamp(48px, 13.5vmin, 58px);
     font-size: clamp(20px, 6vmin, 26px);
   }
   #touch-controls .touch-group-right #btn-skill {
     grid-area: skill;
-    width: clamp(48px, 13.5vmin, 56px);
-    height: clamp(48px, 13.5vmin, 56px);
+    width: clamp(48px, 13.5vmin, 58px);
+    height: clamp(48px, 13.5vmin, 58px);
   }
   #touch-controls .touch-group-right #btn-dash {
     grid-area: dash;
-    width: clamp(48px, 13.5vmin, 56px);
-    height: clamp(48px, 13.5vmin, 56px);
+    width: clamp(48px, 13.5vmin, 58px);
+    height: clamp(48px, 13.5vmin, 58px);
     font-size: clamp(18px, 5.5vmin, 24px);
   }
   #touch-controls .touch-group-right #btn-block {
@@ -747,6 +790,72 @@ canvas#game {
   #canvas-container #achievements,
   #canvas-container #skills {
     justify-content: flex-start;
+  }
+}
+
+/* --- Menu utama landscape: kompak 2 kolom agar 8 tombol muat tanpa scroll.
+ * Blok sendiri (terpisah dari overlay kontrol) agar tak mengganggu audit
+ * dialog fullscreen. Judul kecil, tagline + hint keyboard disembunyikan. */
+@media (orientation: landscape) and (pointer: coarse) {
+  #canvas-container #mainmenu {
+    justify-content: flex-start;
+    gap: 6px;
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+  #canvas-container #mainmenu .game-title {
+    font-size: clamp(22px, 7vh, 32px);
+    letter-spacing: 2px;
+  }
+  #canvas-container #mainmenu .build-tag,
+  #canvas-container #mainmenu .tiny {
+    display: none;
+  }
+  #canvas-container #menu-main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #canvas-container #menu-main .btn-primary,
+  #canvas-container #menu-main .btn-secondary {
+    min-width: 0;
+    width: min(200px, 38vw);
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+}
+
+/* --- Settings landscape: 8 baris jadi 2 kolom kompak agar muat tanpa
+ * scroll. Blok sendiri seperti menu. Baris tetap ≥40px (pengaturan,
+ * bukan aksi kilat, jadi aman disentuh). */
+@media (orientation: landscape) and (pointer: coarse) {
+  #canvas-container #settings {
+    justify-content: flex-start;
+    gap: 6px;
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+  #canvas-container #settings h2 {
+    font-size: clamp(18px, 5vh, 26px);
+  }
+  #canvas-container #settings .set-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: min(680px, 94vw);
+  }
+  #canvas-container #settings .set-row {
+    min-height: 44px;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+  #canvas-container #settings .btn-small {
+    min-height: 40px;
+    min-width: 48px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  #canvas-container #settings .tiny {
+    display: none;
   }
 }
 /* Shop pengecualian: SATU scroller saja (#shop-body). Outer #shop harus
@@ -1106,6 +1215,78 @@ canvas#game {
 }
 #btn-pause.hidden {
   display: none;
+}
+
+/* --- Tombol fullscreen: gaya HUD bundar seperti pause --- */
+#btn-fullscreen {
+  width: clamp(40px, 11vw, 44px);
+  height: clamp(40px, 11vw, 44px);
+  font-size: 16px;
+  border-radius: 50%;
+  border: 2px solid #4a558f;
+  background: rgba(58, 66, 120, 0.55);
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+  opacity: 0.85;
+}
+#btn-fullscreen:hover,
+#btn-fullscreen:focus-visible {
+  background: #2a3570;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+#btn-fullscreen.hidden {
+  display: none;
+}
+
+/* --- Fullscreen API: seluruh #wrap (kanvas + kontrol + dialog) isi
+   layar penuh. Game meminta fullscreen di #wrap sehingga aturan ini
+   match (request di documentElement membuat :fullscreen kanvas mati).
+   Stretch: layar HP 20:9 vs kanvas 16:9 sehingga bar hitam hilang. --- */
+#wrap:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  min-height: 100dvh;
+  gap: 0;
+  padding: 0;
+  justify-content: center;
+  background: #000;
+}
+#wrap:fullscreen #canvas-container {
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+}
+#wrap:-webkit-full-screen {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  padding: 0;
+  background: #000;
+}
+#wrap:-webkit-full-screen #canvas-container {
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+}
+/* Fallback bila fullscreen jatuh ke documentElement/kanvas. */
+#canvas-container:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  background: #000;
+}
+#canvas-container:-webkit-full-screen {
+  width: 100vw;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  background: #000;
 }
 
 /* --- MMORPG controller: joystick analog + tombol aksi (landscape-first) --- */

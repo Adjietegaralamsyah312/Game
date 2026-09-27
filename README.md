@@ -335,7 +335,7 @@ node test.js
 git diff --check
 ```
 
-407 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid) —
+425 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 2 fullscreen + 4 kill reward + 1 menu landscape + 1 wrap fullscreen + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 

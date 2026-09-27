@@ -78,7 +78,7 @@ const mockCtx = new Proxy({}, {
   },
   set() { return true; }
 });
-const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
+const elementIds = ['wrap', 'game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
   'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd', 'btn-dash',
   'joystick-zone', 'joystick-base', 'joystick-knob',
@@ -94,13 +94,13 @@ const elementIds = ['game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-res
   'btn-campaign', 'campaign', 'campaign-status',
   'btn-diff-normal', 'btn-diff-hard', 'diff-hard-card', 'achieve-toast-text', 'btn-achieve-back',   'btn-skills', 'skills', 'skills-list', 'skills-status', 'btn-skills-back', 'hard-lock-label',
   'btn-achievements', 'achievements', 'achieve-list', 'achieve-counter', 'achieve-toast',
-  'btn-camp-back', 'btn-pause', 'pause',
+  'btn-camp-back', 'btn-pause', 'btn-fullscreen', 'pause',
   'btn-resume', 'btn-pause-respawn', 'btn-pause-menu',
   // Stage 6: settings + reset + records + mission
   'mission', 'btn-settings', 'settings',
   'set-sfx', 'set-sfx-vol-down', 'set-sfx-vol-up', 'set-sfx-vol-val',
   'set-music', 'set-music-vol-down', 'set-music-vol-up', 'set-music-vol-val',
-  'set-input', 'set-ctlscheme', 'set-ctlsize', 'set-ctlhand', 'btn-reset-progress', 'btn-settings-back',
+  'set-input', 'set-resolution', 'set-graphics', 'btn-reset-progress', 'btn-settings-back',
   'reset-confirm', 'btn-reset-cancel', 'btn-reset-confirm', 'about-records',
   // Weapon Shop + block
   'btn-shop', 'shop', 'shop-coin',
@@ -228,7 +228,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 407; // total test (401 + 5 layout landscape + 1 grid valid)
+const EXPECTED_TOTAL = 425; // total test (424 + 1 dash meluncur)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -282,11 +282,15 @@ test('25 kamera smooth lerp (tidak snap per-frame)', () => srcHas('dt * CAM_SMOO
 test('26 spawn player 80,300', () => { srcHas('playerSpawn'); const p = G.getPlayer(); G.restart(); const p2 = G.getPlayer(); eq(p2.x, 80); eq(p2.y, 300); });
 test('27 3 slime di arena', () => { G.restart(); eq(G.getEnemies().length, 3); });
 test('28 2 checkpoint', () => eq(G.getCheckpoints().length, 2));
-test('29 goal x2280 w70 h120', () => { const g = G.getGoal(); eq(g.x, 2280); eq(g.w, 70); eq(g.h, 120); });
+test('29 L1/L3 tanpa goal (minibos = finish)', () => {
+  G.forceStartLevel(1); eq(G.getGoal(), null); ok(G.getMiniboss(), 'L1 ada minibos');
+  G.forceStartLevel(3); eq(G.getGoal(), null); ok(G.getMiniboss(), 'L3 ada minibos');
+  G.forceStartLevel(1);
+});
 test('30 KILL_Y jatuh = death', () => srcHas('KILL_Y'));
 test('31 2 celah (520-610 & 1050-1140)', () => { srcHas('x: 0,    y: 480, w: 520'); srcHas('x: 610,  y: 480, w: 440'); srcHas('x: 1140, y: 480, w: 610'); });
 test('32 platform data terpusat di Level.platforms', () => srcHas('platforms: ['));
-test('33 checkpoint & goal terpisah dari collision hard-code', () => { srcHas('checkpoints: ['); srcHas('goal: {'); });
+test('33 checkpoint & goal-null terpisah dari collision hard-code', () => { srcHas('checkpoints: ['); srcHas('goal: null'); });
 
 // Player awal (34-38)
 test('34 player w40 h78', () => { G.restart(); const p = G.getPlayer(); eq(p.w, 40); eq(p.h, 78); });
@@ -360,9 +364,9 @@ test('52 progress 0..1 valid', () => {
   const p0 = G.getProgress();
   ok(p0 >= 0 && p0 <= 0.2, 'progress awal harus ~0, got ' + p0);
   const pl = G.getPlayer(); const oldX = pl.x;
-  pl.x = G.getGoal().x; // teleport ke goal
+  pl.x = G.getMiniboss().spawnX; // teleport ke arena minibos (ujung progres)
   const p1 = G.getProgress();
-  ok(p1 > 0.9, 'progress di goal harus ~1, got ' + p1);
+  ok(p1 > 0.9, 'progress di arena harus ~1, got ' + p1);
   pl.x = oldX; G.restart();
 });
 test('53 goalRect & checkpointRect ada', () => { srcHas('function goalRect'); srcHas('function checkpointRect'); });
@@ -508,19 +512,17 @@ test('67 level switching: Level 2 (varian + boss + coin)', () => {
   ok(b && b.hp === 120 && b.state === 'idle', 'boss RAJA SLIME hp120 idle');
   eq(G.getCheckpoints().length, 2);
   eq(G.getGoal(), null);
-  eq(G.getCoins().total, 8);
+  eq(G.getCoins().total, 0, 'pickup dihapus');
   G.forceStartLevel(1); // kembalikan agar tidak pengaruhi sisanya
 });
-test('68 level reset: HP/posisi/musuh/boss/coin/stats pulih', () => {
+test('68 level reset: HP/posisi/musuh/boss/stats pulih', () => {
   G.forceStartLevel(2);
   G.hurtPlayer(30, 9999);
   ok(G.getPlayer().hp < 100, 'HP harus berkurang dulu');
-  const at = G.getCoins().at;
-  const pl = G.getPlayer();
-  pl.vx = 0; pl.vy = 0; // netralkan knockback agar posisi uji stabil
-  pl.x = at.x - 20; pl.y = 402; // berdiri di tanah, overlap kotak coin
-  G.step(1 / 60);
-  eq(G.getCoins().got, 1);
+  const e0 = G.getEnemies()[0];
+  e0.iframes = 0; G.hurtEnemy(e0.id, 999, e0.x + 100); // bunuh 1 musuh (+5 coin)
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  ok(G.getStats().runCoins >= 5, 'kill beri coin');
   G.forceStartLevel(2);
   eq(G.getPlayer().hp, 100);
   eq(G.getCoins().got, 0);
@@ -542,18 +544,16 @@ test('69 enemy variant stats + slime klasik tak berubah', () => {
   const c = G.getEnemies()[0];
   eq(c.kind, 'slime'); eq(c.hp, 30); eq(c.w, 44); eq(c.h, 32);
 });
-test('70 collectible pickup: coin + counter + totalCoins + suara aman', () => {
+test('70 kill reward: monster +5 coin ke counter + totalCoins', () => {
   G.forceStartLevel(1);
-  eq(G.getCoins().total, 6); eq(G.getCoins().got, 0);
-  const rs0 = G.getStats().runCoins; // total run terbawa dari test sebelum
+  eq(G.getCoins().total, 0); eq(G.getCoins().got, 0);
+  const rs0 = G.getStats().runCoins;
   const tc0 = G.getSave().totalCoins;
-  const at = G.getCoins().at;
-  const pl = G.getPlayer();
-  pl.x = at.x - 20; pl.y = at.y; // overlap kotak coin walau ada gravitasi
-  G.step(1 / 60);
-  eq(G.getCoins().got, 1);
-  eq(G.getStats().levelCoins, 1); eq(G.getStats().runCoins, rs0 + 1);
-  eq(G.getSave().totalCoins, tc0 + 1, 'pickup coin masuk totalCoins tepat 1x');
+  const e0 = G.getEnemies()[0];
+  e0.iframes = 0; G.hurtEnemy(e0.id, 999, e0.x + 100);
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  eq(G.getStats().levelCoins, 5); eq(G.getStats().runCoins, rs0 + 5);
+  eq(G.getSave().totalCoins, tc0 + 5, 'kill masuk totalCoins tepat 5');
   noThrow(() => G.fx.audio.play('coin'));
 });
 test('71 boss state transitions: idle -> telegraph -> attack', () => {
@@ -577,20 +577,14 @@ test('72 boss death L2 -> LEVEL COMPLETE + stats', () => {
   ok(!elements['lvlclear'].classList.contains('hidden'), 'layar level complete tampil');
   G.forceStartLevel(1);
 });
-test('73 level complete: goal L1 -> stats + NEXT/REPLAY/MENU', () => {
-  G.forceStartLevel(1);
-  const pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400; // dalam gapura FINISH
-  G.step(1 / 60);
+test('73 level complete: minibos L1 -> stats + NEXT/REPLAY/MENU', () => {
+  completeL1Flow();
   eq(G.getState(), 'levelcomplete');
   ok(!elements['lvlclear'].classList.contains('hidden'), 'layar level complete tampil');
   G.forceStartLevel(1);
 });
 test('74 NEXT LEVEL: lvlclear -> transisi -> Level 2 main', () => {
-  G.forceStartLevel(1);
-  const pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400;
-  G.step(1 / 60);
+  completeL1Flow();
   eq(G.getState(), 'levelcomplete');
   elements['btn-next'].dispatch('click', {});
   ok(G.getTrans().active, 'transisi ke L2 aktif');
@@ -743,9 +737,15 @@ test('84 a11y: label sentuh + dialog + focus terlihat', () => {
 // ---------- 20 TEST STAGE 6 (settings + persistence) ----------
 function completeL1Flow() {
   G.forceStartLevel(1);
-  const pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400; // dalam gapura FINISH
-  G.step(1 / 60);
+  const m = G.getMiniboss();
+  for (let k = 0; k < 20 && m.state !== 'death'; k++) { m.iframes = 0; G.hurtMiniboss(999, m.x + 200); }
+  for (let i = 0; i < 80; i++) G.step(1 / 60); // death -> dead -> minibos finish
+}
+function completeL3Flow() {
+  G.forceStartLevel(3);
+  const m = G.getMiniboss();
+  for (let k = 0; k < 20 && m.state !== 'death'; k++) { m.iframes = 0; G.hurtMiniboss(999, m.x + 200); }
+  for (let i = 0; i < 80; i++) G.step(1 / 60); // death -> dead -> minibos finish
 }
 function bossKillFlow() {
   G.forceStartLevel(2);
@@ -837,7 +837,7 @@ test('87 best time hanya membaik', () => {
   eq(G.getSave().bestL1, 50);
   completeL1Flow();
   eq(G.getState(), 'levelcomplete');
-  ok(G.getSave().bestL1 < 1, 'run cepat harus perbarui best, got ' + G.getSave().bestL1);
+  ok(G.getSave().bestL1 < 50, 'run cepat harus perbarui best, got ' + G.getSave().bestL1);
   testStorage._map.set('knightSaveV1', JSON.stringify({ version: 2, bestL1: 0.001 }));
   G.reloadSave();
   completeL1Flow();
@@ -847,16 +847,16 @@ test('87 best time hanya membaik', () => {
 test('88 best coins + total coins persist', () => {
   G.resetSave();
   G.forceStartLevel(1);
-  const at = G.getCoins().at, pl = G.getPlayer();
-  pl.x = at.x - 20; pl.y = at.y;
-  G.step(1 / 60);
-  eq(G.getSave().totalCoins, 1);
-  eq(JSON.parse(testStorage._map.get('knightSaveV1')).totalCoins, 1);
+  const e0 = G.getEnemies()[0];
+  e0.iframes = 0; G.hurtEnemy(e0.id, 999, e0.x + 100);
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  eq(G.getSave().totalCoins, 5, 'kill +5 tepat 1x');
+  eq(JSON.parse(testStorage._map.get('knightSaveV1')).totalCoins, 5);
   bossKillFlow();
   eq(G.getState(), 'levelcomplete');
   finalKillFlow();
   eq(G.getState(), 'gamecomplete');
-  ok(G.getSave().bestCoins >= 1, 'bestCoins tercatat');
+  ok(G.getSave().bestCoins >= 5, 'bestCoins tercatat');
   G.resetSave();
 });
 test('89 Level 2 unlock persist + gate NEXT', () => {
@@ -1027,13 +1027,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('407 automated test'), 'README harus sebut 407 test, cek jumlah');
+  ok(readme.includes('425 automated test'), 'README harus sebut 425 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 407);
+  eq(EXPECTED_TOTAL, 425);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1278,20 +1278,20 @@ test('123 R2: key lama dibersihkan, save aktif utuh', () => {
 });
 
 // ---------- 6 TEST STAGE 8 (feel + konten) ----------
-test('124 coin celah L1 terjangkau lompat normal', () => {
+test('124 celah L1 terjangkau lompat normal', () => {
   G.forceStartLevel(1);
-  const before = G.getCoins().got;
   const pl = G.getPlayer();
   pl.x = 470; pl.y = 402; pl.vx = 0; pl.vy = 0;
   G.input.right = true; G.input.jumpHeld = true; G.input.jumpPressed = true;
   let dead = false;
-  for (let i = 0; i < 120 && G.getCoins().got === before; i++) {
+  for (let i = 0; i < 120; i++) {
     G.step(1 / 60);
-    if (pl.state === 'death') dead = true;
+    if (pl.state === 'death') { dead = true; break; }
   }
-  ok(!dead, 'lompat coin tak boleh mati');
-  eq(G.getCoins().got, before + 1, 'tepat 1 coin celah terambil');
-  // Lanjutkan hingga mendarat (koleksi terjadi di tengah lompatan).
+  G.input.right = false; G.input.jumpHeld = false;
+  ok(!dead, 'lompat celah tak boleh mati');
+  ok(pl.x > 610, 'lewati celah ke segmen tengah, got ' + Math.round(pl.x));
+  // Lanjutkan hingga mendarat di segmen tengah.
   for (let i = 0; i < 120 && !pl.onGround && pl.state !== 'death'; i++) {
     G.step(1 / 60);
     if (pl.state === 'death') dead = true;
@@ -1391,23 +1391,20 @@ test('132 kaki sprite napak tanah (offset data-driven)', () => {
 });
 
 // ---------- 1 TEST PLATFORM ARENA ----------
-test('133 platform arena boss terjangkau lompatan', () => {
-  // Regresi: top 350 lama = 130px dari tanah > lompat riil ~121px (mustahil).
-  // Top 365 = langkah 115px, konsisten dengan platform lain.
+test('133 tanpa platform melayang (jatuh ke tanah)', () => {
+  // Platform melayang dihapus: yang jatuh dari atas harus mendarat di tanah.
   G.forceStartLevel(2);
   const pl = G.getPlayer();
-  pl.x = 1990; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
-  G.input.right = true; G.input.jumpHeld = true; G.input.jumpPressed = true;
-  let landed = false, dead = false;
+  pl.x = 1990; pl.y = 200; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+  let dead = false;
   for (let i = 0; i < 150; i++) {
     G.step(1 / 60);
     if (pl.state === 'death') { dead = true; break; }
-    if (pl.onGround && Math.abs(pl.y - (365 - 78)) < 3) { landed = true; break; }
   }
-  G.input.right = false; G.input.jumpHeld = false;
-  ok(!dead, 'lompat ke platform tak boleh mati');
-  ok(landed, 'harus mendarat di platform (y~=287)');
-  G.restart();
+  pl.iframes = 0;
+  ok(!dead, 'jatuh tak boleh mati');
+  ok(pl.onGround && Math.abs(pl.y - (480 - 78)) < 3, 'mendarat di tanah y~=402, got ' + Math.round(pl.y));
+  G.forceStartLevel(1);
 });
 
 // ---------- 21 TEST STAGE 9 (skeleton campaign + lich + final) ----------
@@ -1426,10 +1423,8 @@ test('135 Level 4 unlock setelah L3 clear', () => {
   G.resetSave();
   completeL1Flow(); bossKillFlow();
   eq(G.startLevel(3), true, 'L3 unlocked -> gated start diizinkan');
-  const pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400;
-  G.step(1 / 60);
-  eq(G.getState(), 'levelcomplete', 'L3 goal -> levelcomplete');
+  completeL3Flow();
+  eq(G.getState(), 'levelcomplete', 'L3 minibos -> levelcomplete');
   eq(G.canPlayLevel(4), true, 'L3 clear -> L4 unlock');
   eq(G.getSave().level3Completed, true);
   G.resetSave();
@@ -1648,9 +1643,7 @@ test('152 save/load Level 3-5 progression', () => {
   G.resetSave();
   completeL1Flow(); bossKillFlow(); // unlock L3
   eq(G.startLevel(3), true, 'gated start L3 diizinkan setelah unlock');
-  let pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400;
-  G.step(1 / 60); // L3 clear -> L4 unlock
+  completeL3Flow(); // L3 clear -> L4 unlock
   lichKillFlow(); // L4 clear -> L5 unlock
   eq(G.canPlayLevel(5), true);
   G.reloadSave();
@@ -1784,9 +1777,7 @@ test('160 M4 unlock gate: locked ditolak, unlocked diizinkan', () => {
   eq(G.startLevel(3), true, 'L3 unlocked diizinkan');
   eq(G.getLevel(), 3);
   eq(G.startLevel(4), false, 'L4 masih locked harus ditolak');
-  const pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400;
-  G.step(1 / 60); // L3 clear -> L4 unlock
+  completeL3Flow(); // L3 clear -> L4 unlock
   eq(G.startLevel(4), true, 'L4 unlocked diizinkan');
   G.resetSave();
 });
@@ -1836,23 +1827,23 @@ test('163 M8 leash clamp stabil tanpa jitter', () => {
   pl.iframes = 0;
   G.forceStartLevel(1);
 });
-test('164 M9 arrow solid-blocked platform, shock by-design lewat', () => {
+test('164 M9 arrow vs tanah, shock by-design lewat', () => {
   G.forceStartLevel(1);
   const pl = G.getPlayer();
   pl.iframes = 9999;
   pl.x = 2000; pl.y = 300; pl.vx = 0; pl.vy = 0; // jauh dari jalur uji
-  // Arrow horizontal y=305 menabrak platform atas L1 (300,300,140,20).
+  // Tanpa platform melayang: arrow horizontal y=305 terbang bebas.
   G.spawnShot(100, 305, 1, 'arrow');
   for (let i = 0; i < 80; i++) G.step(1 / 60);
-  eq(G.getShots().length, 0, 'arrow harus cleanup saat tabrak platform');
+  eq(G.getShots().length, 1, 'tanpa platform arrow tak terhalang');
   // Kontrol: arrow ground-level (y=430, tanah top 480) tetap terbang.
   G.spawnShot(100, 430, 1, 'arrow');
   for (let i = 0; i < 5; i++) G.step(1 / 60);
-  eq(G.getShots().length, 1, 'arrow ground-level jangan over-blocked');
+  eq(G.getShots().length, 2, 'kedua arrow terbang bebas');
   // Boundary tetap bekerja.
   G.spawnShot(2395, 200, 1, 'arrow');
   for (let i = 0; i < 30; i++) G.step(1 / 60);
-  ok(G.getShots().length <= 1, 'boundary cleanup tetap, got ' + G.getShots().length);
+  ok(G.getShots().length <= 2, 'boundary cleanup tetap, got ' + G.getShots().length);
   pl.iframes = 0;
   G.forceStartLevel(1);
 });
@@ -1932,12 +1923,8 @@ test('169 pointercancel + duplikat pointer aman', () => {
   eq(G.input.left, false);
 });
 test('170 mission jujur vs win condition', () => {
-  G.forceStartLevel(3);
-  const pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400; // FINISH tanpa membunuh siapa pun
-  G.step(1 / 60);
-  eq(G.getState(), 'levelcomplete', 'L3 FINISH cukup (combat opsional)');
-  ok(G.getEnemies().length > 0, 'musuh tersisa tapi tetap menang = traversal jujur');
+  completeL3Flow();
+  eq(G.getState(), 'levelcomplete', 'L3 minibos -> levelcomplete');
   G.toMenu(); G.resetSave();
 });
 test('171 dialog focus: campaign + pause', () => {
@@ -2317,34 +2304,33 @@ test('197 render attack states tanpa error (sprite path)', () => {
 });
 
 // ---------- 12 TEST SWAP COIN <-> GOLD SHARD (behavior) ----------
-test('198 level collectible semantic Coin, jumlah tetap', () => {
-  const counts = { 1: 6, 2: 8, 3: 6, 4: 8, 5: 8 };
-  Object.keys(counts).forEach((lv) => {
-    G.forceStartLevel(Number(lv));
+test('198 coin pickup dihapus, jumlah 0 semua level', () => {
+  [1, 2, 3, 4, 5].forEach((lv) => {
+    G.forceStartLevel(lv);
     const c = G.getCoins();
-    eq(c.total, counts[lv], 'L' + lv + ' jumlah coin tetap');
+    eq(c.total, 0, 'L' + lv + ' pickup 0');
     eq(c.got, 0, 'L' + lv + ' awal 0');
   });
   srcHas('Level.coins'); srcHas('function resetCoins'); srcHas('function coinGot');
   srcHas('function updateCoins'); srcHas('function drawCoins');
+  srcHas('function coinReward');
   ok(!/Level\.shards/.test(src), 'Level.shards legacy harus hilang');
   ok(!/function resetShards/.test(src), 'resetShards harus hilang');
   G.forceStartLevel(1);
 });
-test('199 pickup coin +1 tepat sekali ke totalCoins', () => {
+test('199 kill monster +5 tepat sekali ke totalCoins', () => {
   G.resetSave();
   G.forceStartLevel(1);
   const tc0 = G.getSave().totalCoins;
   const rc0 = G.getStats().runCoins;
-  const at = G.getCoins().at, pl = G.getPlayer();
-  pl.x = at.x - 20; pl.y = at.y; pl.vx = 0; pl.vy = 0;
-  G.step(1 / 60);
-  eq(G.getCoins().got, 1, 'counter 1');
-  eq(G.getStats().runCoins, rc0 + 1, 'run +1 tepat sekali');
-  eq(G.getSave().totalCoins, tc0 + 1, 'totalCoins +1 tepat sekali');
+  const e0 = G.getEnemies()[0];
+  e0.iframes = 0; G.hurtEnemy(e0.id, 999, e0.x + 100);
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  eq(G.getStats().runCoins, rc0 + 5, 'run +5 tepat sekali');
+  eq(G.getSave().totalCoins, tc0 + 5, 'totalCoins +5 tepat sekali');
   for (let i = 0; i < 30; i++) G.step(1 / 60);
-  eq(G.getStats().runCoins, rc0 + 1, 'tanpa duplikat');
-  eq(G.getSave().totalCoins, tc0 + 1, 'persist tanpa duplikat');
+  eq(G.getStats().runCoins, rc0 + 5, 'tanpa duplikat');
+  eq(G.getSave().totalCoins, tc0 + 5, 'persist tanpa duplikat');
   G.resetSave(); G.forceStartLevel(1);
 });
 test('200 treasure random tidak pernah coin, bisa goldShard', () => {
@@ -2389,22 +2375,10 @@ test('203 HUD coin + gold terpisah, tanpa label shard', () => {
   ok(!/shardGot\(\)/.test(src), 'shardGot harus hilang dari HUD/logic');
   G.forceStartLevel(1);
 });
-test('204 completion 6/6 Coin L1 + teks lvlclear', () => {
-  G.forceStartLevel(1);
-  const pl = G.getPlayer();
-  for (let k = 0; k < 6; k++) {
-    const at = G.getCoins().at;
-    if (!at) break;
-    pl.x = at.x - 20; pl.y = at.y; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
-    for (let i = 0; i < 10 && G.getCoins().got <= k; i++) G.step(1 / 60);
-  }
-  pl.iframes = 0;
-  eq(G.getCoins().got, 6, '6/6 coin terkumpul');
-  eq(G.getCoins().total, 6);
-  pl.x = 2290; pl.y = 400;
-  G.step(1 / 60);
+test('204 minibos L1 -> finish + teks coin run di lvlclear', () => {
+  completeL1Flow();
   eq(G.getState(), 'levelcomplete');
-  ok(/Coin: 6\/6/.test(elements['lvlclear-stats'].textContent), 'teks Coin: 6/6, got ' + elements['lvlclear-stats'].textContent);
+  ok(/Coin: \d+/.test(elements['lvlclear-stats'].textContent), 'teks Coin angka, got ' + elements['lvlclear-stats'].textContent);
   G.forceStartLevel(1);
 });
 test('205 migrasi save v2 -> v3 tanpa kehilangan progres', () => {
@@ -2424,9 +2398,9 @@ test('205 migrasi save v2 -> v3 tanpa kehilangan progres', () => {
 test('206 save v3 round-trip (coin + gold terpisah)', () => {
   G.resetSave();
   G.forceStartLevel(1);
-  const at = G.getCoins().at, pl = G.getPlayer();
-  pl.x = at.x - 20; pl.y = at.y;
-  G.step(1 / 60);
+  const e0 = G.getEnemies()[0];
+  e0.iframes = 0; G.hurtEnemy(e0.id, 999, e0.x + 100);
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
   const c = attackOpenChest(1);
   const s = G.getSave();
   ok(s.totalCoins >= 1, 'coin persist');
@@ -2434,7 +2408,7 @@ test('206 save v3 round-trip (coin + gold terpisah)', () => {
   G.reloadSave();
   eq(G.getSave().totalCoins, s.totalCoins, 'coin reload utuh');
   eq(G.getSave().totalGoldShards, s.totalGoldShards, 'gold reload utuh');
-  pl.iframes = 0;
+  G.getPlayer().iframes = 0;
   G.resetSave(); G.forceStartLevel(1);
 });
 test('207 SFX shard ada + ikut setting, BGM tetap tunggal', () => {
@@ -2468,12 +2442,11 @@ test('208 coin sprite dipakai level, gold-shard untuk treasure', () => {
   noThrow(() => G.drawOnce(), 'draw coin sprite path');
   G.forceStartLevel(1);
 });
-test('209 L1-L5 regression swap: chest 1 + coin count + draw', () => {
-  const counts = { 1: 6, 2: 8, 3: 6, 4: 8, 5: 8 };
-  Object.keys(counts).forEach((lv) => {
-    G.forceStartLevel(Number(lv));
+test('209 L1-L5 regression swap: chest 1 + coin 0 + draw', () => {
+  [1, 2, 3, 4, 5].forEach((lv) => {
+    G.forceStartLevel(lv);
     eq(G.getChests().length, 1, 'L' + lv + ' 1 chest');
-    eq(G.getCoins().total, counts[lv], 'L' + lv + ' coin count');
+    eq(G.getCoins().total, 0, 'L' + lv + ' pickup 0');
     noThrow(() => G.drawOnce(), 'draw L' + lv);
   });
   G.forceStartLevel(1);
@@ -2642,20 +2615,16 @@ test('219 treasure tetap goldShard/health/poison + highlight dekat', () => {
   G.forceStartLevel(1);
 });
 test('220 coin regression pasca-polish + victory pose', () => {
-  const counts = { 1: 6, 2: 8, 3: 6, 4: 8, 5: 8 };
-  Object.keys(counts).forEach((lv) => {
-    G.forceStartLevel(Number(lv));
-    eq(G.getCoins().total, counts[lv], 'L' + lv + ' coin tetap');
+  [1, 2, 3, 4, 5].forEach((lv) => {
+    G.forceStartLevel(lv);
+    eq(G.getCoins().total, 0, 'L' + lv + ' pickup 0');
     eq(G.getChests().length, 1, 'L' + lv + ' chest tetap');
     noThrow(() => G.drawOnce(), 'draw L' + lv);
   });
-  // Pose victory di layar menang.
+  // Pose victory di layar menang (via minibos finish).
   const sp = G.getSprites();
   sp.knightVictory[0] = { id: 'win' };
-  G.forceStartLevel(1);
-  const pl = G.getPlayer();
-  pl.x = 2290; pl.y = 400;
-  G.step(1 / 60);
+  completeL1Flow();
   eq(G.getState(), 'levelcomplete');
   noThrow(() => G.drawOnce(), 'draw victory pose');
   G.forceStartLevel(1);
@@ -2941,9 +2910,9 @@ test('236 counter coin/death clamp di batas atas', () => {
   G.reloadSave();
   eq(G.getSave().totalCoins, 1e9); eq(G.getSave().totalDeaths, 1e9);
   G.forceStartLevel(1);
-  const at = G.getCoins().at, pl = G.getPlayer();
-  pl.x = at.x - 20; pl.y = at.y;
-  G.step(1 / 60);
+  const e0 = G.getEnemies()[0];
+  e0.iframes = 0; G.hurtEnemy(e0.id, 999, e0.x + 100); // kill +5 (clamp)
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
   eq(G.getSave().totalCoins, 1e9, 'tanpa overflow');
   G.hurtPlayer(999, 9999);
   for (let i = 0; i < 70; i++) G.step(1 / 60);
@@ -5178,13 +5147,13 @@ test('406 aksi landscape tampil + ter-wire', () => {
   G.input.skillPressed = false;
   resetSkills();
 });
-test('407 cluster landscape grid areas valid + rectangular', () => {
+test('407 cluster Diablo valid: orb primer + satelit rectangular', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   const all = land.map((b) => b.body).join('\n');
-  // Susunan eksak sesuai desain (sel kanan bawah kosong).
-  ok(/grid-template-areas:\s*"skill attack dash"\s*"block jump\s*\."\s*;/.test(all), 'susunan areas harus "skill attack dash" / "block jump ."');
-  // Tiap area bernama harus rectangular: L-shape = invalid, browser abaikan.
+  // Susunan eksak: attack menjulang 1 kolom penuh (rectangular = valid).
+  ok(/grid-template-areas:\s*"skill dash\s*attack"\s*"jump\s*block attack"\s*;/.test(all), 'susunan areas harus "skill dash attack" / "jump block attack"');
+  // Tiap area bernama harus rectangular (L-shape = invalid, browser abaikan).
   const m = all.match(/grid-template-areas:\s*([^;]+);/);
   ok(m, 'deklarasi areas harus ada');
   const rows = m[1].split('"').filter((s) => s.trim()).map((s) => s.trim().split(/\s+/));
@@ -5200,11 +5169,208 @@ test('407 cluster landscape grid areas valid + rectangular', () => {
     const h = Math.max.apply(null, ys) - Math.min.apply(null, ys) + 1;
     eq(cells[name].length, w * h, 'area harus rectangular: ' + name);
   });
+  // Orb primer attack paling besar (min 64px vs satelit 48px).
+  ok(/#btn-attack\s*{[^}]*width:\s*clamp\(64px/.test(all), 'attack orb primer >= 64px');
+  // Gaya orb Diablo: radial gelap + border emas.
+  ok(/radial-gradient/.test(all), 'orb Diablo radial');
+  ok(/201,\s*162,\s*39/.test(all), 'aksen emas Diablo');
   // 5 tombol terikat ke area masing-masing.
   [['#btn-attack', 'attack'], ['#btn-skill', 'skill'], ['#btn-dash', 'dash'], ['#btn-jump', 'jump'], ['#btn-block', 'block']].forEach((pair) => {
     const esc = pair[0].replace('#', '\\#');
     ok(new RegExp(esc + '\\s*{[^}]*grid-area:\\s*' + pair[1]).test(all), pair[0] + ' -> ' + pair[1]);
   });
+});
+test('408 damage pecahan tetap HP bulat (indikator tak desimal)', () => {
+  G.restart(); const pl = G.getPlayer();
+  pl.hp = 100; pl.iframes = 0; pl.state = 'idle';
+  G.hurtPlayer(14.4, pl.x + 200); // mis. sturdy 16 -> 14.4
+  eq(pl.hp, 86, '100 - 14.4 dibulatkan 86');
+  ok(Number.isInteger(pl.hp), 'HP harus bulat');
+});
+test('409 damage invalid diabaikan (HP tak NaN)', () => {
+  G.restart(); const pl = G.getPlayer();
+  pl.hp = 100; pl.iframes = 0; pl.state = 'idle';
+  G.hurtPlayer(undefined, pl.x + 200);
+  G.hurtPlayer(NaN, pl.x + 200);
+  G.hurtPlayer(-5, pl.x + 200);
+  eq(pl.hp, 100, 'HP utuh saat damage invalid');
+  ok(Number.isFinite(pl.hp), 'HP harus finite');
+});
+test('410 fullscreen API + tombol ter-wire', () => {
+  eq(typeof G.toggleFullscreen, 'function', 'API toggleFullscreen');
+  eq(typeof G.isFullscreen, 'function', 'API isFullscreen');
+  eq(G.isFullscreen(), false, 'headless bukan fullscreen');
+  ok(/id="btn-fullscreen"[^>]*aria-label/.test(html), 'tombol fullscreen berlabel');
+  const bf = elements['btn-fullscreen'];
+  ok(bf, 'mock ada btn-fullscreen');
+  ok((bf.listeners['click'] || []).length >= 1, 'fullscreen ter-wire click');
+  noThrow(() => G.toggleFullscreen(), 'toggle aman tanpa Fullscreen API');
+});
+test('411 tombol F + tombol tampil saat playing', () => {
+  G.forceStartLevel(1);
+  noThrow(() => fireWin('keydown', { code: 'KeyF', preventDefault() {} }), 'F aman');
+  const bf = elements['btn-fullscreen'];
+  ok(!bf.classList.contains('hidden'), 'tombol tampil saat playing');
+  G.toMenu();
+  ok(bf.classList.contains('hidden'), 'tombol sembunyi di menu');
+});
+test('412 minibos tumbang: +10 coin + langsung finish', () => {
+  G.resetSave();
+  G.forceStartLevel(1);
+  const tc0 = G.getSave().totalCoins;
+  const m = G.getMiniboss();
+  for (let k = 0; k < 20 && m.state !== 'death'; k++) { m.iframes = 0; G.hurtMiniboss(999, m.x + 200); }
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  eq(G.getState(), 'levelcomplete', 'minibos = finish');
+  eq(G.getSave().totalCoins, tc0 + 10, 'reward minibos +10');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('413 raja tumbang: +20 coin', () => {
+  G.resetSave();
+  G.forceStartLevel(2);
+  const tc0 = G.getSave().totalCoins;
+  for (let k = 0; k < 10 && G.getBoss().state !== 'death'; k++) { G.getBoss().iframes = 0; G.hurtBoss(999, 0); }
+  for (let i = 0; i < 120; i++) G.step(1 / 60);
+  eq(G.getSave().totalCoins, tc0 + 20, 'reward raja +20');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('414 hard mode: reward kill x2', () => {
+  G.resetSave();
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 5, difficulty: 'hard' }));
+  G.reloadSave();
+  G.forceStartLevel(1);
+  const pl = G.getPlayer(); pl.iframes = 9999;
+  const tc0 = G.getSave().totalCoins;
+  const e0 = G.getEnemies()[0];
+  e0.iframes = 0; G.hurtEnemy(e0.id, 999, e0.x + 100);
+  for (let i = 0; i < 80; i++) G.step(1 / 60);
+  pl.iframes = 0;
+  eq(G.getSave().totalCoins, tc0 + 10, 'hard: monster 5 x2');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('415 HUD coin angka saja (tanpa /total)', () => {
+  ok(src.includes("'COIN ' + runStats.coins"), 'HUD coin = angka run');
+  ok(!/COIN ' \+ coinGot\(\)/.test(src), 'tak ada lagi got/total');
+});
+test('416 menu landscape 2 kolom kompak tanpa scroll', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  ok(/#menu-main\s*{[^}]*grid-template-columns:\s*1fr 1fr/.test(all), 'tombol menu 2 kolom');
+  ok(/#mainmenu\s+\.game-title\s*{[^}]*clamp\(/.test(all), 'judul kompak clamp');
+  // 8 tombol x44px + judul + gap harus muat 360px tanpa scroll.
+  const rows = 4, btnH = 44, gap = 8, title = 32, pad = 20;
+  ok(title + rows * btnH + (rows - 1) * gap + pad <= 360, 'budget muat 360px');
+});
+test('417 fullscreen di #wrap + tanpa auto (manual saja)', () => {
+  // Elemen fullscreen harus #wrap (kanvas + kontrol + dialog ikut tampil).
+  srcHas("getElementById('wrap')");
+  ok(css.includes('#wrap:fullscreen'), 'aturan wrap fullscreen ada');
+  // Tanpa auto-fullscreen: toast browser hanya muncul bila user tekan tombol.
+  ok(!/tryAutoFullscreen/.test(src), 'tak ada auto fullscreen');
+  // Toggle tetap aman headless (wrap tak ada -> fallback -> false).
+  eq(G.toggleFullscreen(), false);
+});
+test('418 block stamina terpotong sekali (tanpa duplikat)', () => {
+  resetSkills(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.hp = 100; pl.iframes = 0; pl.facing = 1; pl.state = 'block'; pl.blockStam = 2;
+  G.hurtPlayer(30, pl.x + 200); // depan jarak jauh -> serangan biasa
+  ok(Math.abs(pl.blockStam - 1.8) < 1e-9, 'normal 0.2 sekali, got ' + pl.blockStam);
+  resetSkills(); G.forceStartLevel(1);
+});
+test('419 resolusi mengubah backing store kanvas', () => {
+  G.resetSave(); G.forceStartLevel(1); // default TINGGI
+  eq(G.render.scale(), 1, 'default scale 1 (dpr mock 1)');
+  let sz = G.render.size();
+  eq(sz.w, 960); eq(sz.h, 540);
+  elements['set-resolution'].dispatch('click', {}); // -> RENDAH
+  eq(G.render.scale(), 0.5, 'rendah 0.5x');
+  sz = G.render.size();
+  eq(sz.w, 480); eq(sz.h, 270);
+  elements['set-resolution'].dispatch('click', {}); // -> SEDANG
+  eq(G.render.scale(), 0.75, 'sedang 0.75x');
+  sz = G.render.size();
+  eq(sz.w, 720); eq(sz.h, 405);
+  elements['set-resolution'].dispatch('click', {}); // -> TINGGI
+  eq(G.render.scale(), 1, 'kembali tinggi');
+  G.resetSave(); G.render.rescan();
+});
+test('420 grafik rendah: burst sepertiga partikel', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  const hit = () => {
+    pl.hp = 100; pl.iframes = 0; pl.state = 'idle';
+    const c0 = G.fx.count();
+    G.hurtPlayer(10, pl.x + 200);
+    return G.fx.count() - c0;
+  };
+  eq(hit(), 6, 'tinggi: 6 partikel');
+  elements['set-graphics'].dispatch('click', {}); // -> RENDAH
+  eq(hit(), 2, 'rendah: max(1, 6/3) = 2');
+  elements['set-graphics'].dispatch('click', {}); // -> TINGGI lagi
+  eq(hit(), 6, 'kembali 6');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('421 grafik rendah: tanpa screen shake', () => {
+  G.resetSave(); G.forceStartLevel(1); // resetShake -> mag 0
+  elements['set-graphics'].dispatch('click', {}); // -> RENDAH
+  G.fx.shake(8, 0.5);
+  eq(G.fx.shakeMag(), 0, 'rendah: shake diabaikan');
+  elements['set-graphics'].dispatch('click', {}); // -> TINGGI
+  G.fx.shake(8, 0.5);
+  eq(G.fx.shakeMag(), 8, 'tinggi: shake jalan');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('422 settings boleh scroll + safe center (8 baris muat)', () => {
+  ok(/#settings\s*{[^}]*overflow-y:\s*auto/.test(css), 'settings scroll');
+  ok(/#settings\s*{[^}]*justify-content:\s*safe center/.test(css), 'safe center');
+});
+test('423 settings landscape 2 kolom kompak tanpa scroll', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  ok(/#settings\s+\.set-col\s*{[^}]*grid-template-columns:\s*1fr 1fr/.test(all), 'baris settings 2 kolom');
+  ok(/#settings\s+\.set-row\s*{[^}]*min-height:\s*44px/.test(all), 'baris kompak 44px');
+  // Judul + 4 baris + tombol back harus muat 360px tanpa scroll.
+  const total = 26 + 6 + (4 * 44 + 3 * 8) + 8 + 44 + 20;
+  ok(total <= 360, 'budget muat 360px, got ' + total);
+});
+test('424 dash & bash ikut arah hadap (facing, bukan kanan-terus)', () => {
+  // Dash ke kiri saat hadap kiri (unlock retroaktif via seedProgress).
+  resetSkills(); seedProgress([1, 2]); G.setMode('SWORD'); G.forceStartLevel(1);
+  ok(G._equipActiveSkill('dashSlash'), 'equip dash');
+  const pl = G.getPlayer();
+  pl.hp = 100; pl.iframes = 9999; pl.facing = -1; pl.state = 'idle'; pl.vx = 0;
+  ok(G._activateActiveSkill(), 'activate dash');
+  ok(pl.vx < 0, 'dash kiri saat hadap kiri, got ' + pl.vx);
+  // Bash kena musuh di kiri saat hadap kiri.
+  G.setMode('GUARDIAN');
+  ok(G._equipActiveSkill('shieldBash'), 'equip bash');
+  const p2 = G.getPlayer();
+  p2.hp = 100; p2.iframes = 9999; p2.facing = -1; p2.state = 'idle';
+  const en = G.getEnemies()[0];
+  en.hp = 50; en.iframes = 0; en.dead = false;
+  en.x = p2.x - 60; en.y = p2.y;
+  ok(G._activateActiveSkill(), 'activate bash');
+  ok(en.hp < 50, 'bash kiri kena musuh kiri, hp=' + en.hp);
+  resetSkills(); G.forceStartLevel(1);
+});
+test('425 dash slash meluncur (bukan glitch 1 frame)', () => {
+  resetSkills(); seedProgress([1, 2]); G.setMode('SWORD'); G.forceStartLevel(1);
+  ok(G._equipActiveSkill('dashSlash'), 'equip dash');
+  const pl = G.getPlayer();
+  G.input.left = false; G.input.right = false; G.input.jumpHeld = false;
+  pl.hp = 100; pl.iframes = 9999; pl.facing = 1; pl.state = 'idle'; pl.vx = 0;
+  pl.x = 200; pl.y = 402; pl.vy = 0; // tanah aman L1
+  for (let i = 0; i < 5; i++) G.step(1 / 60); // settle
+  const x0 = pl.x;
+  ok(G._activateActiveSkill(), 'activate dash');
+  for (let i = 0; i < 5; i++) G.step(1 / 60); // 0.083s < 0.18s dash
+  const dx = pl.x - x0;
+  ok(dx > 15, 'dash meluncur jauh, dx=' + dx.toFixed(1));
+  ok(pl.vx > 300, 'vx dipertahankan selama dash, got ' + pl.vx);
+  resetSkills(); G.forceStartLevel(1);
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

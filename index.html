@@ -30,7 +30,7 @@
       <b>A / D</b> atau <b>◀ / ▶</b> bergerak &nbsp;•&nbsp; <b>Space</b> lompat
       &nbsp;•&nbsp; <b>J</b> / <b>X</b> serang &nbsp;•&nbsp; <b>Q</b> skill &nbsp;•&nbsp; <b>K</b> block &nbsp;•&nbsp; <b>R</b> respawn
     </p>
-    <p id="mission" class="mission">L1: coin • checkpoint • capai <b>FINISH</b>.</p>
+    <p id="mission" class="mission">L1: kalahkan <b>MINIBOS</b>.</p>
 
     <div id="canvas-container">
       <canvas id="game" width="960" height="540" role="img" aria-label="Arena game Knight Platformer: ksatria, platform, slime, dan garis finish"></canvas>
@@ -168,16 +168,12 @@
             <button id="set-input" class="btn-small">INPUT: AUTO</button>
           </div>
           <div class="set-row">
-            <span class="set-label">Skema gerak</span>
-            <button id="set-ctlscheme" class="btn-small" aria-label="Skema gerak landscape: joystick atau tombol panah">GERAK: JOYSTICK</button>
+            <span class="set-label">Resolusi</span>
+            <button id="set-resolution" class="btn-small" aria-label="Resolusi render kanvas">RESOLUSI: TINGGI</button>
           </div>
           <div class="set-row">
-            <span class="set-label">Ukuran tombol</span>
-            <button id="set-ctlsize" class="btn-small" aria-label="Ukuran tombol sentuh">TOMBOL: M</button>
-          </div>
-          <div class="set-row">
-            <span class="set-label">Tangan dominan</span>
-            <button id="set-ctlhand" class="btn-small" aria-label="Tangan dominan untuk aksi">TANGAN: KANAN</button>
+            <span class="set-label">Grafik</span>
+            <button id="set-graphics" class="btn-small" aria-label="Kualitas efek grafik">GRAFIK: TINGGI</button>
           </div>
           <div class="set-row">
             <span class="set-label">Data tersimpan</span>
@@ -276,6 +272,7 @@
       </div>
       <div class="touch-group touch-group-center">
         <button id="btn-pause" class="hidden touch-btn-pause" aria-label="Pause atau lanjutkan game">⏸</button>
+        <button id="btn-fullscreen" class="hidden touch-btn-full" aria-label="Layar penuh">⛶</button>
       </div>
        <div class="touch-group touch-group-right">
          <button id="btn-attack" class="touch-btn attack" aria-label="Serang">❖</button>
