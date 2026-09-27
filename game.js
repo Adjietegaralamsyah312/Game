@@ -7768,6 +7768,22 @@
       fn();
     });
   }
+  function onModePress(el, mode) {
+    if (!el) return;
+    var pointerHandled = false;
+    el.addEventListener('pointerup', function (e) {
+      if (e && e.pointerType === 'mouse') return;
+      if (e && e.cancelable) e.preventDefault();
+      pointerHandled = true;
+      AudioManager.play('click');
+      setMode(mode);
+    });
+    el.addEventListener('click', function () {
+      if (pointerHandled) { pointerHandled = false; return; }
+      AudioManager.play('click');
+      setMode(mode);
+    });
+  }
   onClick(btnPlay, function () { playFresh(); });
   onClick(btnCampaign, function () { openCampaign(); });
   var btnAchievements = document.getElementById('btn-achievements');
@@ -7784,9 +7800,9 @@
   onClick(shopTabBtns.shield, function () { shopSetTab('shield'); });
   onClick(shopTabBtns.bow, function () { shopSetTab('bow'); });
   onClick(shopPrevAction, function () { if (shopSel) shopCardAction(shopSel); });
-  onClick(shopModeBtns.SWORD, function () { setMode('SWORD'); });
-  onClick(shopModeBtns.GUARDIAN, function () { setMode('GUARDIAN'); });
-  onClick(shopModeBtns.ARCHER, function () { setMode('ARCHER'); });
+  onModePress(shopModeBtns.SWORD, 'SWORD');
+  onModePress(shopModeBtns.GUARDIAN, 'GUARDIAN');
+  onModePress(shopModeBtns.ARCHER, 'ARCHER');
   onClick(btnCampBack, function () { campaignBack(); });
   var btnAchieveBack = document.getElementById('btn-achieve-back');
   if (btnAchieveBack) onClick(btnAchieveBack, function () { achievementsBack(); });
