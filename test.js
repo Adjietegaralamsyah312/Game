@@ -228,7 +228,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 425; // total test (424 + 1 dash meluncur)
+const EXPECTED_TOTAL = 426; // total test (425 + 1 fallback storage)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1027,13 +1027,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('425 automated test'), 'README harus sebut 425 test, cek jumlah');
+  ok(readme.includes('426 automated test'), 'README harus sebut 426 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 425);
+  eq(EXPECTED_TOTAL, 426);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -5383,6 +5383,27 @@ test('425 dash slash meluncur (bukan glitch 1 frame)', () => {
   ok(dx > 15, 'dash meluncur jauh, dx=' + dx.toFixed(1));
   ok(pl.vx > 300, 'vx dipertahankan selama dash, got ' + pl.vx);
   resetSkills(); G.forceStartLevel(1);
+});
+test('426 save fallback menang atas data lama saat storage gagal menulis', () => {
+  const keep = sandbox.localStorage;
+  try {
+    G.resetSave();
+    sandbox.localStorage = {
+      getItem: (key) => keep.getItem(key),
+      setItem() { throw new Error('quota'); },
+      removeItem() { throw new Error('denied'); }
+    };
+    G.toMenu();
+    elements['btn-settings'].dispatch('click', {});
+    elements['set-sfx'].dispatch('click', {});
+    eq(G.getSave().sfxEnabled, false, 'setting berubah di memori');
+    G.reloadSave();
+    eq(G.getSave().sfxEnabled, false, 'reload membaca nilai fallback terbaru');
+  } finally {
+    sandbox.localStorage = keep;
+    G.reloadSave();
+    G.resetSave();
+  }
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

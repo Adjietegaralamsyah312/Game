@@ -4382,6 +4382,8 @@
   var memStore = {};
 
   function storeGet(k) {
+    try { if (k in memStore) return memStore[k]; }
+    catch (e0) { /* lanjut ke localStorage */ }
     try {
       if (typeof localStorage !== 'undefined') return localStorage.getItem(k);
     } catch (e) { /* abaikan, pakai memori */ }
@@ -4394,12 +4396,19 @@
     try {
       if (typeof localStorage !== 'undefined') { localStorage.setItem(k, v); done = true; }
     } catch (e) { /* abaikan, pakai memori */ }
-    if (!done) { try { memStore[k] = String(v); } catch (e2) { /* abaikan */ } }
+    try {
+      if (done) delete memStore[k];
+      else memStore[k] = String(v);
+    } catch (e2) { /* abaikan */ }
   }
 
   function storeDel(k) {
     try {
-      if (typeof localStorage !== 'undefined') { localStorage.removeItem(k); return; }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(k);
+        try { delete memStore[k]; } catch (e2) { /* abaikan */ }
+        return;
+      }
     } catch (e) { /* abaikan */ }
     try { delete memStore[k]; } catch (e2) { /* abaikan */ }
   }
