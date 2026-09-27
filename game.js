@@ -5067,6 +5067,28 @@
     refreshBlockBtn();
     return true;
   }
+  function starterItemForCategory(category) {
+    if (category === 'sword') return 'rusty';
+    if (category === 'shield') return 'buckler';
+    if (category === 'bow') return 'makeshift';
+    return null;
+  }
+  function unequipItem(id) {
+    var it = shopItemById(id);
+    if (!it || !isOwned(id)) return false;
+    var starter = starterItemForCategory(it.category);
+    if (!starter || id === starter) return false;
+    var current = it.category === 'sword' ? save.eqSword
+      : (it.category === 'shield' ? save.eqShield : save.eqBow);
+    if (current !== id) return false;
+    if (it.category === 'sword') save.eqSword = starter;
+    else if (it.category === 'shield') save.eqShield = starter;
+    else save.eqBow = starter;
+    persistSave();
+    refreshShopUI();
+    refreshBlockBtn();
+    return true;
+  }
   // Mode eksplisit (tombol USE): validasi agar tak ada state mustahil.
   // ARCHER butuh bow owned; GUARDIAN butuh sword+shield; SWORD butuh sword.
   function setMode(m) {
@@ -5549,7 +5571,12 @@
     var eq = getEquipment();
     var cur = it.category === 'sword' ? eq.sword : (it.category === 'shield' ? eq.shield : eq.bow);
     if (cur === id) {
-      if (shopMsgEl) shopMsgEl.textContent = 'EQUIPPED';
+      if (unequipItem(id)) {
+        if (shopMsgEl) shopMsgEl.textContent = 'UNEQUIPPED';
+        AudioManager.play('equip');
+      } else if (shopMsgEl) {
+        shopMsgEl.textContent = 'EQUIPPED';
+      }
       refreshShopUI();
       return true;
     }
@@ -5603,8 +5630,10 @@
           var eq1 = null;
           try { eq1 = getEquipment(); } catch (e2) { eq1 = { sword: 'rusty', shield: 'buckler', bow: 'makeshift' }; }
           var cur1 = it.category === 'sword' ? eq1.sword : (it.category === 'shield' ? eq1.shield : eq1.bow);
+          var starter1 = starterItemForCategory(it.category);
           return { id: it.id, owned: isOwned(it.id),
-            action: !isOwned(it.id) ? 'BUY' : ((cur1 === it.id) ? 'EQUIPPED' : 'EQUIP') };
+            action: !isOwned(it.id) ? 'BUY' : ((cur1 === it.id)
+              ? (it.id === starter1 ? 'EQUIPPED' : 'UNEQUIP') : 'EQUIP') };
         }),
         preview: (function () {
           var p = shopItemById(shopSel);
@@ -5668,7 +5697,9 @@
         if (shopPrevAction) {
           var eq2 = getEquipment();
           var cur2 = prev.category === 'sword' ? eq2.sword : (prev.category === 'shield' ? eq2.shield : eq2.bow);
-          shopPrevAction.textContent = !isOwned(prev.id) ? 'BUY' : ((cur2 === prev.id) ? 'EQUIPPED' : 'EQUIP');
+          var starter2 = starterItemForCategory(prev.category);
+          shopPrevAction.textContent = !isOwned(prev.id) ? 'BUY' : ((cur2 === prev.id)
+            ? (prev.id === starter2 ? 'EQUIPPED' : 'UNEQUIP') : 'EQUIP');
         }
       }
       // Cards: rebuild hanya bila DOM nyata mendukung.
@@ -5686,7 +5717,9 @@
             try { card.className = 'shop-card tier-' + it.tier; } catch (e9) { /* abaikan */ }
             var eq3 = getEquipment();
             var cur3 = it.category === 'sword' ? eq3.sword : (it.category === 'shield' ? eq3.shield : eq3.bow);
-            var act = !isOwned(it.id) ? 'BUY' : ((cur3 === it.id) ? 'EQUIPPED' : 'EQUIP');
+            var starter3 = starterItemForCategory(it.category);
+            var act = !isOwned(it.id) ? 'BUY' : ((cur3 === it.id)
+              ? (it.id === starter3 ? 'EQUIPPED' : 'UNEQUIP') : 'EQUIP');
             var tmm = TIER_META[it.tier] || TIER_META.Common;
             var btn = null;
             try {
@@ -8282,6 +8315,7 @@
     shopBalance: shopBalance,
     buyItem: buyItem,
     equipItem: equipItem,
+    unequipItem: unequipItem,
     setMode: setMode,
     getMode: playerMode,
     getEquipment: getEquipment,

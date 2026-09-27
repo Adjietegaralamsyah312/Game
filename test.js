@@ -3269,9 +3269,14 @@ test('260 owned/equip/equipped state', () => {
   ok(G.equipItem('steel'), 'equip steel');
   eq(G.getEquipment().sword, 'steel');
   eq(G.getEquipment().mode, 'SWORD');
-  const ren = G.getShopRender();
+  let ren = G.getShopRender();
   const card = ren.cards.find((c) => c.id === 'steel');
-  eq(card.action, 'EQUIPPED');
+  eq(card.action, 'UNEQUIP');
+  ok(G.unequipItem('steel'), 'unequip steel');
+  eq(G.getEquipment().sword, 'rusty');
+  ok(G.isOwned('steel'), 'steel tetap owned');
+  ren = G.getShopRender();
+  eq(ren.cards.find((c) => c.id === 'rusty').action, 'EQUIPPED');
   G.resetSave();
 });
 test('261 default equipment playable tanpa beli', () => {
