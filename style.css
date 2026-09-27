@@ -831,6 +831,29 @@ canvas#game {
   }
 }
 
+/* --- Laptop landscape: menu utama memakai grid agar area 16:9 terasa lega.
+ * Dua kolom mengurangi tinggi menu tanpa mengecilkan target klik desktop. */
+@media (min-width: 821px) and (min-height: 400px) and (min-aspect-ratio: 4/3) and (pointer: fine) {
+  #canvas-container #mainmenu {
+    gap: 8px;
+    padding: 24px;
+  }
+  #canvas-container #mainmenu .game-title {
+    font-size: clamp(34px, 7vh, 52px);
+  }
+  #canvas-container #menu-main {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 10px;
+    width: min(520px, 70vw);
+  }
+  #canvas-container #menu-main .btn-primary,
+  #canvas-container #menu-main .btn-secondary {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 /* --- Settings landscape: 8 baris jadi 2 kolom kompak agar muat tanpa
  * scroll. Blok sendiri seperti menu. Baris tetap ≥40px (pengaturan,
  * bukan aksi kilat, jadi aman disentuh). */
