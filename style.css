@@ -706,7 +706,7 @@ canvas#game {
     display: grid;
     grid-template-columns: auto auto auto;
     grid-template-areas:
-      "skill dash  attack"
+      "skill .     attack"
       "jump  block attack";
     gap: clamp(6px, 1.6vmin, 10px);
     align-items: center;
@@ -743,12 +743,6 @@ canvas#game {
     grid-area: skill;
     width: clamp(48px, 13.5vmin, 58px);
     height: clamp(48px, 13.5vmin, 58px);
-  }
-  #touch-controls .touch-group-right #btn-dash {
-    grid-area: dash;
-    width: clamp(48px, 13.5vmin, 58px);
-    height: clamp(48px, 13.5vmin, 58px);
-    font-size: clamp(18px, 5.5vmin, 24px);
   }
   #touch-controls .touch-group-right #btn-block {
     grid-area: block;
@@ -1174,6 +1168,29 @@ canvas#game {
     height: 48px;
   }
 }
+
+/* Laptop landscape: beri Shop ruang horizontal untuk membandingkan item
+ * dan preview tanpa membuat daftar menjadi terlalu sempit. */
+@media (min-width: 821px) and (min-height: 400px) and (min-aspect-ratio: 4/3) and (pointer: fine) {
+  #canvas-container #shop {
+    padding: 20px 24px;
+  }
+  #canvas-container #shop-head,
+  #canvas-container #shop-body {
+    width: min(900px, 92vw);
+  }
+  #canvas-container #shop-body {
+    gap: 18px;
+  }
+  #canvas-container #shop-list {
+    flex: 1.25 1 0;
+  }
+  #canvas-container #shop-preview {
+    flex: 0.85 1 0;
+    min-width: 260px;
+    padding: 12px 16px;
+  }
+}
 /* Tombol block sentuh: di grup kanan, gaya defensif biru. */
 .touch-btn.block {
   background: rgba(45, 90, 150, 0.95);
@@ -1388,34 +1405,6 @@ canvas#game {
 .touch-btn.locked {
   opacity: 0.55;
 }
-/* Dash: ukuran sejajar trio aksi (aturan trio existing tak diubah). */
-#btn-dash {
-  width: clamp(72px, 20vw, 96px);
-  height: clamp(72px, 20vw, 96px);
-  border-color: #57c98a;
-  background: rgba(46, 125, 78, 0.55);
-  color: #eafff3;
-}
-#btn-dash:active,
-#btn-dash.pressed {
-  background: #2e9e62;
-  transform: scale(0.95);
-}
-@media (orientation: portrait) and (max-width: 600px) {
-  #btn-dash {
-    width: clamp(44px, 15vw, 68px);
-    height: clamp(44px, 15vw, 68px);
-    min-width: 44px;
-    min-height: 44px;
-  }
-}
-@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  #btn-dash {
-    width: 72px;
-    height: 72px;
-  }
-}
-
 /* --- Portrait HP & laptop sempit: kontroler klasik playable ---
  * Joystick analog hanya untuk landscape (ruang cukup); di portrait
  * sempit kembali ke tombol ◀ ▶ + pause/skill/map + aksi seperti semula. */

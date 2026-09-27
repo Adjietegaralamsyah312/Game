@@ -5753,10 +5753,10 @@
     } catch (e) { /* abaikan */ }
   }
 
-  /* ---- MMORPG HUD-DOM sync: label skill + tombol dash ----
-   * Nama skill aktif mengikuti mode; DASH hanya SWORD + Dash Slash unlock.
-   * Dipanggil pada transisi (unlock/equip/mode/menu/boot); angka cooldown
-   * LIVE diupdate per-frame oleh syncSkillBadge() (cached, murah). */
+  /* ---- MMORPG HUD-DOM sync: label skill ----
+   * Nama skill aktif mengikuti mode. Dipanggil pada transisi
+   * (unlock/equip/mode/menu/boot); angka cooldown LIVE diupdate per-frame
+   * oleh syncSkillBadge() (cached, murah). */
   var _skillShort = { dashSlash: 'DASH', shieldBash: 'BASH', multiShot: 'MULTI' };
   var lastSkillBtnKey = null;
   function refreshSkillBtn() {
@@ -5765,9 +5765,8 @@
       var act = (save && save.skills) ? save.skills.active : null;
       var def = (act && SKILLS[act]) || null;
       var ready = !!(def && def.mode === mode && save.skills.unlocked && save.skills.unlocked[act] === true);
-      var showDash = (mode === 'SWORD' && save.skills.unlocked && save.skills.unlocked.dashSlash === true);
       // Cache: tulis DOM hanya saat state berubah (dipanggil tiap frame playing).
-      var key = mode + '|' + (act || '-') + '|' + (ready ? 1 : 0) + '|' + (showDash ? 1 : 0);
+      var key = mode + '|' + (act || '-') + '|' + (ready ? 1 : 0);
       if (key === lastSkillBtnKey) return;
       lastSkillBtnKey = key;
       var btn = document.getElementById('btn-skill');
@@ -5779,11 +5778,6 @@
           if (ready && btn.classList && btn.classList.remove) btn.classList.remove('locked');
           else if (btn.classList && btn.classList.add) btn.classList.add('locked');
         } catch (e3) {}
-      }
-      var dash = document.getElementById('btn-dash');
-      if (dash) {
-        dash.style.display = showDash ? '' : 'none';
-        dash.style.visibility = showDash ? 'visible' : 'hidden';
       }
     } catch (e) { /* abaikan */ }
   }
@@ -7746,11 +7740,6 @@
     function () { /* edge-trigger, tidak perlu off */ });
   // Skill aktif: Q di keyboard, tombol ✦ di touch — satu fungsi aktivasi.
   bindHoldButton('btn-skill',
-    function () { Input.skillPressed = true; },
-    function () { /* edge-trigger, tidak perlu off */ });
-  // Dash: alias tombol untuk mekanisme Dash Slash existing (SWORD saja).
-  // Satu source of truth: Input.skillPressed -> activateActiveSkill().
-  bindHoldButton('btn-dash',
     function () { Input.skillPressed = true; },
     function () { /* edge-trigger, tidak perlu off */ });
   joystickInit();

@@ -80,7 +80,7 @@ const mockCtx = new Proxy({}, {
 });
 const elementIds = ['wrap', 'game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
   'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
-  'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd', 'btn-dash',
+  'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd',
   'joystick-zone', 'joystick-base', 'joystick-knob',
   'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
   // Stage 5: menu + clear screens
@@ -4997,21 +4997,16 @@ test('393 joystick + attack bersamaan tak mengunci', () => {
   fireWin('pointerup', { pointerId: 46 });
   resetSkills();
 });
-test('394 tombol dash: sword+unlock tampil, jalur sama', () => {
+test('394 dash memakai satu tombol skill', () => {
   resetSkills(); G.forceStartLevel(1);
   G.toMenu();
-  eq(elements['btn-dash'].style.display, 'none', 'fresh sembunyi');
   ok(G._unlockSkill('dashSlash'));
+  ok(G._equipActiveSkill('dashSlash'));
   G.toMenu();
-  eq(elements['btn-dash'].style.display, '', 'sword+unlock tampil');
-  G.setMode('GUARDIAN');
-  G.toMenu();
-  eq(elements['btn-dash'].style.display, 'none', 'guardian sembunyi');
-  G.setMode('SWORD'); G.forceStartLevel(1);
   G.input.skillPressed = false;
-  elements['btn-dash'].dispatch('pointerdown', { pointerId: 47, cancelable: true, preventDefault() {} });
+  elements['btn-skill'].dispatch('pointerdown', { pointerId: 47, cancelable: true, preventDefault() {} });
   eq(G.input.skillPressed, true, 'dash = jalur skill sama');
-  elements['btn-dash'].dispatch('pointerup', { pointerId: 47, cancelable: true, preventDefault() {} });
+  elements['btn-skill'].dispatch('pointerup', { pointerId: 47, cancelable: true, preventDefault() {} });
   G.input.skillPressed = false;
   resetSkills(); G.setMode('SWORD');
 });
@@ -5135,7 +5130,7 @@ test('406 aksi landscape tampil + ter-wire', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   const all = land.map((b) => b.body).join('\n');
-  ['#joystick-zone', '#btn-attack', '#btn-skill', '#btn-dash', '#btn-jump'].forEach((sel) => {
+  ['#joystick-zone', '#btn-attack', '#btn-skill', '#btn-jump'].forEach((sel) => {
     const esc = sel.replace('#', '\\#');
     ok(!new RegExp(esc + '\\s*{[^}]*display:\\s*none').test(all), sel + ' jangan disembunyikan');
   });
@@ -5152,7 +5147,7 @@ test('407 cluster Diablo valid: orb primer + satelit rectangular', () => {
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   const all = land.map((b) => b.body).join('\n');
   // Susunan eksak: attack menjulang 1 kolom penuh (rectangular = valid).
-  ok(/grid-template-areas:\s*"skill dash\s*attack"\s*"jump\s*block attack"\s*;/.test(all), 'susunan areas harus "skill dash attack" / "jump block attack"');
+  ok(/grid-template-areas:\s*"skill \.\s*attack"\s*"jump\s*block attack"\s*;/.test(all), 'susunan areas harus "skill . attack" / "jump block attack"');
   // Tiap area bernama harus rectangular (L-shape = invalid, browser abaikan).
   const m = all.match(/grid-template-areas:\s*([^;]+);/);
   ok(m, 'deklarasi areas harus ada');
@@ -5174,8 +5169,8 @@ test('407 cluster Diablo valid: orb primer + satelit rectangular', () => {
   // Gaya orb Diablo: radial gelap + border emas.
   ok(/radial-gradient/.test(all), 'orb Diablo radial');
   ok(/201,\s*162,\s*39/.test(all), 'aksen emas Diablo');
-  // 5 tombol terikat ke area masing-masing.
-  [['#btn-attack', 'attack'], ['#btn-skill', 'skill'], ['#btn-dash', 'dash'], ['#btn-jump', 'jump'], ['#btn-block', 'block']].forEach((pair) => {
+  // 4 tombol terikat ke area masing-masing.
+  [['#btn-attack', 'attack'], ['#btn-skill', 'skill'], ['#btn-jump', 'jump'], ['#btn-block', 'block']].forEach((pair) => {
     const esc = pair[0].replace('#', '\\#');
     ok(new RegExp(esc + '\\s*{[^}]*grid-area:\\s*' + pair[1]).test(all), pair[0] + ' -> ' + pair[1]);
   });
