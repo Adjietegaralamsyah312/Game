@@ -228,7 +228,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 406; // total test (401 + 5 layout landscape)
+const EXPECTED_TOTAL = 407; // total test (401 + 5 layout landscape + 1 grid valid)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1027,13 +1027,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('406 automated test'), 'README harus sebut 406 test, cek jumlah');
+  ok(readme.includes('407 automated test'), 'README harus sebut 407 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 406);
+  eq(EXPECTED_TOTAL, 407);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -5177,6 +5177,34 @@ test('406 aksi landscape tampil + ter-wire', () => {
   elements['btn-skill'].dispatch('pointerup', { pointerId: 61, cancelable: true, preventDefault() {} });
   G.input.skillPressed = false;
   resetSkills();
+});
+test('407 cluster landscape grid areas valid + rectangular', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  // Susunan eksak sesuai desain (sel kanan bawah kosong).
+  ok(/grid-template-areas:\s*"skill attack dash"\s*"block jump\s*\."\s*;/.test(all), 'susunan areas harus "skill attack dash" / "block jump ."');
+  // Tiap area bernama harus rectangular: L-shape = invalid, browser abaikan.
+  const m = all.match(/grid-template-areas:\s*([^;]+);/);
+  ok(m, 'deklarasi areas harus ada');
+  const rows = m[1].split('"').filter((s) => s.trim()).map((s) => s.trim().split(/\s+/));
+  ok(rows.length === 2 && rows.every((r) => r.length === 3), 'grid 2 baris x 3 kolom');
+  const cells = {};
+  rows.forEach((r, y) => r.forEach((name, x) => {
+    if (name === '.') return;
+    (cells[name] = cells[name] || []).push([x, y]);
+  }));
+  Object.keys(cells).forEach((name) => {
+    const xs = cells[name].map((c) => c[0]), ys = cells[name].map((c) => c[1]);
+    const w = Math.max.apply(null, xs) - Math.min.apply(null, xs) + 1;
+    const h = Math.max.apply(null, ys) - Math.min.apply(null, ys) + 1;
+    eq(cells[name].length, w * h, 'area harus rectangular: ' + name);
+  });
+  // 5 tombol terikat ke area masing-masing.
+  [['#btn-attack', 'attack'], ['#btn-skill', 'skill'], ['#btn-dash', 'dash'], ['#btn-jump', 'jump'], ['#btn-block', 'block']].forEach((pair) => {
+    const esc = pair[0].replace('#', '\\#');
+    ok(new RegExp(esc + '\\s*{[^}]*grid-area:\\s*' + pair[1]).test(all), pair[0] + ' -> ' + pair[1]);
+  });
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

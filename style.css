@@ -670,7 +670,8 @@ canvas#game {
     margin-top: -18%;
   }
   /* Cluster aksi kanan bawah: attack primer + skill/dash dekat,
-     jump di samping, block defensif kecil. Rapat, tak penuhi layar. */
+     jump di samping, block defensif kecil. Rapat, tak penuhi layar.
+     Areas harus rectangular (attack L-shape = invalid, browser abaikan). */
   #touch-controls .touch-group-right {
     position: fixed;
     right: max(10px, env(safe-area-inset-right));
@@ -679,7 +680,7 @@ canvas#game {
     grid-template-columns: auto auto auto;
     grid-template-areas:
       "skill attack dash"
-      "block jump  attack";
+      "block jump  .";
     gap: clamp(6px, 1.6vmin, 10px);
     align-items: center;
   }
