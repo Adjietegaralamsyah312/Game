@@ -6694,9 +6694,13 @@
     return dt;
   }
 
-  /* ---- Rotate lock landscape-only (LCK-001): portrait auto-pause ----
-   * Game hanya landscape. Portrait saat playing -> auto-pause + overlay;
-   * landscape kembali -> auto-resume HANYA bila flag auto (manual pause utuh).
+  /* ---- Rotate lock landscape-only (LCK-001/002): overlay di semua state ----
+   * Game hanya landscape. Overlay portrait tampil SELALU (menu/settings/
+   * playing/gameover/levelcomplete/gamecomplete/win, pause atau tidak);
+   * landscape selalu sembunyi. Auto-pause + auto-resume TETAP playing-only:
+   * portrait saat playing -> auto-pause; landscape kembali -> auto-resume
+   * HANYA bila flag auto (manual pause utuh). Non-playing bersihkan flag
+   * basi tanpa side effect resume.
    * Test hook: setPortraitOverride(v|null) + checkPortraitLock +
    * isPortraitAutoPaused. Headless-safe via try/catch + fallback dimensi. */
   var portraitAutoPaused = false;
@@ -6720,13 +6724,13 @@
     try {
       if (!rotateEl) rotateEl = document.getElementById('rotate-overlay');
       if (!rotateEl) return portraitAutoPaused;
-      if (gameState !== 'playing') {
-        try { rotateEl.classList.add('hidden'); } catch (e) {}
-        portraitAutoPaused = false;
-        return portraitAutoPaused;
-      }
       if (isPortrait()) {
+        // LCK-002: overlay tampil di SEMUA state, dari boot.
         try { rotateEl.classList.remove('hidden'); } catch (e2) {}
+        if (gameState !== 'playing') {
+          portraitAutoPaused = false;
+          return portraitAutoPaused;
+        }
         if (!paused && !portraitAutoPaused) {
           portraitAutoPaused = true;
           try { clearInput(); } catch (e3) {}
@@ -6735,7 +6739,9 @@
         }
       } else {
         try { rotateEl.classList.add('hidden'); } catch (e5) {}
-        if (portraitAutoPaused) {
+        if (gameState !== 'playing') {
+          portraitAutoPaused = false; // tanpa side effect resume di menu/dialog
+        } else if (portraitAutoPaused) {
           portraitAutoPaused = false;
           if (paused) setPaused(false);
           try { last = nowPerf(); } catch (e6) {}
@@ -8075,10 +8081,12 @@
 
   function frame(t) {
     requestAnimationFrame(frame); // rantai tetap hidup saat pause (throttle browser)
+    // LCK-002: checker di atas guard assetsReady agar boot menu portrait
+    // langsung tampil overlay sejak frame pertama.
+    try { checkPortraitLock(); } catch (e) {}
     if (!assetsReady) { drawLoading(); return; }
     var dt = clampDt((t - last) / 1000);
     last = t;
-    try { checkPortraitLock(); } catch (e) {}
 
     if (paused) { drawPaused(); return; } // dunia diam, audio sudah suspend
 

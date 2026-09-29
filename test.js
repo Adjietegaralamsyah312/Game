@@ -229,7 +229,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 440; // total test (437 + 3 rotate lock LCK-001)
+const EXPECTED_TOTAL = 441; // total test (437 + 4 rotate lock LCK-001/002)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1022,13 +1022,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('440 automated test'), 'README harus sebut 440 test, cek jumlah');
+  ok(readme.includes('441 automated test'), 'README harus sebut 441 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 440);
+  eq(EXPECTED_TOTAL, 441);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -5678,6 +5678,13 @@ test('448 portrait lock pause + overlay tampil', () => {
   eq(G.isPaused(), false, 'auto-resume');
   eq(G.isPortraitAutoPaused(), false);
   ok(elements['rotate-overlay'].classList.contains('hidden'), 'overlay sembunyi');
+  // LCK-002: overlay juga tampil di menu (semua state), tanpa auto-pause.
+  G.toMenu();
+  G.setPortraitOverride(true);
+  noThrow(() => G.checkPortraitLock(), 'menu portrait');
+  ok(!elements['rotate-overlay'].classList.contains('hidden'), 'overlay tampil di menu');
+  eq(G.isPortraitAutoPaused(), false, 'menu tanpa flag auto');
+  eq(G.isPaused(), false, 'menu tanpa auto-pause');
   G.setPortraitOverride(null);
   G.forceStartLevel(1);
 });
@@ -5699,12 +5706,17 @@ test('449 auto-resume hanya saat auto-pause (manual utuh)', () => {
   ok(elements['rotate-overlay'].classList.contains('hidden'), 'overlay sembunyi');
   G.resumeGame();
   eq(G.isPaused(), false);
-  // Non-playing tak simpan flag basi.
+  // LCK-002: non-playing tampilkan overlay, bersihkan flag tanpa side effect.
   G.setPortraitOverride(true);
   G.toMenu();
   noThrow(() => G.checkPortraitLock(), 'menu portrait aman');
   eq(G.isPortraitAutoPaused(), false);
-  ok(elements['rotate-overlay'].classList.contains('hidden'), 'menu tak blokir');
+  eq(G.isPaused(), false, 'menu jangan auto-pause');
+  ok(!elements['rotate-overlay'].classList.contains('hidden'), 'menu tampilkan overlay');
+  G.setPortraitOverride(false);
+  noThrow(() => G.checkPortraitLock(), 'menu landscape aman');
+  ok(elements['rotate-overlay'].classList.contains('hidden'), 'menu landscape sembunyi');
+  eq(G.isPaused(), false, 'menu tanpa side effect resume');
   G.setPortraitOverride(null);
   G.forceStartLevel(1);
 });
@@ -5729,6 +5741,27 @@ test('450 keyboard/mouse utuh + rAF tunggal + hook resize', () => {
   elements['btn-attack'].dispatch('pointerup', { pointerId: 91, cancelable: true, preventDefault() {} });
   noThrow(() => { fireWin('orientationchange', {}); fireWin('resize', {}); }, 'rotasi/resize aman');
   ok(G.isSimActive(), 'landscape sim tetap jalan');
+  G.setPortraitOverride(null);
+  G.forceStartLevel(1);
+});
+test('451 boot menu portrait langsung overlay, landscape tanpa side effect', () => {
+  // LCK-002: buka game di portrait (menu-first boot) -> overlay sejak awal.
+  G.setPortraitOverride(null);
+  G.toMenu();
+  G.setPaused(false);
+  elements['rotate-overlay'].classList.add('hidden');
+  G.setPortraitOverride(true);
+  noThrow(() => G.checkPortraitLock(), 'boot portrait');
+  ok(!elements['rotate-overlay'].classList.contains('hidden'), 'boot menu tampilkan overlay');
+  eq(G.isPortraitAutoPaused(), false, 'menu tanpa flag auto');
+  eq(G.isPaused(), false, 'menu tanpa auto-pause');
+  eq(G.isSimActive(), false, 'menu tetap tanpa sim');
+  // Putar ke landscape -> overlay hilang, pause state tak tersentuh.
+  G.setPortraitOverride(false);
+  noThrow(() => G.checkPortraitLock(), 'rotasi ke landscape');
+  ok(elements['rotate-overlay'].classList.contains('hidden'), 'landscape sembunyi');
+  eq(G.isPaused(), false, 'tanpa side effect pause');
+  eq(G.isPortraitAutoPaused(), false);
   G.setPortraitOverride(null);
   G.forceStartLevel(1);
 });
