@@ -3280,28 +3280,11 @@
   /* ---- Kamera side-scrolling: smooth, offset arah hadap, batas level ---- */
   var camera = { x: 0 };
 
-  /* ---- Zoom in-game (session-only, WORLD saja; HUD/menu tak ikut) ----
-   * camZoom 1..2 step 0.25. Bukan browser pinch-zoom (touch-action none
-   * dipertahankan agar joystick+attack dua jari tak dibajak browser). */
-  var camZoom = 1;
-  var CAM_ZOOM_MIN = 1, CAM_ZOOM_MAX = 2, CAM_ZOOM_STEP = 0.25;
-  function getZoom() { return camZoom; }
-  function setZoom(z) {
-    var n = Number(z);
-    if (!isFinite(n)) n = CAM_ZOOM_MIN;
-    camZoom = clamp(Math.round(n * 4) / 4, CAM_ZOOM_MIN, CAM_ZOOM_MAX);
-    return camZoom;
-  }
-  function zoomIn() { return setZoom(camZoom + CAM_ZOOM_STEP); }
-  function zoomOut() { return setZoom(camZoom - CAM_ZOOM_STEP); }
-  function resetZoom() { camZoom = CAM_ZOOM_MIN; return camZoom; }
-
   function cameraTarget() {
     var ahead = player.facing === 1 ? CAM_AHEAD_R : CAM_AHEAD_L;
-    var visW = VIEW_W / camZoom;
-    var t = (player.x + player.w / 2) - visW * ahead;
-    // Batas level: WORLD_W - VIEW_W saat z=1; zoom: 0..max(0, WORLD_W-VIEW_W/z).
-    return clamp(t, 0, Math.max(0, WORLD_W - visW));
+    var t = (player.x + player.w / 2) - VIEW_W * ahead;
+    // Batas level: 0..max(0, WORLD_W - VIEW_W).
+    return clamp(t, 0, Math.max(0, WORLD_W - VIEW_W));
   }
 
   function updateCamera(dt) {
@@ -5453,7 +5436,6 @@
     resetShake();
     hitStopT = 0; // tanpa freeze basi antar level
     gateTarget = 0; gateAnim = 0; gateBounds = null; // gerbang terbuka
-    camZoom = CAM_ZOOM_MIN; // zoom sesi: reset tiap level
     player = createPlayer();
     player.x = respawnPoint.x;
     player.y = respawnPoint.y;
@@ -5529,7 +5511,6 @@
 
   function toMenu() {
     gameState = 'menu';
-    camZoom = CAM_ZOOM_MIN; // zoom sesi: reset saat ke menu
     hideAllOverlays();
     if (menuEl) menuEl.classList.remove('hidden');
     clearInput();
@@ -6174,7 +6155,6 @@
    * membersihkan input agar tidak bocor saat resume. Satu rAF tetap. */
   var pauseEl = null, btnPause = null;
   var btnFullscreen = null;
-  var btnZoomIn = null, btnZoomOut = null;
   var btnResume = null, btnPauseRespawn = null, btnPauseMenu = null;
   var btnBlockEl = null;
 
@@ -6248,7 +6228,6 @@
   function refreshPauseBtn() {
     try {
       refreshFullscreenBtn();
-      refreshZoomBtn();
       if (!btnPause) return;
       if (gameState === 'playing') {
         btnPause.classList.remove('hidden');
@@ -6279,19 +6258,6 @@
         btnFullscreen.setAttribute('aria-label', isFullscreen() ? 'Keluar layar penuh' : 'Layar penuh');
       } else {
         btnFullscreen.classList.add('hidden');
-      }
-    } catch (e) { /* abaikan */ }
-  }
-  /* ---- Zoom in-game: tampil hanya saat playing (ikut pause/fullscreen) ---- */
-  function refreshZoomBtn() {
-    try {
-      if (btnZoomIn) {
-        if (gameState === 'playing') btnZoomIn.classList.remove('hidden');
-        else btnZoomIn.classList.add('hidden');
-      }
-      if (btnZoomOut) {
-        if (gameState === 'playing') btnZoomOut.classList.remove('hidden');
-        else btnZoomOut.classList.add('hidden');
       }
     } catch (e) { /* abaikan */ }
   }
@@ -6668,7 +6634,6 @@
     resetShake();
     hitStopT = 0; // tanpa freeze basi setelah respawn
     gateTarget = 0; gateAnim = 0; gateBounds = null; // boss fresh = terbuka
-    camZoom = CAM_ZOOM_MIN; // zoom sesi: reset saat respawn
     clearInput();
     gameState = 'playing';
     gameOverT = 0;
@@ -6684,7 +6649,6 @@
   // Tahap 4: unpause agar tombol/tes "restart setelah pause" kembali main.
   function restart() {
     resetTotals();
-    camZoom = CAM_ZOOM_MIN; // zoom sesi: reset saat restart (loadLevelInternal juga reset)
     loadLevelInternal(1);
     gameState = 'playing';
     hideAllOverlays();
@@ -8005,21 +7969,14 @@
   }
 
   function drawWorld() {
+    ctx.imageSmoothingEnabled = false;
     drawSkyFarMid();
     drawNearLayer();
-    // Zoom: kamera.x = tepi kiri view zoom (0..WORLD_W-VIEW_W/z). Center-scale
-    // murni menggeser tepi kiri sejauh cx*(1-1/z), jadi shx dikompensasi agar
-    // tepi kiri pas + tak pernah intip luar dunia. Y sudah ter-center alami.
-    var z = (camZoom > 1) ? camZoom : 1;
-    var shx = Math.round(camera.x + shake.ox - (VIEW_W / 2) * (1 - 1 / z));
+    // Kamera integer-snap: tepi kiri + shake dibulatkan agar sprite tajam.
+    var shx = Math.round(camera.x + shake.ox);
     var shy = Math.round(shake.oy);
     ctx.save();
     ctx.translate(-shx, shy);
-    if (z !== 1) {
-      ctx.translate(VIEW_W / 2, VIEW_H / 2);
-      ctx.scale(z, z);
-      ctx.translate(-VIEW_W / 2, -VIEW_H / 2);
-    }
     drawArenaDecor();
     drawPlatforms();
     drawLevelDecor();
@@ -8236,8 +8193,6 @@
   pauseEl = document.getElementById('pause');
   btnPause = document.getElementById('btn-pause');
   btnFullscreen = document.getElementById('btn-fullscreen');
-  btnZoomIn = document.getElementById('btn-zoom-in');
-  btnZoomOut = document.getElementById('btn-zoom-out');
   btnResume = document.getElementById('btn-resume');
   btnPauseRespawn = document.getElementById('btn-pause-respawn');
   btnPauseMenu = document.getElementById('btn-pause-menu');
@@ -8402,9 +8357,6 @@
     togglePause();
   });
   onClick(btnFullscreen, function () { toggleFullscreen(); });
-  // Zoom in-game: klik tunggal per tekan (bukan hold-repeat, cermin fullscreen).
-  onClick(btnZoomIn, function () { if (gameState === 'playing') zoomIn(); });
-  onClick(btnZoomOut, function () { if (gameState === 'playing') zoomOut(); });
   try {
     if (typeof document !== 'undefined' && document.addEventListener) {
       document.addEventListener('fullscreenchange', refreshFullscreenBtn);
@@ -8488,24 +8440,6 @@
       }
       if (e.code === 'Escape') {
         togglePause();
-        if (e.preventDefault) e.preventDefault();
-        return;
-      }
-      // Zoom in-game (playing saja; shop/menu tak tersentuh cabang ini).
-      var _zk = (e.key !== undefined && e.key !== null) ? String(e.key) : '';
-      var _zc = e.code || '';
-      if (_zk === '+' || _zk === '=' || _zc === 'Equal' || _zc === 'NumpadAdd') {
-        zoomIn();
-        if (e.preventDefault) e.preventDefault();
-        return;
-      }
-      if (_zk === '-' || _zk === '_' || _zc === 'Minus' || _zc === 'NumpadSubtract') {
-        zoomOut();
-        if (e.preventDefault) e.preventDefault();
-        return;
-      }
-      if (_zk === '0' || _zc === 'Digit0' || _zc === 'Numpad0') {
-        resetZoom();
         if (e.preventDefault) e.preventDefault();
         return;
       }
@@ -8643,7 +8577,7 @@
   } catch (e) { /* abaikan */ }
   window.addEventListener('blur', function () { setPaused(true); clearInput(); try { joystickReset(); } catch (e) {} });
   // Rotasi: reset joystick agar tak stuck; setupCanvas ada di listener sendiri.
-  // Portrait tetap playable (kontroler klasik) — tanpa pause otomatis.
+  // Landscape saja — tanpa pause otomatis.
   try {
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('orientationchange', function () { try { joystickReset(); } catch (e) {} });
@@ -8709,7 +8643,7 @@
     window.addEventListener(ev, function () { AudioManager.unlock(); }, { once: true });
   });
 
-  // Cegah scroll/zoom halaman saat sentuh area game (Android).
+  // Cegah scroll halaman saat sentuh area game (Android).
   // Pengecualian: area scroll Shop (#shop-body) harus bisa swipe satu jari —
   // jangan preventDefault di sana agar touch scroll + mouse wheel normal.
   var container = document.getElementById('canvas-container');
@@ -8755,11 +8689,6 @@
     getTime: function () { return timeElapsed; },
     isPaused: function () { return paused; },
     setPaused: setPaused,
-    getZoom: getZoom,
-    setZoom: setZoom,
-    zoomIn: zoomIn,
-    zoomOut: zoomOut,
-    resetZoom: resetZoom,
     toggleFullscreen: toggleFullscreen,
     isFullscreen: isFullscreen,
     handleVisibility: onVisibility,

@@ -13,7 +13,7 @@ html, body {
   overscroll-behavior: none;
   /* Cegah horizontal overflow di layar kecil; tidak mengubah viewport game. */
   overflow-x: hidden;
-  /* Cegah scroll/zoom tak sengaja di Android; hormati safe-area. */
+  /* Cegah scroll tak sengaja di Android; hormati safe-area. */
   touch-action: pan-x pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -513,65 +513,6 @@ canvas#game {
   #touch-controls {
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
-  }
-}
-
-/* Portrait HP: hemat ruang vertikal agar canvas + tombol muat. */
-@media (orientation: portrait) and (max-width: 600px) {
-  #wrap {
-    gap: 6px;
-  }
-  h1 {
-    font-size: 18px;
-  }
-  .hint {
-    display: none; /* kontrol sudah jelas dari tombol di HP */
-  }
-  .mission {
-    font-size: 12px;
-  }
-  /* 7 tombol (gerak ×2, pause, skill, serang, block, lompat) harus muat 320px:
-     budget ≈ 312px. Kecilkan dari 64/72px, lantai tetap ≥44px (pause 40px).
-     Meng-override min-width 64px aturan coarse di atas (urutan menang).
-     Grup tengah disusun vertikal (pause atas, skill bawah) agar tombol
-     skill tidak mendesak jump sampai ketutup/overlap. */
-  #touch-controls {
-    gap: 8px;
-  }
-  .touch-group {
-    gap: 8px;
-  }
-  .touch-group-center {
-    flex-direction: column;
-    gap: 6px;
-  }
-  /* Potion pindah ke kanan (5 tombol): wrap 3+2 agar 320px muat tanpa <40px.
-     Single-row 8x40=320 tanpa gap mustahil; wrap jaga target sentuh >=40px. */
-  .touch-group-right {
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    align-content: center;
-    max-width: 52vw;
-  }
-  .touch-btn {
-    width: clamp(44px, 13vw, 60px);
-    height: clamp(44px, 13vw, 60px);
-    min-width: 44px;
-    min-height: 44px;
-    font-size: clamp(20px, 5vw, 28px);
-  }
-  .touch-btn.jump,
-  .touch-btn.attack,
-  .touch-btn.block {
-    width: clamp(44px, 15vw, 68px);
-    height: clamp(44px, 15vw, 68px);
-    min-width: 44px;
-    min-height: 44px;
-  }
-  #btn-pause {
-    width: clamp(40px, 11vw, 44px);
-    height: clamp(40px, 11vw, 44px);
-    font-size: clamp(15px, 4vw, 18px);
   }
 }
 
@@ -1337,36 +1278,6 @@ canvas#game {
   margin-top: 2px;
   margin-bottom: max(6px, env(safe-area-inset-bottom));
 }
-/* [SHOP] Layar sempit portrait: daftar + preview menumpuk vertikal agar tak
- * terpotong dan tak ada scroll horizontal halaman. Sengaja portrait-only:
- * landscape pendek punya aturan row sendiri di bawah (tanpa cascade
- * column -> row seperti sebelumnya). */
-@media (max-width: 640px) and (orientation: portrait) {
-  #shop-body {
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-  }
-  #shop-list {
-    flex: none;
-    width: 100%;
-  }
-  #shop-preview {
-    flex-shrink: 0;
-  }
-}
-/* HP portrait: TAMPILAN SAMA PERSIS dengan landscape/desktop — ukuran font,
-   preview, dan tombol mengikuti gaya base. Satu-satunya penyesuaian adalah
-   stacking struktural: body 1 kolom, card penuh, teks wrap. */
-@media (orientation: portrait) and (max-width: 600px) {
-  #shop-list {
-    flex-basis: auto;
-  }
-  .shop-card {
-    width: 100%;
-    max-width: 100%;
-  }
-}
 /* [SHOP LANDSCAPE] Compact landscape: row dipertahankan (preview kiri 200px,
  * daftar kanan scroll), bukan dipaksa column. Preview sticky agar tombol
  * Buy/Equip tetap mudah ditemukan saat daftar di-scroll. Satu scroller
@@ -1598,33 +1509,6 @@ canvas#game {
   display: none;
 }
 
-/* --- Tombol zoom in-game: gaya HUD bundar seperti pause --- */
-#btn-zoom-in,
-#btn-zoom-out {
-  width: clamp(44px, 12vw, 52px);
-  height: clamp(44px, 12vw, 52px);
-  font-size: clamp(16px, 4.5vw, 20px);
-  border-radius: 50%;
-  border: 2px solid #4a558f;
-  background: rgba(58, 66, 120, 0.55);
-  color: #fff;
-  cursor: pointer;
-  touch-action: manipulation;
-  opacity: 0.85;
-}
-#btn-zoom-in:hover,
-#btn-zoom-in:focus-visible,
-#btn-zoom-out:hover,
-#btn-zoom-out:focus-visible {
-  background: #2a3570;
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-#btn-zoom-in.hidden,
-#btn-zoom-out.hidden {
-  display: none;
-}
-
 /* --- Fullscreen API: seluruh #wrap (kanvas + kontrol + dialog) isi
    layar penuh. Game meminta fullscreen di #wrap sehingga aturan ini
    match (request di documentElement membuat :fullscreen kanvas mati).
@@ -1779,15 +1663,6 @@ canvas#game {
 .touch-btn.locked {
   opacity: 0.55;
 }
-/* --- Portrait HP & laptop sempit: kontroler klasik playable ---
- * Joystick analog hanya untuk landscape (ruang cukup); di portrait
- * sempit kembali ke tombol ◀ ▶ + pause/skill/map + aksi seperti semula. */
-@media (orientation: portrait) and (max-width: 600px) {
-  #joystick-zone {
-    display: none;
-  }
-}
-
 /* --- Reduced motion: matikan animasi/transisi CSS non-esensial --- */
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -1934,52 +1809,6 @@ canvas#game {
   margin: 0;
   color: #fff;
   font-size: 14px;
-}
-
-/* --- Zoom portrait: ikut alur grup tengah, kecil (40-44px) --- */
-@media (max-width: 600px) and (orientation: portrait) {
-  #btn-zoom-in,
-  #btn-zoom-out {
-    width: clamp(40px, 11vw, 44px);
-    height: clamp(40px, 11vw, 44px);
-    font-size: clamp(15px, 4vw, 18px);
-  }
-}
-
-/* --- Zoom landscape kasar: di bawah pause/fullscreen fixed, tanpa overlap --- */
-@media (orientation: landscape) and (pointer: coarse) {
-  #btn-zoom-in,
-  #btn-zoom-out {
-    width: 44px;
-    height: 44px;
-    margin: 0;
-    font-size: 16px;
-    opacity: 0.9;
-  }
-  #btn-zoom-in {
-    position: fixed;
-    width: 44px;
-    height: 44px;
-    top: max(108px, calc(env(safe-area-inset-top) + 100px));
-    right: max(10px, env(safe-area-inset-right));
-  }
-  #btn-zoom-out {
-    position: fixed;
-    width: 44px;
-    height: 44px;
-    top: max(158px, calc(env(safe-area-inset-top) + 150px));
-    right: max(10px, env(safe-area-inset-right));
-  }
-}
-
-/* --- Zoom landscape padat: kecil seperti pause/fullscreen --- */
-@media (orientation: landscape) and (pointer: coarse) and (max-height: 450px) {
-  #touch-controls #btn-zoom-in,
-  #touch-controls #btn-zoom-out {
-    width: clamp(36px, 4.8vmin, 42px);
-    height: clamp(36px, 4.8vmin, 42px);
-    font-size: clamp(12px, 2.4vmin, 15px);
-  }
 }
 
 /* --- LAND-002 FIX B: kanvas landscape maksimal (non-fullscreen). Override

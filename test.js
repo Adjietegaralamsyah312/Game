@@ -94,7 +94,7 @@ const elementIds = ['wrap', 'game', 'gameover', 'levelcomplete', 'btn-restart', 
   'btn-campaign', 'campaign', 'campaign-status',
   'btn-diff-normal', 'btn-diff-hard', 'diff-hard-card', 'achieve-toast-text', 'btn-achieve-back',   'btn-skills', 'skills', 'skills-list', 'skills-status', 'btn-skills-back', 'hard-lock-label',
   'btn-achievements', 'achievements', 'achieve-list', 'achieve-counter', 'achieve-toast',
-  'btn-camp-back', 'btn-pause', 'btn-fullscreen', 'btn-zoom-in', 'btn-zoom-out', 'pause',
+  'btn-camp-back', 'btn-pause', 'btn-fullscreen', 'pause',
   'btn-resume', 'btn-pause-respawn', 'btn-pause-menu',
   // Stage 6: settings + reset + records + mission
   'mission', 'btn-settings', 'settings',
@@ -229,7 +229,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 446; // total test (439 + 5 zoom in-game + 2 tombol center)
+const EXPECTED_TOTAL = 437; // total test (446 - 5 hapus fitur dalam-game - 5 blok khusus sempit + 1 render tajam)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -720,15 +720,6 @@ test('82 aturan HP tak bocor ke desktop', () => {
     'aturan dialog tak boleh tanpa pointer:coarse');
   ok(css.includes('aspect-ratio: 16 / 9'), 'canvas 16:9 desktop harus utuh');
 });
-test('83 portrait utuh: canvas+kontrol tak disembunyikan', () => {
-  const blocks = __mediaBlocks(css);
-  const por = blocks.filter((b) => b.header.includes('orientation: portrait'));
-  ok(por.length >= 1, 'aturan portrait hilang');
-  por.forEach((b) => {
-    ok(!/#canvas-container\s*{[^}]*display:\s*none/.test(b.body), 'canvas jangan disembunyikan (portrait)');
-    ok(!/#touch-controls\s*{[^}]*display:\s*none/.test(b.body), 'kontrol jangan disembunyikan (portrait)');
-  });
-});
 test('84 a11y: label sentuh + dialog + focus terlihat', () => {
   ['btn-left', 'btn-right', 'btn-attack', 'btn-jump'].forEach((id) => {
     ok(new RegExp('id="' + id + '"[^>]*aria-label').test(html), 'aria-label hilang: ' + id);
@@ -1031,13 +1022,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('446 automated test'), 'README harus sebut 446 test, cek jumlah');
+  ok(readme.includes('437 automated test'), 'README harus sebut 437 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 446);
+  eq(EXPECTED_TOTAL, 437);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -2051,7 +2042,7 @@ test('177 mock mirror: id campaign/pause ter-wire', () => {
   });
   const labels = [...html.matchAll(/role="dialog" aria-modal="true" aria-labelledby="([^"]*)"/g)].map((m) => m[1]);
   eq(new Set(labels).size, labels.length, 'labelledby duplikat: ' + labels);
-  ok(!/user-scalable=no/.test(html), 'viewport jangan blokir zoom');
+  ok(!/user-scalable=no/.test(html), 'viewport jangan blokir pinch');
   ok(!/maximum-scale=1/.test(html), 'viewport jangan kunci scale');
 });
 
@@ -4056,24 +4047,6 @@ test('312 keyboard mobile tetap (panah/Enter/Esc)', () => {
   eq(G.getState(), 'menu', 'Esc kembali');
   G.resetSave();
 });
-test('313 portrait = landscape (satu bahasa visual)', () => {
-  ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint portrait');
-  ok(css.includes('flex-direction: column'), 'portrait 1 kolom');
-  ok(css.includes('flex-direction: row'), 'landscape 2 kolom');
-  ok(css.includes('#shop-prev-stack'), 'preview stack');
-  ok(css.includes('env(safe-area-inset-'), 'safe-area');
-  ok(html.includes('id="shop-head"'), 'header wrapper');
-  // Portrait tanpa restyle kosmetik: tanpa font-size header, tanpa hide konten.
-  // Pengecualian: joystick analog sembunyi di portrait sempit (kontroler
-  // klasik yang tampil; landscape yang pakai joystick).
-  const _p313 = css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)');
-  const _p313e = css.indexOf('@media', _p313 + 1);
-  const portraitBlock = css.slice(_p313, _p313e < 0 ? undefined : _p313e);
-  ok(!/font-size/.test(portraitBlock), 'font ikut base landscape');
-  const _p313noj = portraitBlock.replace(/#joystick-zone\s*{[^}]*}/g, '');
-  ok(!/display:\s*none/.test(_p313noj), 'tak ada yang disembunyikan selain joystick');
-  ok(!/width:\s*40px/.test(portraitBlock), 'tanpa mini 40px');
-});
 test('314 performa + tombol 44px + reduced-motion', () => {
   const raf = (src.match(/requestAnimationFrame/g) || []).length;
   ok(raf <= 3, 'rAF tunggal');
@@ -4160,25 +4133,14 @@ test('322 save + versi schema tak berubah', () => {
   G.resetSave();
 });
 
-// ---------- 10 TEST PORTRAIT AGRESIF ----------
-test('323 preview portrait = preview landscape (tanpa override)', () => {
-  ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint portrait');
-  ok(css.includes('#shop-prev-weapon'), 'weapon overlay tetap ada');
-  ok(!/#shop-preview\s*{[^}]*max-height:\s*230px/.test(css), 'tanpa batas compact');
-  // Blok portrait tak menyentuh preview sama sekali: gaya base yang berlaku.
-  const _p323 = css.lastIndexOf('@media (orientation: portrait) and (max-width: 600px)');
-  const _p323e = css.indexOf('@media', _p323 + 1);
-  const portraitBlock = css.slice(_p323, _p323e < 0 ? undefined : _p323e);
-  ok(!/#shop-preview/.test(portraitBlock), 'preview ikut base landscape');
-  ok(!/#shop-prev-stack/.test(portraitBlock), 'stack ikut base 64px');
-});
+// ---------- 9 TEST SHOP LAYOUT (landscape-only) ----------
 test('324 deskripsi/stat tampil di semua orientasi', () => {
   ok(!/shop-prev-desc[^}]*display:\s*none/.test(css), 'desc tak disembunyikan');
   ok(!/shop-prev-stats[^}]*display:\s*none/.test(css), 'stats tak disembunyikan');
   ok(!/shop-prev-special[^}]*display:\s*none/.test(css), 'special tak disembunyikan');
 });
 test('325 item pertama dekat atas area scroll', () => {
-  ok(/#shop-body\s*{[^}]*flex-direction:\s*column/.test(css), '1 kolom');
+  ok(/#shop-list\s*{[^}]*flex-direction:\s*column/.test(css), 'list vertikal');
   ok(html.indexOf('id="shop-list"') > html.indexOf('id="shop-body"'), 'list di body');
   G.resetSave(); G.toMenu();
   elements['btn-shop'].dispatch('click', {});
@@ -4194,14 +4156,14 @@ test('326 scroll tunggal + pan-y + contain utuh', () => {
   ok(css.includes('overscroll-behavior: contain'), 'contain');
   srcHas("closest('#shop-body')");
 });
-test('327 card 1 kolom penuh + wrap + tombol base 44px', () => {
-  ok(/\.shop-card\s*{[^}]*max-width:\s*100%/.test(css), 'penuh');
+test('327 card penuh + wrap + tombol base 44px', () => {
+  ok(/\.shop-card\s*{[^}]*flex-shrink:\s*0/.test(css), 'card tak terkompres');
   ok(css.includes('overflow-wrap: anywhere'), 'wrap nama panjang');
   ok(/\.btn-small\s*{[^}]*min-height:\s*44px/.test(css), 'tombol base 44px');
   ok(!/#shop-list \.shop-card \.btn-small/.test(css), 'tombol ikut gaya landscape');
   ok(css.includes('overflow-x: hidden'), 'tanpa x-scroll');
 });
-test('328 BUY/USE portrait bekerja', () => {
+test('328 BUY/USE bekerja', () => {
   G.resetSave();
   const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
   raw.totalCoins = 1000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
@@ -4248,7 +4210,7 @@ test('331 save v4 + harga/stat utuh', () => {
   eq(G.swordStats().damage, 12);
   G.resetSave();
 });
-test('332 alur portrait penuh tanpa error', () => {
+test('332 alur shop penuh tanpa error', () => {
   G.resetSave();
   const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
   raw.totalCoins = 2000; testStorage._map.set('knightSaveV1', JSON.stringify(raw)); G.reloadSave();
@@ -4271,10 +4233,9 @@ test('333 card tak boleh terkompres', () => {
   ok(/\.shop-card\s*{[^}]*flex-shrink:\s*0/.test(css), 'card flex-shrink 0');
   ok(!/\.shop-card\s*{[^}]*(?<!min-)height:\s*\d+px/.test(css), 'tanpa fixed height card');
 });
-test('334 list kolom setinggi isi (akar masalah overlap)', () => {
-  const blk = css.slice(css.indexOf('@media (max-width: 640px)'));
-  ok(/#shop-list\s*{[^}]*flex:\s*none/.test(blk), 'list flex none di kolom');
-  ok(/#shop-list\s*{[^}]*width:\s*100%/.test(blk), 'list penuh');
+test('334 list vertikal setinggi isi (akar masalah overlap)', () => {
+  ok(/#shop-list\s*{[^}]*flex-direction:\s*column/.test(css), 'list vertikal');
+  ok(/#shop-list\s*{[^}]*flex:\s*1/.test(css), 'list ikut lebar base');
   ok(!/#shop-list\s*{[^}]*max-height/.test(css), 'tanpa max-height list');
 });
 test('335 header terbaca (bg opaque + spacing)', () => {
@@ -4288,9 +4249,9 @@ test('336 tab merata + wrap + muat 320px', () => {
   ok(css.includes('@media (max-width: 400px)'), 'breakpoint sempit');
   ok(/\.btn-row\s*{[^}]*flex-wrap:\s*wrap/.test(css), 'wrap');
 });
-test('337 detail di bawah list pada mobile (DOM + kolom)', () => {
+test('337 detail di bawah list (DOM + vertikal)', () => {
   ok(html.indexOf('id="shop-list"') < html.indexOf('id="shop-preview"'), 'list di atas preview');
-  ok(/#shop-body\s*{[^}]*flex-direction:\s*column/.test(css), 'kolom mobile');
+  ok(/#shop-list\s*{[^}]*flex-direction:\s*column/.test(css), 'list vertikal');
   ok(/min-width:\s*min\(320px/.test(css) || css.includes('min(680px, 94vw)'), 'lebar bounded');
 });
 test('338 gambar pertahankan rasio (object-fit)', () => {
@@ -4328,37 +4289,7 @@ test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
   G.resetSave();
 });
 
-// ---------- 6 TEST TOMBOL PORTRAIT MUAT (jump tak kepotong) ----------
-// Budget: side clamp(44,13vw,60), act clamp(44,15vw,68),
-// potion clamp(44,12vw,52) (ID #btn-potion), pause clamp(40,11vw,44).
-// Potion pindah ke kanan (5 tombol): kanan wrap 3+2 (flex-wrap + max-width
-// 52vw di blok portrait) -> lebar kanan = baris terlebar (3 tombol).
-// Tengah kolom (pause+fullscreen) -> lebar = pause. Total <= 320/360/412.
-function touchBudget(vw) {
-  const cl = (lo, v, hi) => Math.min(hi, Math.max(lo, v));
-  const side = cl(44, vw * 0.13, 60), act = cl(44, vw * 0.15, 68),
-        potion = cl(44, vw * 0.12, 52), pause = cl(40, vw * 0.11, 44);
-  const left = side * 2 + 8;
-  const center = pause;
-  const row1 = potion + act + side + 16; // potion+attack+skill + 2x gap 8
-  const row2 = act * 2 + 8; // jump+block + 1x gap 8
-  const right = Math.max(row1, row2);
-  return left + center + right + 16; // + 2x gap 8 antar grup
-}
-test('343 budget lebar portrait muat 320/360/412', () => {
-  ok(touchBudget(320) <= 320, '320 muat, got ' + touchBudget(320));
-  ok(touchBudget(360) <= 360, '360 muat, got ' + touchBudget(360));
-  ok(touchBudget(412) <= 412, '412 muat, got ' + touchBudget(412));
-  ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint');
-  ok(/\.touch-group-right\s*{[^}]*flex-wrap:\s*wrap/.test(css), 'kanan wrap 3+2');
-  ok(/#btn-potion/.test(css), 'potion sizing ada');
-});
-test('344 CSS compact portrait override min 64px coarse', () => {
-  ok(/\.touch-btn\s*{[^}]*clamp\(44px,\s*13vw,\s*60px\)/.test(css), 'sizing compact');
-  ok(/\.touch-btn\s*{[^}]*min-width:\s*44px/.test(css), 'override min-width coarse');
-  ok(/#btn-pause\s*{[^}]*clamp\(40px,\s*11vw,\s*44px\)/.test(css), 'pause compact');
-  ok(/#touch-controls\s*{[^}]*gap:\s*8px/.test(css), 'gap hemat');
-});
+// ---------- 4 TEST TOMBOL SENTUH (landscape-only) ----------
 test('345 tombol jump & block berfungsi sentuh', () => {
   G.resetSave(); G.forceStartLevel(1);
   const bj = elements['btn-jump'], bb = elements['btn-block'];
@@ -4957,15 +4888,13 @@ test('386 flow hard end-to-end: unlock, clear, best terisolasi', () => {
 });
 // ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
 // ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
-test('387 portrait playable + joystick khusus landscape', () => {
-  ok(!/id="rotate-overlay"/.test(html), 'tanpa rotate-wall: portrait playable');
+test('387 landscape playable + joystick tampil', () => {
+  ok(!/id="rotate-overlay"/.test(html), 'tanpa rotate-wall: landscape langsung playable');
   ok(!/ROTATE YOUR DEVICE/.test(html), 'tanpa teks rotate');
-  // Kontroler klasik portrait tetap ada dan ter-wire.
+  // Kontroler klasik tetap ada dan ter-wire (layout base berlaku di semua lebar).
   ['btn-left', 'btn-right', 'btn-jump', 'btn-attack', 'btn-skill', 'btn-pause'].forEach((id) => {
     ok(new RegExp('id="' + id + '"').test(html), 'html ada: ' + id);
   });
-  // Joystick analog hanya landscape (portrait sempit = tombol klasik).
-  ok(/orientation:\s*portrait\)\s*and\s*\(max-width:\s*600px\)[\s\S]*?#joystick-zone\s*{[^}]*display:\s*none/.test(css), 'joystick sembunyi di portrait');
   // Landscape: joystick tampil (hanya desktop pointer halus yang sembunyi).
   ok(/pointer:\s*fine\)\s*{[^}]*#joystick-zone[^}]*display:\s*none/.test(css), 'desktop sembunyi');
   ok(!/orientation:\s*landscape[^}]*#joystick-zone[^}]*display:\s*none/.test(css), 'landscape tampil');
@@ -5093,9 +5022,9 @@ test('398 HUD LV + difficulty', () => {
   noThrow(() => G.drawOnce(), 'draw hard');
   resetSkills();
 });
-test('399 kontroler klasik utuh untuk portrait', () => {
+test('399 kontroler klasik utuh', () => {
   resetSkills(); G.forceStartLevel(1);
-  // Semua tombol klasik ter-wire pointerdown (berfungsi di portrait).
+  // Semua tombol klasik ter-wire pointerdown.
   ['btn-left', 'btn-right', 'btn-jump', 'btn-attack', 'btn-skill'].forEach((id) => {
     ok((elements[id].listeners['pointerdown'] || []).length >= 1, id + ' ter-wire');
   });
@@ -5669,95 +5598,6 @@ test('438 3 tab lama tetap 5 card + 15 equipment tak berubah', () => {
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
-// ---------- 5 TEST ZOOM IN-GAME (button-controlled, WORLD saja) ----------
-test('439 zoom default 1 + reset tiap run baru', () => {
-  G.resetSave(); G.forceStartLevel(1);
-  eq(G.getZoom(), 1, 'default harus 1');
-  G.zoomIn(); eq(G.getZoom(), 1.25);
-  G.forceStartLevel(2); eq(G.getZoom(), 1, 'ganti level reset ke 1');
-  G.zoomIn();
-  G.respawn(); eq(G.getZoom(), 1, 'respawn reset ke 1');
-  G.zoomIn();
-  G.restart(); eq(G.getZoom(), 1, 'restart reset ke 1');
-  G.zoomIn();
-  G.toMenu(); eq(G.getZoom(), 1, 'menu reset ke 1');
-  G.forceStartLevel(1);
-});
-test('440 zoomIn step 0.25 clamp 2 / zoomOut clamp 1', () => {
-  G.forceStartLevel(1);
-  G.resetZoom(); eq(G.getZoom(), 1);
-  G.zoomIn(); eq(G.getZoom(), 1.25);
-  G.zoomIn(); eq(G.getZoom(), 1.5);
-  G.zoomIn(); eq(G.getZoom(), 1.75);
-  G.zoomIn(); eq(G.getZoom(), 2);
-  G.zoomIn(); eq(G.getZoom(), 2, 'clamp atas 2');
-  G.setZoom(99); eq(G.getZoom(), 2, 'setZoom clamp atas');
-  G.zoomOut(); eq(G.getZoom(), 1.75);
-  G.setZoom(0); eq(G.getZoom(), 1, 'setZoom clamp bawah');
-  G.resetZoom(); G.zoomOut(); eq(G.getZoom(), 1, 'clamp bawah 1');
-  srcHas('camZoom'); srcHas('CAM_ZOOM_MAX = 2');
-  G.forceStartLevel(1);
-});
-test('441 kamera 0..WORLD_W-VIEW_W/z saat zoom 2', () => {
-  G.forceStartLevel(1);
-  G.setZoom(2);
-  const W = G.getWorld(); // {w:3600, viewW:960}
-  const max = W.w - W.viewW / 2;
-  eq(max, 3600 - 480);
-  const pl = G.getPlayer();
-  pl.x = 80; pl.facing = 1;
-  for (let i = 0; i < 120; i++) G.step(1 / 60);
-  ok(G.getCamera().x >= 0 && G.getCamera().x <= max, 'kiri clamp, got ' + G.getCamera().x);
-  pl.x = 3500; pl.facing = 1;
-  for (let i = 0; i < 180; i++) G.step(1 / 60);
-  const cx = G.getCamera().x;
-  ok(cx >= 0 && cx <= max, 'kanan clamp 0..' + max + ', got ' + cx);
-  near(cx, max, 2, 'ujung kanan menempel max');
-  G.resetZoom(); G.forceStartLevel(1);
-});
-test('442 tombol zoom hidden di luar playing + ter-wire', () => {
-  const zi = elements['btn-zoom-in'], zo = elements['btn-zoom-out'];
-  ok(zi && zo, 'mock ada tombol zoom');
-  ok(html.includes('id="btn-zoom-in"'), 'HTML ada btn-zoom-in');
-  ok(html.includes('id="btn-zoom-out"'), 'HTML ada btn-zoom-out');
-  ok(/id="btn-zoom-in"[^>]*aria-label="Perbesar tampilan"/.test(html), 'aria zoom-in');
-  ok(/id="btn-zoom-out"[^>]*aria-label="Perkecil tampilan"/.test(html), 'aria zoom-out');
-  ok((zi.listeners['click'] || []).length >= 1, 'zoom-in ter-wire click');
-  ok((zo.listeners['click'] || []).length >= 1, 'zoom-out ter-wire click');
-  G.forceStartLevel(1);
-  ok(!zi.classList.contains('hidden'), 'tampil saat playing');
-  ok(!zo.classList.contains('hidden'), 'tampil saat playing');
-  G.resetZoom();
-  zi.dispatch('click', {}); eq(G.getZoom(), 1.25, 'klik + sekali');
-  zo.dispatch('click', {}); eq(G.getZoom(), 1, 'klik - sekali');
-  G.toMenu();
-  ok(zi.classList.contains('hidden'), 'sembunyi di menu');
-  ok(zo.classList.contains('hidden'), 'sembunyi di menu');
-  G.forceStartLevel(1); G.resetZoom();
-});
-test('443 keyboard +/-/0 hanya saat playing', () => {
-  G.forceStartLevel(1); G.resetZoom();
-  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
-  eq(G.getZoom(), 1.25, '+ saat playing');
-  fireWin('keydown', { code: 'Minus', key: '-', preventDefault() {} });
-  eq(G.getZoom(), 1, '- saat playing');
-  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
-  fireWin('keydown', { code: 'Digit0', key: '0', preventDefault() {} });
-  eq(G.getZoom(), 1, '0 reset saat playing');
-  G.toMenu(); G.resetZoom(); G.setZoom(1.5);
-  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
-  eq(G.getZoom(), 1.5, 'menu: + tak bocor');
-  fireWin('keydown', { code: 'Minus', key: '-', preventDefault() {} });
-  eq(G.getZoom(), 1.5, 'menu: - tak bocor');
-  G.toMenu(); // shop via menu
-  elements['btn-shop'].dispatch('click', {});
-  eq(G.getState(), 'shop');
-  G.setZoom(1.5);
-  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
-  eq(G.getZoom(), 1.5, 'shop: + tak bocor');
-  fireWin('keydown', { code: 'Escape', preventDefault() {} });
-  G.resetSave(); G.forceStartLevel(1); G.resetZoom();
-});
 test('444 kanvas landscape maksimal + fullscreen tanpa distorsi', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
@@ -5770,9 +5610,9 @@ test('444 kanvas landscape maksimal + fullscreen tanpa distorsi', () => {
   ok(last.includes('min(100vw') && last.includes('16 / 9'), 'fullscreen terakhir harus jaga rasio 16:9');
   ok(!/height:\s*100dvh/.test(last), 'fullscreen terakhir tanpa stretch vertikal');
 });
-test('445 tombol pause/fullscreen/zoom tampil saat playing', () => {
+test('445 tombol pause/fullscreen tampil saat playing', () => {
   G.forceStartLevel(1);
-  ['btn-pause', 'btn-fullscreen', 'btn-zoom-in', 'btn-zoom-out'].forEach((id) => {
+  ['btn-pause', 'btn-fullscreen'].forEach((id) => {
     ok(elements[id], 'mock ada ' + id);
     ok(!elements[id].classList.contains('hidden'), id + ' tampil saat playing');
   });
@@ -5780,10 +5620,19 @@ test('445 tombol pause/fullscreen/zoom tampil saat playing', () => {
 });
 test('446 tombol center sembunyi di menu', () => {
   G.toMenu();
-  ['btn-pause', 'btn-fullscreen', 'btn-zoom-in', 'btn-zoom-out'].forEach((id) => {
+  ['btn-pause', 'btn-fullscreen'].forEach((id) => {
     ok(elements[id].classList.contains('hidden'), id + ' sembunyi di menu');
   });
   G.forceStartLevel(1);
+});
+test('447 render tajam: smoothing OFF + translate integer', () => {
+  srcHas('imageSmoothingEnabled = false');
+  ok(/shx = Math\.round\(camera\.x/.test(src), 'translate dunia integer-snap');
+  ok(/shy = Math\.round\(shake\.oy/.test(src), 'translate vertikal integer');
+  srcHas('Math.round(decorFar[i].x - cx * PAR_FAR)', 'parallax jauh integer-snap');
+  srcHas('Math.round(b.x - camera.x * PAR_NEAR)', 'parallax dekat integer-snap');
+  noThrow(() => { G.forceStartLevel(1); G.drawOnce(); }, 'draw tajam tanpa error');
+  G.resetSave(); G.forceStartLevel(1);
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

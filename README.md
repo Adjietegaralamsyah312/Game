@@ -30,33 +30,10 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
   damage/timing sama) dan bisa membuka treasure; **panah juga bisa membuka
   treasure** (tetap sekali per panah per chest)
 
-## Fitur v1.3.5
+## Fitur v1.3.2–v1.3.5 (historis, kini layout base seragam)
 
-- **Tombol portrait muat 320px**: 6 tombol (gerak, pause, serang, block,
-  lompat) dikecilkan khusus portrait (lantai 44px, pause 40px, gap 8px) —
-  tombol jump tak lagi kepotong; landscape/desktop utuh
-
-## Fitur v1.3.4
-
-- **Shop portrait = landscape**: seluruh restyle kosmetik portrait dicabut —
-  font, preview, dan tombol portrait memakai gaya base yang sama persis.
-  Satu-satunya penyesuaian HP adalah stacking struktural (body 1 kolom,
-  card penuh, teks wrap). Tanpa ubah gameplay/harga/save
-
-## Fitur v1.3.3
-
-- **Shop satu bahasa visual**: portrait memakai desain yang sama dengan
-  landscape/desktop (preview kolom 64px + semua teks + weapon overlay).
-  Adaptasi HP hanya stacking (body 1 kolom, card penuh, teks wrap, tombol
-  aksi selebar card 44px). Tanpa compact divergen, tanpa ubah gameplay
-
-## Fitur v1.3.2
-
-- **Portrait agresif**: preview jadi baris compact (gambar 40px + tier/harga,
-  nama; deskripsi/stat disembunyikan di portrait, tetap ada di card +
-  desktop/landscape), tinggi preview dibatasi 230px; tombol aksi selebar card
-  44px; item pertama langsung terlihat di 360×800/390×844/412×915;
-  landscape/desktop nol perubahan; tanpa ubah gameplay/harga/save
+- Penyesuaian layar sempit era sebelumnya telah dicabut — seluruh lebar
+  memakai gaya base yang sama persis (tanpa ubah gameplay/harga/save)
 
 ## Fitur v1.3.1
 
@@ -67,8 +44,8 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 
 ## Fitur v1.3
 
-- **Mobile Shop**: halaman mobile rapi portrait (fullscreen, header compact,
-  preview compact 48px, card 1 kolom, deskripsi wrap, tombol ≥44px) maupun
+- **Mobile Shop**: halaman shop rapi (fullscreen, header compact,
+  card 1 kolom, deskripsi wrap, tombol ≥44px) dan
   landscape (preview kiri, daftar kanan); scroll satu jari pada content
   (`overflow-y: auto`, momentum, `pan-y`, overscroll contain); swipe/tap Shop
   tak bocor ke gameplay (keyboard gameplay diabaikan saat Shop buka,
@@ -215,14 +192,10 @@ localStorage hilang → fallback memori. Tulis event-driven (bukan per-frame).
 
 Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **✦** skill, **🛡** block, **⏸** pause.
 
-## Kontroler mobile (HP + laptop)
+## Kontroler mobile landscape (HP + laptop)
 
-Portrait dan landscape sama-sama playable:
+Landscape saja (layout base seragam di semua lebar):
 
-- **Portrait (HP & laptop sempit)**: kontroler klasik — **◀ ▶** gerak,
-  **⤒** lompat, **❖** serang, **✦** skill, **🛡** block (Guardian),
-  **⏸** pause; joystick analog sembunyi (ruang sempit),
-  tombol kompak ≥44px (pause 40px), dialog fullscreen + scroll.
 - **Landscape**: canvas dominan 16:9 dari viewport (`100vw`/`100dvh`,
   tanpa stretch) + kontroler MMORPG **overlay** transparan (canvas tak
    menciut): **joystick analog kiri**, **kanan**: ❖ ATTACK, ✦ SKILL (label ikut mode),
@@ -233,14 +206,14 @@ Portrait dan landscape sama-sama playable:
   tab-hidden/rotasi; desktop/laptop (pointer halus) tak tampil joystick,
   keyboard + mouse utuh.
 Multi-touch (gerak + lompat/serang bersamaan). Semua dialog touch-friendly.
-Layout portrait + landscape pendek (dialog fullscreen, canvas 16:9).
+Layout landscape pendek (dialog fullscreen, canvas 16:9).
 
 ## Accessibility
 
 - Semua dialog: `role="dialog"` + `aria-modal` + label; fokus ke kontrol pertama
   saat dibuka dan kembali ke pemicu saat ditutup; `Esc` valid per state
 - Fokus keyboard terlihat (`:focus-visible`); tombol berlabel (`aria-label`)
-- Pinch zoom browser tetap diizinkan (tanpa `user-scalable=no`)
+- Cubit browser (pinch) tetap diizinkan (tanpa `user-scalable=no`)
 - `prefers-reduced-motion`: screen shake nonaktif, gameplay tetap sama
 
 ## Tech stack
@@ -335,7 +308,7 @@ node test.js
 git diff --check
 ```
 
- 446 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 2 fullscreen + 4 kill reward + 1 menu landscape + 1 wrap fullscreen + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 5 zoom in-game + 1 landscape maksimal/fullscreen 16:9 + 2 tombol center) —
+ 437 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 2 fullscreen + 4 kill reward + 1 menu landscape + 1 wrap fullscreen + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 1 landscape maksimal/fullscreen 16:9 + 2 tombol center + 1 render tajam) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
