@@ -51,6 +51,51 @@
 
   var VIEW_W = 960;
   var VIEW_H = 540;
+  /* Wide-view landscape: di viewport lebih lebar dari 16:9 game merender
+   * irisan dunia yang LEBIH LEBAR (tinggi tetap 540) agar kanvas full-bleed
+   * tanpa stretch/crop/bar (kecuali past-cap ultra-wide). Base 960 tetap;
+   * viewW() 960..1440. Headless (tak terukur) -> boost tepat 1. */
+  var viewportOverride = null; // test-only {w,h}; null = ukur viewport nyata
+  var canvasContainerEl = null; // cache sekali saat boot (null-guarded)
+  function setViewportOverride(w, h) {
+    try {
+      if (w === null || w === undefined) { viewportOverride = null; return; }
+      if (typeof w === 'object') {
+        viewportOverride = { w: Number(w.w) || 0, h: Number(w.h) || 0 };
+        return;
+      }
+      viewportOverride = { w: Number(w) || 0, h: Number(h) || 0 };
+    } catch (e) { viewportOverride = null; }
+  }
+  function viewAspectBoost() {
+    try {
+      var vw = 0, vh = 0;
+      if (viewportOverride && viewportOverride.w > 0 && viewportOverride.h > 0) {
+        vw = viewportOverride.w; vh = viewportOverride.h;
+      } else {
+        var el = canvasContainerEl;
+        try {
+          if (!el && typeof document !== 'undefined' && document.getElementById) {
+            el = document.getElementById('canvas-container');
+          }
+        } catch (e) { el = null; }
+        if (el && el.clientWidth > 0 && el.clientHeight > 0) {
+          vw = el.clientWidth; vh = el.clientHeight;
+        } else if (typeof window !== 'undefined' &&
+            window.innerWidth > 0 && window.innerHeight > 0) {
+          vw = window.innerWidth; vh = window.innerHeight;
+        } else {
+          return 1;
+        }
+      }
+      if (!(vw > 0) || !(vh > 0)) return 1;
+      return clamp((vw / vh) / (16 / 9), 1, 1.5);
+    } catch (e) { return 1; }
+  }
+  function viewW() {
+    try { return Math.round(VIEW_W * viewAspectBoost()); }
+    catch (e) { return VIEW_W; }
+  }
   // Tahap 2: dunia lebih lebar dari layar — kamera side-scrolling mengikuti.
   // v1.5: map diperpanjang 2400 -> 3600 (semua level +1200px traversal).
   var WORLD_W = 3600;
@@ -2332,9 +2377,10 @@
   function clearGooPiles() { gooPiles.length = 0; gooPileIdx = 0; }
 
   function drawGooPiles() {
+    var vw = viewW(); // hoist: cull per-item tanpa reflow berulang
     for (var i = 0; i < gooPiles.length; i++) {
       var p = gooPiles[i];
-      if (p.x < camera.x - 60 || p.x > camera.x + VIEW_W + 60) continue;
+      if (p.x < camera.x - 60 || p.x > camera.x + vw + 60) continue;
       var o1 = Math.round(p.a * 8), o2 = Math.round(p.b * 6);
       ctx.fillStyle = 'rgba(0,0,0,0.30)';
       ctx.fillRect(p.x - 16, p.y - 3, 32, 4); // bayangan
@@ -2351,9 +2397,10 @@
   }
 
   function drawBonePiles() {
+    var vw = viewW(); // hoist: cull per-item tanpa reflow berulang
     for (var i = 0; i < bonePiles.length; i++) {
       var p = bonePiles[i];
-      if (p.x < camera.x - 60 || p.x > camera.x + VIEW_W + 60) continue;
+      if (p.x < camera.x - 60 || p.x > camera.x + vw + 60) continue;
       var o1 = Math.round(p.a * 6), o2 = Math.round(p.b * 6);
       ctx.fillStyle = 'rgba(0,0,0,0.30)';
       ctx.fillRect(p.x - 14, p.y - 3, 28, 4); // bayangan
@@ -3131,9 +3178,10 @@
       return seed / 0x7fffffff;
     }
     var i;
-    // Bintang: rentang layer jauh (WORLD_W*0.2 + VIEW_W agar penuh di semua cam).
+    // Bintang: sebar selebar mungkin sekali (VIEW_W*1.6 nutupi max 1440
+    // wide-view di semua cam; decorMid/Near world-space tetap, tak viewport-based).
     for (i = 0; i < 70; i++) {
-      decorFar.push({ x: rnd() * (WORLD_W * PAR_FAR + VIEW_W), y: rnd() * 230, s: rnd() < 0.85 ? 2 : 3 });
+      decorFar.push({ x: rnd() * (WORLD_W * PAR_FAR + VIEW_W * 1.6), y: rnd() * 230, s: rnd() < 0.85 ? 2 : 3 });
     }
     for (i = 0; i < 9; i++) {
       decorMid.push({ x: i * 300 + rnd() * 120, w: 220 + rnd() * 140, h: 70 + rnd() * 60 });
@@ -3179,10 +3227,11 @@
     var fl = 0;
     try { fl = reducedMotion ? 0 : Math.floor(nowPerf() / 180) % 2; } catch (e) { fl = 0; }
     var i, d, x;
+    var vw = viewW(); // hoist: cull per-item tanpa reflow berulang
     for (i = 0; i < list.length; i++) {
       d = list[i];
       x = Math.round(d.x);
-      if (x < camera.x - 60 || x > camera.x + VIEW_W + 60) continue; // cull murah
+      if (x < camera.x - 60 || x > camera.x + vw + 60) continue; // cull murah
       if (d.k === 'torch') {
         ctx.fillStyle = '#4a3524';
         ctx.fillRect(x, g - 30, 5, 30);
@@ -3282,9 +3331,10 @@
 
   function cameraTarget() {
     var ahead = player.facing === 1 ? CAM_AHEAD_R : CAM_AHEAD_L;
-    var t = (player.x + player.w / 2) - VIEW_W * ahead;
-    // Batas level: 0..max(0, WORLD_W - VIEW_W).
-    return clamp(t, 0, Math.max(0, WORLD_W - VIEW_W));
+    var vw = viewW();
+    var t = (player.x + player.w / 2) - vw * ahead;
+    // Batas level: 0..max(0, WORLD_W - viewW()).
+    return clamp(t, 0, Math.max(0, WORLD_W - vw));
   }
 
   function updateCamera(dt) {
@@ -6747,6 +6797,7 @@
   var canvas = document.getElementById('game');
   var ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
+  try { canvasContainerEl = document.getElementById('canvas-container'); } catch (e) { canvasContainerEl = null; }
 
   function setupCanvas() {
     var dpr = 1;
@@ -6754,6 +6805,7 @@
       dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
       if (!(dpr > 0) || !isFinite(dpr)) dpr = 1;
     } catch (e) { dpr = 1; }
+    var vw = viewW(); // ukur sekali: fit + backing + aspect konsisten
     // Sesuaikan layar: backing store ≈ ukuran tampil (device px) agar
     // browser tak men-downscale paksa (sumber buram di landscape kecil).
     // Cap DPR + faktor Resolusi tetap berlaku; fallback rumus lama bila
@@ -6763,16 +6815,25 @@
       var cw = (canvas && canvas.clientWidth) || 0;
       var ch = (canvas && canvas.clientHeight) || 0;
       if (cw > 0 && ch > 0) {
-        fitScale = Math.max(cw / VIEW_W, ch / VIEW_H) * Math.min(dpr, RENDER_SCALE_MAX);
+        fitScale = Math.max(cw / vw, ch / VIEW_H) * Math.min(dpr, RENDER_SCALE_MAX);
       }
     } catch (e) { fitScale = 0; }
     var cap = Math.min(dpr, RENDER_SCALE_MAX);
     var target = fitScale > 0 ? Math.min(fitScale, cap) : cap;
     renderScale = clamp(target * resFactor(), 0.5, RENDER_SCALE_MAX);
     try {
-      canvas.width = Math.round(VIEW_W * renderScale);
+      canvas.width = Math.round(vw * renderScale);
       canvas.height = Math.round(VIEW_H * renderScale);
     } catch (e) { /* headless aman */ }
+    // Wide-view: container ikuti aspek logis (vw/540); guarded headless/no-DOM.
+    try {
+      if (!canvasContainerEl && typeof document !== 'undefined' && document.getElementById) {
+        canvasContainerEl = document.getElementById('canvas-container');
+      }
+      if (canvasContainerEl && canvasContainerEl.style) {
+        canvasContainerEl.style.aspectRatio = vw + ' / ' + VIEW_H;
+      }
+    } catch (e) { /* abaikan */ }
     try {
       ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
     } catch (e) { /* abaikan */ }
@@ -6788,8 +6849,9 @@
   // offset sendiri. Ringan: ~70 bintang + 9 bukit, culling di luar layar.
   function drawSkyFarMid() {
     var th = levelTheme();
+    var vw = viewW(); // hoist: fill + cull tanpa reflow berulang
     ctx.fillStyle = skyGrads[currentLevel - 1] || skyGrad || '#232a5c';
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillRect(0, 0, vw, VIEW_H);
     var cx = camera.x, i, sx;
     // Bulan (layer jauh) — merah darah di Level 2.
     ctx.fillStyle = th.moon;
@@ -6800,7 +6862,7 @@
     for (i = 0; i < decorFar.length; i++) {
       if (gfxLow() && (i % 2 === 1)) continue; // grafik rendah: setengah bintang
       sx = Math.round(decorFar[i].x - cx * PAR_FAR);
-      if (sx < -4 || sx > VIEW_W + 4) continue;
+      if (sx < -4 || sx > vw + 4) continue;
       var sz = decorFar[i].s;
       ctx.fillRect(sx, decorFar[i].y | 0, sz, sz);
     }
@@ -6809,7 +6871,7 @@
     for (i = 0; i < decorMid.length; i++) {
       var h = decorMid[i];
       sx = Math.round(h.x - cx * PAR_MID);
-      if (sx + h.w < 0 || sx > VIEW_W) continue;
+      if (sx + h.w < 0 || sx > vw) continue;
       ctx.fillRect(sx, 480 - (h.h | 0), (h.w | 0), (h.h | 0));
     }
   }
@@ -6818,10 +6880,11 @@
   // offset sendiri (faktor PAR_NEAR) — digambar sebelum layer dunia 1.0.
   function drawNearLayer() {
     ctx.fillStyle = '#1a2048';
+    var vw = viewW(); // hoist: cull per-item tanpa reflow berulang
     for (var i = 0; i < decorNear.length; i++) {
       var b = decorNear[i];
       var sx = Math.round(b.x - camera.x * PAR_NEAR);
-      if (sx + b.w < 0 || sx > VIEW_W) continue;
+      if (sx + b.w < 0 || sx > vw) continue;
       ctx.fillRect(sx, 480 - (b.h | 0), (b.w | 0), (b.h | 0));
     }
   }
@@ -7588,6 +7651,7 @@
   // HUD modern (screen-space, tidak ikut kamera): HP + progress + slime.
   function drawHUD() {
     ctx.textBaseline = 'middle';
+    var vw = viewW(); // hoist: kanan/tengah jangkar ke lebar dinamis
 
     // --- Panel HP (kiri atas): ikon hati + bar + angka (teks + warna) ---
     var bx = 12, by = 12, bw = 210, bh = 24;
@@ -7716,51 +7780,51 @@
     // --- Musuh tersisa (kanan atas): ikon + angka (teks + warna) ---
     var alive = foesLeft();
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(VIEW_W - 150, 8, 138, 32);
+    ctx.fillRect(vw - 150, 8, 138, 32);
     ctx.fillStyle = '#4fc94f';
-    ctx.fillRect(VIEW_W - 140, 16, 16, 12);
-    ctx.fillRect(VIEW_W - 136, 12, 8, 5);
+    ctx.fillRect(vw - 140, 16, 16, 12);
+    ctx.fillRect(vw - 136, 12, 8, 5);
     ctx.fillStyle = alive > 0 ? '#a5f0a0' : '#8a8fa8';
     ctx.font = 'bold 14px monospace';
-    ctx.fillText('FOE x' + alive, VIEW_W - 118, 25);
+    ctx.fillText('FOE x' + alive, vw - 118, 25);
 
     // --- Coin level + Gold Shard treasure (kanan; kecil agar tak tutup game) ---
     // Baris 1: total coin run (dari kill) + nomor level.
     // Baris 2: resource GOLD SHARD dari treasure (terpisah, bukan completion).
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(VIEW_W - 150, 44, 138, 44);
+    ctx.fillRect(vw - 150, 44, 138, 44);
     var coinImg = foeImg(sprites.coin, 0);
-    if (coinImg) ctx.drawImage(coinImg, VIEW_W - 140, 48, 14, 14);
+    if (coinImg) ctx.drawImage(coinImg, vw - 140, 48, 14, 14);
     else {
       ctx.fillStyle = '#ffd23f';
-      ctx.fillRect(VIEW_W - 140, 48, 14, 14);
+      ctx.fillRect(vw - 140, 48, 14, 14);
     }
     ctx.fillStyle = '#fff2c9';
     ctx.font = 'bold 12px monospace';
     // Baris 1: total coin run (dari kill) + nomor level.
-    ctx.fillText('COIN ' + runStats.coins + ' LV' + currentLevel, VIEW_W - 124, 57);
+    ctx.fillText('COIN ' + runStats.coins + ' LV' + currentLevel, vw - 124, 57);
     // Gold Shard terpisah dari coin level (sistem treasure sendiri).
     var gimg = foeImg(sprites.reward, 0);
-    if (gimg) ctx.drawImage(gimg, VIEW_W - 140, 70, 14, 14);
+    if (gimg) ctx.drawImage(gimg, vw - 140, 70, 14, 14);
     else {
       ctx.fillStyle = '#ffe98a';
-      ctx.fillRect(VIEW_W - 140, 70, 14, 14);
+      ctx.fillRect(vw - 140, 70, 14, 14);
     }
     ctx.fillStyle = '#fff2c9';
-    ctx.fillText('GOLD x' + (runStats.goldShards || 0), VIEW_W - 124, 78);
+    ctx.fillText('GOLD x' + (runStats.goldShards || 0), vw - 124, 78);
 
     // --- Bar HP foe besar (boss / miniboss aktif; boss diprioritaskan) ---
     var foeBar = (boss && !boss.dead) ? boss : ((miniboss && !miniboss.dead) ? miniboss : null);
     if (foeBar) {
       var foeName = foeBar.name || (foeBar.kind === 'lich' ? 'RAJA LICH' : 'RAJA SLIME');
-      var bbw = 300, bbx = VIEW_W / 2 - bbw / 2, bby = 52;
+      var bbw = 300, bbx = vw / 2 - bbw / 2, bby = 52;
       var bpct = clamp(foeBar.hp / foeBar.maxHp, 0, 1);
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(bbx - 4, bby - 18, bbw + 8, 40);
       ctx.fillStyle = '#c6ccea';
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(foeBar.enraged ? foeName + ' — MURKA!' : foeName, VIEW_W / 2, bby - 8);
+      ctx.fillText(foeBar.enraged ? foeName + ' — MURKA!' : foeName, vw / 2, bby - 8);
       ctx.textAlign = 'left';
       ctx.fillStyle = '#3a1020';
       ctx.fillRect(bbx, bby, bbw, 12);
@@ -7775,11 +7839,11 @@
       var alpha = clamp(toast.t, 0, 1);
       ctx.fillStyle = 'rgba(0,0,0,' + (0.6 * alpha).toFixed(2) + ')';
       var tw = 220;
-      ctx.fillRect(VIEW_W / 2 - tw / 2, 56, tw, 30);
+      ctx.fillRect(vw / 2 - tw / 2, 56, tw, 30);
       ctx.fillStyle = '#ffd23f';
       ctx.font = 'bold 16px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(toast.text, VIEW_W / 2, 72);
+      ctx.fillText(toast.text, vw / 2, 72);
       ctx.textAlign = 'left';
     }
   }
@@ -7845,12 +7909,13 @@
   }
 
   function drawLoading() {
+    var vw = viewW();
     ctx.fillStyle = '#1a1f3d';
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillRect(0, 0, vw, VIEW_H);
     ctx.fillStyle = '#fff';
     ctx.font = '20px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('Memuat sprite knight...', VIEW_W / 2, VIEW_H / 2);
+    ctx.fillText('Memuat sprite knight...', vw / 2, VIEW_H / 2);
     ctx.textAlign = 'left';
   }
 
@@ -7863,15 +7928,16 @@
   var ftAvg = 16.7, ftPeak = 16.7, ftP95 = 16.7;
 
   function drawPaused() {
+    var vw = viewW();
     ctx.fillStyle = 'rgba(8,10,25,0.65)';
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillRect(0, 0, vw, VIEW_H);
     ctx.fillStyle = '#ffd23f';
     ctx.font = 'bold 28px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('PAUSED', VIEW_W / 2, VIEW_H / 2 - 10);
+    ctx.fillText('PAUSED', vw / 2, VIEW_H / 2 - 10);
     ctx.fillStyle = '#c6ccea';
     ctx.font = '14px monospace';
-    ctx.fillText('Ketuk / klik untuk lanjut', VIEW_W / 2, VIEW_H / 2 + 20);
+    ctx.fillText('Ketuk / klik untuk lanjut', vw / 2, VIEW_H / 2 + 20);
     ctx.textAlign = 'left';
   }
 
@@ -8063,7 +8129,7 @@
     var a = transAlpha();
     if (a <= 0) return;
     ctx.fillStyle = 'rgba(0,0,0,' + a.toFixed(2) + ')';
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillRect(0, 0, viewW(), VIEW_H);
   }
 
   function frame(t) {
@@ -8685,6 +8751,7 @@
   // Pengecualian: area scroll Shop (#shop-body) harus bisa swipe satu jari —
   // jangan preventDefault di sana agar touch scroll + mouse wheel normal.
   var container = document.getElementById('canvas-container');
+  try { if (container) canvasContainerEl = container; } catch (e) { /* abaikan */ }
   if (container) {
     container.addEventListener('touchmove', function (e) {
       try {
@@ -8723,7 +8790,7 @@
     getProgress: getProgress,
     getDeaths: function () { return deaths; },
     getRespawnPoint: function () { return respawnPoint; },
-    getWorld: function () { return { w: WORLD_W, h: WORLD_H, viewW: VIEW_W }; },
+    getWorld: function () { return { w: WORLD_W, h: WORLD_H, viewW: viewW() }; },
     getTime: function () { return timeElapsed; },
     isPaused: function () { return paused; },
     setPaused: setPaused,
@@ -8733,6 +8800,10 @@
     checkPortraitLock: checkPortraitLock,
     setPortraitOverride: setPortraitOverride,
     isPortraitAutoPaused: isPortraitAutoPaused,
+    // Wide-view landscape (test hooks; gameplay baca viewW() langsung).
+    viewW: viewW,
+    viewAspectBoost: viewAspectBoost,
+    setViewportOverride: setViewportOverride,
     getAssetErrors: function () { return assetErrors; },
     hurtPlayer: function (n, x, t) { playerTakeDamage(n, x, t); },
     respawn: respawn,

@@ -229,7 +229,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 441; // total test (438 + 3 fullscreen otomatis AFS-001)
+const EXPECTED_TOTAL = 444; // total test (441 + 3 wide-view landscape WIDE-001)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -276,7 +276,7 @@ test('22 slime punya patrol/chase/attack/hurt/death', () => {
 
 // Kamera (23-25)
 test('23 CAM_SMOOTH 4.5 + ahead R/L', () => { srcHas('CAM_SMOOTH = 4.5'); srcHas('CAM_AHEAD_R'); srcHas('CAM_AHEAD_L'); });
-test('24 kamera dibatasi level (clamp 0..WORLD-VIEW)', () => { srcHas('WORLD_W - VIEW_W'); const c = G.getCamera(); ok(c.x >= 0 && c.x <= 3600 - 960, 'camera.x di luar batas'); });
+test('24 kamera dibatasi level (clamp 0..WORLD-viewW dinamis)', () => { srcHas('WORLD_W - vw'); const c = G.getCamera(); ok(c.x >= 0 && c.x <= 3600 - 960, 'camera.x di luar batas'); });
 test('25 kamera smooth lerp (tidak snap per-frame)', () => srcHas('dt * CAM_SMOOTH'));
 
 // Level (26-33)
@@ -689,15 +689,18 @@ test('79 dialog se-layar anti-clip di layar sentuh kecil', () => {
     ok(dlg[0].body.includes(sel), 'dialog harus se-layar: ' + sel);
   });
 });
-test('80 HP landscape pendek: ringkas, 16:9 utuh, kontrol muat', () => {
+test('80 HP landscape pendek: ringkas, wide-view full-bleed, kontrol muat', () => {
   const blocks = __mediaBlocks(css);
   const compact = blocks.filter((b) => b.header.includes('orientation: landscape') &&
     b.header.includes('max-height') && b.header.includes('pointer: coarse'));
   ok(compact.length >= 1, 'mode ringkas landscape hilang');
   const c = compact[0].body;
   ok(c.includes('.mission') && c.includes('display: none'), 'teks header harus disembunyikan');
-  ok(c.includes('#canvas-container') && c.includes('100dvh') && c.includes('16 / 9'),
-    'lebar canvas harus dari sisa tinggi (16:9 utuh, tanpa stretch)');
+  ok(c.includes('#canvas-container') && c.includes('100vw') && c.includes('100dvh'),
+    'canvas full-bleed: lebar ikut viewport, tinggi dibatasi viewport');
+  ok(c.includes('max-height') && c.includes('margin: auto'),
+    'past-cap ultra-wide: cap tinggi + center, bukan overflow');
+  ok(!c.includes('16 / 9'), 'aspek landscape dinamis via JS inline (viewW/540), bukan pin CSS');
   ok(c.includes('#touch-controls'), 'kontrol harus ikut aturan lebar yang sama');
 });
 test('81 touch: >=64px, tak bertumpuk, anti scroll/double', () => {
@@ -1022,14 +1025,15 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('441 automated test'), 'README harus sebut 441 test, cek jumlah');
+  ok(readme.includes('444 automated test'), 'README harus sebut 444 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
   ok(readme.toLowerCase().includes('fullscreen otomatis'), 'README harus sebut fullscreen otomatis');
-  eq(EXPECTED_TOTAL, 441);
+  ok(readme.toLowerCase().includes('wide-view'), 'README harus sebut wide-view landscape');
+  eq(EXPECTED_TOTAL, 444);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -5085,15 +5089,17 @@ test('401 skill per mode: DASH/BASH/MULTI', () => {
   eq(elements['btn-skill-name'].textContent, 'MULTI');
   resetSkills(); G.setMode('SWORD');
 });
-test('402 canvas landscape viewport-aware', () => {
+test('402 canvas landscape viewport-aware (wide-view)', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   ok(land.length >= 1, 'blok landscape coarse hilang');
   const all = land.map((b) => b.body).join('\n');
-  ok(all.includes('#canvas-container') && all.includes('100dvh') && all.includes('16 / 9'), 'canvas dari viewport');
-  ok(all.includes('100vw'), 'canvas pakai lebar viewport');
+  ok(all.includes('#canvas-container') && all.includes('100dvh') && all.includes('100vw'), 'canvas dari viewport');
+  ok(all.includes('max-height') && all.includes('margin: auto'), 'past-cap di-cap + center');
+  ok(!all.includes('16 / 9'), 'aspek landscape dinamis via JS inline, bukan pin 16:9');
+  srcHas('style.aspectRatio', 'JS harus set aspek container dari viewW()');
   ok(!/width:\s*455px/.test(all), 'tanpa fixed kecil');
-  ok(css.includes('aspect-ratio: 16 / 9'), 'rasio utuh');
+  ok(css.includes('aspect-ratio: 16 / 9'), 'rasio base 16:9 utuh (non-landscape)');
 });
 test('403 controller overlay transparan', () => {
   const blocks = __mediaBlocks(css);
@@ -5597,13 +5603,14 @@ test('438 3 tab lama tetap 5 card + 15 equipment tak berubah', () => {
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
-test('444 kanvas landscape maksimal edge-to-edge tanpa distorsi', () => {
+test('444 kanvas landscape maksimal edge-to-edge tanpa distorsi (wide-view)', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   const all = land.map((b) => b.body).join('\n');
-  ok(all.includes('#canvas-container') && all.includes('100dvh') && all.includes('16 / 9'), 'canvas landscape dari viewport 16:9');
-  ok(all.includes('100vw'), 'canvas pakai lebar viewport');
-  ok(css.includes('aspect-ratio: 16 / 9'), 'rasio 16:9 utuh tanpa stretch');
+  ok(all.includes('#canvas-container') && all.includes('100dvh') && all.includes('100vw'), 'canvas landscape full-bleed dari viewport');
+  ok(all.includes('max-height') && all.includes('margin: auto'), 'past-cap di-cap + center');
+  ok(!all.includes('16 / 9'), 'aspek dinamis via JS inline, bukan pin 16:9');
+  ok(css.includes('aspect-ratio: 16 / 9'), 'rasio base 16:9 utuh tanpa stretch');
 });
 test('445 tombol pause tampil saat playing', () => {
   G.forceStartLevel(1);
@@ -5776,6 +5783,55 @@ test('454 tanpa API fullscreen: no-throw, game utuh', () => {
   noThrow(() => G.toMenu());
   eq(G.getState(), 'menu');
   G.resetSave(); G.forceStartLevel(1);
+});
+// ---------- 3 TEST WIDE-VIEW LANDSCAPE (WIDE-001) ----------
+test('455 wide-view: viewport lebar -> viewW dinamis 960..1440 + cap', () => {
+  srcHas('viewAspectBoost', 'helper boost hilang');
+  srcHas('setViewportOverride', 'hook override hilang');
+  srcHas('function viewW()', 'helper viewW hilang');
+  G.setViewportOverride(null);
+  eq(G.viewW(), 960, 'headless boost=1 -> base 960');
+  eq(G.getWorld().viewW, 960, 'getWorld ikut base saat headless');
+  G.setViewportOverride(1200, 540); // 20:9 -> boost 1.25 -> 1200
+  eq(G.viewW(), 1200, '20:9 harus 1200');
+  eq(G.getWorld().viewW, 1200, 'getWorld ikut viewW dinamis');
+  G.setViewportOverride(960, 540); // 16:9 pas -> tetap base
+  eq(G.viewW(), 960, '16:9 tetap 960');
+  G.setViewportOverride(2560, 720); // 32:9 -> cap 1.5 -> 1440
+  eq(G.viewW(), 1440, '32:9 di-cap 1440');
+  ok(G.viewW() <= 1440 && G.viewW() >= 960, 'rentang 960..1440');
+  G.setViewportOverride(null);
+  eq(G.viewW(), 960, 'reset override kembali base');
+});
+test('456 wide-view: camera clamp pakai viewW dinamis', () => {
+  srcHas('WORLD_W - vw', 'clamp kamera harus pakai viewW()');
+  G.setViewportOverride(1200, 540);
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.iframes = 9999; // uji clamp, bukan damage
+  pl.x = 3600 - 100; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1;
+  for (let i = 0; i < 120; i++) G.step(1 / 60);
+  const c = G.getCamera();
+  ok(c.x >= 0, 'camera.x >= 0');
+  ok(c.x <= 3600 - 1200 + 1, 'camera.x hormati clamp lebar (<=2400), got ' + c.x);
+  ok(c.x > 2000, 'kamera konvergen ke ujung, got ' + c.x);
+  pl.iframes = 0;
+  G.setViewportOverride(null);
+  G.forceStartLevel(1);
+});
+test('457 wide-view: HUD + backing store + container aspect aman di lebar dinamis', () => {
+  G.setViewportOverride(1200, 540);
+  G.forceStartLevel(1);
+  noThrow(() => { G.drawOnce(); }, 'drawHUD/drawWorld wide no-throw');
+  noThrow(() => { G.render.rescan(); }, 'rescan wide no-throw');
+  const sz = G.render.size();
+  eq(sz.w, Math.round(1200 * G.render.scale()), 'backing store ikut viewW');
+  eq(sz.h, Math.round(540 * G.render.scale()), 'tinggi tetap 540');
+  eq(elements['canvas-container'].style.aspectRatio, '1200 / 540', 'container aspect ikut viewW');
+  G.setViewportOverride(null);
+  G.forceStartLevel(1);
+  G.render.rescan();
+  eq(elements['canvas-container'].style.aspectRatio, '960 / 540', 'reset kembali base');
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

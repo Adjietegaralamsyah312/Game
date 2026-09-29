@@ -517,8 +517,9 @@ canvas#game {
 }
 
 /* --- [LANDSCAPE 1/3 — BASE] Gameplay mobile horizontal: joystick kiri bawah,
- * cluster aksi kanan bawah (grid skill/attack/jump/block), canvas 16:9
- * viewport-aware, overlay transparan + safe-area. Aturan menu/settings/
+ * cluster aksi kanan bawah (grid skill/attack/jump/block), canvas wide-view
+ * (aspek dinamis viewW/540 via JS inline, full-bleed tanpa stretch),
+ * overlay transparan + safe-area. Aturan menu/settings/
  * polish landscape ada di blok coarse terpisah di bawah (satu query,
  * tanpa override silang dengan gameplay). --- */
 @media (orientation: landscape) and (pointer: coarse) {
@@ -546,11 +547,14 @@ canvas#game {
     display: none;
   }
 
-  /* Edge-to-edge: kanvas sebesar mungkin 16:9; sisa bar samping di layar
-   * ultra-lebar adalah fisika aspek (bukan margin) — diterima by design. */
+  /* Wide-view edge-to-edge: JS sets inline aspect-ratio = viewW()/540
+   * (960..1440, cap 1.5x); lebar full-bleed ikut viewport, tinggi dari
+   * aspek — tanpa stretch/crop. max-height + margin auto: past-cap
+   * (ultra-wide langka) box di-cap dengan bar kecil, bukan overflow. */
   #canvas-container {
-    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc(100dvh * 16 / 9));
-    aspect-ratio: 16 / 9;
+    width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    margin: auto;
   }
 
   #touch-controls {
@@ -715,7 +719,9 @@ canvas#game {
   }
 
   #canvas-container {
-    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc(100dvh * 16 / 9));
+    width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    margin: auto;
   }
 
   #touch-controls .touch-group:first-child {
@@ -1694,8 +1700,9 @@ canvas#game {
 }
 
 /* --- LAND-002 FIX B: kanvas landscape maksimal (edge-to-edge). Override
- * aditif setelah base landscape: chrome 0 + safe-area saja, tanpa cadangan
- * sehingga kanvas terbesar; sisa bar samping ultra-lebar = fisika aspek. --- */
+ * aditif setelah base landscape: chrome 0 + safe-area saja; aspek dinamis
+ * dari JS inline (wide-view viewW/540). max-height + margin auto agar
+ * past-cap ultra-wide di-cap rapi, bukan overflow. --- */
 @media (orientation: landscape) and (pointer: coarse) {
   #wrap {
     padding:
@@ -1705,8 +1712,9 @@ canvas#game {
       max(0px, env(safe-area-inset-left));
   }
   #canvas-container {
-    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc(100dvh * 16 / 9));
-    aspect-ratio: 16 / 9;
+    width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    margin: auto;
   }
 }
 

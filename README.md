@@ -196,7 +196,7 @@ Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **✦** skill,
 
 Landscape saja (layout base seragam di semua lebar):
 
-- **Landscape**: canvas edge-to-edge 16:9 sebesar viewport (`100vw`/`100dvh`,
+- **Landscape**: canvas edge-to-edge full-bleed (`100vw`/`100dvh`,
   padding safe-area saja, tanpa stretch; sisa bar samping di layar ultra-lebar
   adalah fisika aspek) + kontroler MMORPG **overlay** transparan (canvas tak
    menciut): **joystick analog kiri**, **kanan**: ❖ ATTACK, ✦ SKILL (label ikut mode),
@@ -207,7 +207,15 @@ Landscape saja (layout base seragam di semua lebar):
   tab-hidden/rotasi; desktop/laptop (pointer halus) tak tampil joystick,
   keyboard + mouse utuh.
 Multi-touch (gerak + lompat/serang bersamaan). Semua dialog touch-friendly.
-Layout landscape pendek (dialog se-layar, canvas 16:9).
+Layout landscape pendek (dialog se-layar, canvas wide-view).
+
+**Wide-view landscape**: di viewport lebih lebar dari 16:9, game merender
+irisan dunia yang lebih lebar (lebar logis 960→1440, tinggi tetap 540,
+boost = `clamp(aspek/(16/9), 1, 1.5)`) sehingga kanvas memenuhi lebar layar —
+tanpa stretch, tanpa crop, tanpa bar (kecuali past-cap ultra-wide langka,
+di-cap rapi). Kamera, culling, dan HUD kanan/tengah mengikuti lebar dinamis;
+JS menulis `aspect-ratio` container dari `viewW()`. Base 16:9, portrait lock,
+dan perilaku headless-test (960) tidak berubah.
 
 Game **landscape-only**: overlay penuh **PUTAR KE LANDSCAPE**
 (`#rotate-overlay`) tampil di semua state saat portrait (menu/settings/playing/
@@ -318,7 +326,7 @@ node test.js
 git diff --check
 ```
 
- 441 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 4 kill reward + 1 menu landscape + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 1 landscape maksimal edge-to-edge 16:9 + 2 tombol pause + 1 render tajam + 4 rotate lock + 3 fullscreen otomatis) —
+ 444 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 4 kill reward + 1 menu landscape + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 1 landscape maksimal edge-to-edge 16:9 + 2 tombol pause + 1 render tajam + 4 rotate lock + 3 fullscreen otomatis + 3 wide-view landscape) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
