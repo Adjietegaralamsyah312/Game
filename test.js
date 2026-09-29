@@ -94,7 +94,7 @@ const elementIds = ['wrap', 'game', 'gameover', 'levelcomplete', 'btn-restart', 
   'btn-campaign', 'campaign', 'campaign-status',
   'btn-diff-normal', 'btn-diff-hard', 'diff-hard-card', 'achieve-toast-text', 'btn-achieve-back',   'btn-skills', 'skills', 'skills-list', 'skills-status', 'btn-skills-back', 'hard-lock-label',
   'btn-achievements', 'achievements', 'achieve-list', 'achieve-counter', 'achieve-toast',
-  'btn-camp-back', 'btn-pause', 'btn-fullscreen', 'pause',
+  'btn-camp-back', 'btn-pause', 'pause',
   'btn-resume', 'btn-pause-respawn', 'btn-pause-menu',
   // Stage 6: settings + reset + records + mission
   'mission', 'btn-settings', 'settings',
@@ -229,7 +229,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 441; // total test (437 + 4 rotate lock LCK-001/002)
+const EXPECTED_TOTAL = 438; // total test (434 + 4 rotate lock LCK-001/002)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -679,14 +679,14 @@ test('78 mockmirror produksi: id wire game.js ada di HTML + mock', () => {
     ok(wired.includes(id), 'elemen Stage 5 harus di-wire: ' + id);
   });
 });
-test('79 dialog fullscreen anti-clip di layar sentuh kecil', () => {
+test('79 dialog se-layar anti-clip di layar sentuh kecil', () => {
   const blocks = __mediaBlocks(css);
   const dlg = blocks.filter((b) => b.body.includes('#mainmenu') && b.body.includes('position: fixed'));
-  ok(dlg.length >= 1, 'aturan dialog fullscreen hilang');
+  ok(dlg.length >= 1, 'aturan dialog se-layar hilang');
   ok(dlg[0].header.includes('pointer: coarse'), 'harus pointer:coarse agar desktop aman');
   ok(dlg[0].body.includes('overflow-y: auto'), 'dialog pendek harus bisa scroll');
   ['#gameover', '#levelcomplete', '#lvlclear', '#gameclear'].forEach((sel) => {
-    ok(dlg[0].body.includes(sel), 'dialog harus fullscreen: ' + sel);
+    ok(dlg[0].body.includes(sel), 'dialog harus se-layar: ' + sel);
   });
 });
 test('80 HP landscape pendek: ringkas, 16:9 utuh, kontrol muat', () => {
@@ -1022,13 +1022,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('441 automated test'), 'README harus sebut 441 test, cek jumlah');
+  ok(readme.includes('438 automated test'), 'README harus sebut 438 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 441);
+  eq(EXPECTED_TOTAL, 438);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1202,7 +1202,7 @@ test('118 touch sizing Game Over + anti-clip', () => {
     'tombol gameover ideal 56px');
   const blocks = __mediaBlocks(css);
   const dlg = blocks.filter((b) => b.body.includes('#mainmenu') && b.body.includes('position: fixed'));
-  ok(dlg.length >= 1 && dlg[0].body.includes('#gameover'), '#gameover ikut fullscreen anti-clip');
+  ok(dlg.length >= 1 && dlg[0].body.includes('#gameover'), '#gameover ikut se-layar anti-clip');
   ok(css.includes('.btn-row') && css.includes('flex-wrap: wrap'), 'tombol wrap natural di HP');
 });
 
@@ -4073,13 +4073,13 @@ test('316 landscape pendek: hemat ruang + dua kolom', () => {
   ok(css.includes('flex: 0 0 200px'), 'preview kiri bounded');
   ok(css.includes('max-width: 44vw'), 'preview tak makan layar');
 });
-test('317 fullscreen dialog tetap untuk shop', () => {
+test('317 dialog se-layar tetap untuk shop', () => {
   ok(/position:\s*fixed/.test(css.slice(css.indexOf('#canvas-container #gameover'), css.indexOf('#canvas-container #gameover') + 800)), 'dialog fixed');
   ok(html.includes('id="shop"'), 'shop ada');
   ok(!elements['shop'].classList.contains('hidden') || true, 'mock awal');
   G.resetSave(); G.toMenu();
   elements['btn-shop'].dispatch('click', {});
-  ok(!elements['shop'].classList.contains('hidden'), 'shop tampil fullscreen');
+  ok(!elements['shop'].classList.contains('hidden'), 'shop tampil se-layar');
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
@@ -4273,7 +4273,7 @@ test('341 z-index audit: tanpa absolute liar', () => {
   const absCount = (css.match(/position:\s*absolute/g) || []).length;
   eq(absCount, 2, 'hanya overlay base + stack img, got ' + absCount);
   // Hierarki stacking terkunci allowlist: base 5, controller overlay 40,
-  // dialog fullscreen 50, pause overlay 60, toast 9999, rotate lock 20000.
+  // dialog se-layar 50, pause overlay 60, toast 9999, rotate lock 20000.
   const zvals = (css.match(/z-index:\s*(\d+)/g) || []).map((s) => s.replace(/[^0-9]/g, ''));
   ok(zvals.length === 6, 'lapisan wajar, got ' + zvals.length);
   zvals.forEach((z) => ok(['5', '40', '50', '60', '9999', '20000'].includes(z), 'z-index di luar allowlist: ' + z));
@@ -4913,7 +4913,7 @@ test('387 rotate lock landscape-only + joystick tampil', () => {
   eq(portraitBlocks.length, 1, 'satu blok portrait, got ' + portraitBlocks.length);
   const pb = portraitBlocks[0].body;
   ok(pb.includes('#rotate-overlay:not(.hidden)'), 'tampil saat tidak hidden');
-  ok(pb.includes('position: fixed') && pb.includes('inset: 0'), 'fullscreen');
+  ok(pb.includes('position: fixed') && pb.includes('inset: 0'), 'se-layar');
   ok(pb.includes('z-index: 20000'), 'di atas dialog/toast');
   ok(/#080a19/.test(pb) && !/rgba\(\s*8\s*,\s*10\s*,\s*25/.test(pb), 'backdrop opaque pekat');
   // Kontroler klasik tetap ada dan ter-wire (layout base berlaku di semua lebar).
@@ -5189,24 +5189,6 @@ test('409 damage invalid diabaikan (HP tak NaN)', () => {
   eq(pl.hp, 100, 'HP utuh saat damage invalid');
   ok(Number.isFinite(pl.hp), 'HP harus finite');
 });
-test('410 fullscreen API + tombol ter-wire', () => {
-  eq(typeof G.toggleFullscreen, 'function', 'API toggleFullscreen');
-  eq(typeof G.isFullscreen, 'function', 'API isFullscreen');
-  eq(G.isFullscreen(), false, 'headless bukan fullscreen');
-  ok(/id="btn-fullscreen"[^>]*aria-label/.test(html), 'tombol fullscreen berlabel');
-  const bf = elements['btn-fullscreen'];
-  ok(bf, 'mock ada btn-fullscreen');
-  ok((bf.listeners['click'] || []).length >= 1, 'fullscreen ter-wire click');
-  noThrow(() => G.toggleFullscreen(), 'toggle aman tanpa Fullscreen API');
-});
-test('411 tombol F + tombol tampil saat playing', () => {
-  G.forceStartLevel(1);
-  noThrow(() => fireWin('keydown', { code: 'KeyF', preventDefault() {} }), 'F aman');
-  const bf = elements['btn-fullscreen'];
-  ok(!bf.classList.contains('hidden'), 'tombol tampil saat playing');
-  G.toMenu();
-  ok(bf.classList.contains('hidden'), 'tombol sembunyi di menu');
-});
 test('412 minibos tumbang: +10 coin + langsung finish', () => {
   G.resetSave();
   G.forceStartLevel(1);
@@ -5254,15 +5236,6 @@ test('416 menu landscape 2 kolom kompak tanpa scroll', () => {
   // 8 tombol x44px + judul + gap harus muat 360px tanpa scroll.
   const rows = 4, btnH = 44, gap = 8, title = 32, pad = 20;
   ok(title + rows * btnH + (rows - 1) * gap + pad <= 360, 'budget muat 360px');
-});
-test('417 fullscreen di #wrap + tanpa auto (manual saja)', () => {
-  // Elemen fullscreen harus #wrap (kanvas + kontrol + dialog ikut tampil).
-  srcHas("getElementById('wrap')");
-  ok(css.includes('#wrap:fullscreen'), 'aturan wrap fullscreen ada');
-  // Tanpa auto-fullscreen: toast browser hanya muncul bila user tekan tombol.
-  ok(!/tryAutoFullscreen/.test(src), 'tak ada auto fullscreen');
-  // Toggle tetap aman headless (wrap tak ada -> fallback -> false).
-  eq(G.toggleFullscreen(), false);
 });
 test('418 block stamina terpotong sekali (tanpa duplikat)', () => {
   resetSkills(); G.setMode('GUARDIAN'); G.forceStartLevel(1);
@@ -5623,31 +5596,23 @@ test('438 3 tab lama tetap 5 card + 15 equipment tak berubah', () => {
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
-test('444 kanvas landscape maksimal + fullscreen tanpa distorsi', () => {
+test('444 kanvas landscape maksimal edge-to-edge tanpa distorsi', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   const all = land.map((b) => b.body).join('\n');
   ok(all.includes('#canvas-container') && all.includes('100dvh') && all.includes('16 / 9'), 'canvas landscape dari viewport 16:9');
-  const fsRules = (css.match(/[^\n{}]*full-?screen[^\n{}]*\{[^}]*\}/g) || [])
-    .filter((r) => r.includes('#canvas-container'));
-  ok(fsRules.length >= 1, 'aturan fullscreen kanvas hilang');
-  const last = fsRules[fsRules.length - 1];
-  ok(last.includes('min(100vw') && last.includes('16 / 9'), 'fullscreen terakhir harus jaga rasio 16:9');
-  ok(!/height:\s*100dvh/.test(last), 'fullscreen terakhir tanpa stretch vertikal');
+  ok(all.includes('100vw'), 'canvas pakai lebar viewport');
+  ok(css.includes('aspect-ratio: 16 / 9'), 'rasio 16:9 utuh tanpa stretch');
 });
-test('445 tombol pause/fullscreen tampil saat playing', () => {
+test('445 tombol pause tampil saat playing', () => {
   G.forceStartLevel(1);
-  ['btn-pause', 'btn-fullscreen'].forEach((id) => {
-    ok(elements[id], 'mock ada ' + id);
-    ok(!elements[id].classList.contains('hidden'), id + ' tampil saat playing');
-  });
+  ok(elements['btn-pause'], 'mock ada btn-pause');
+  ok(!elements['btn-pause'].classList.contains('hidden'), 'btn-pause tampil saat playing');
   G.forceStartLevel(1);
 });
-test('446 tombol center sembunyi di menu', () => {
+test('446 tombol pause sembunyi di menu', () => {
   G.toMenu();
-  ['btn-pause', 'btn-fullscreen'].forEach((id) => {
-    ok(elements[id].classList.contains('hidden'), id + ' sembunyi di menu');
-  });
+  ok(elements['btn-pause'].classList.contains('hidden'), 'btn-pause sembunyi di menu');
   G.forceStartLevel(1);
 });
 test('447 render tajam: smoothing OFF + translate integer', () => {

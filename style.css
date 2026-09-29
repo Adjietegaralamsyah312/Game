@@ -532,10 +532,10 @@ canvas#game {
     gap: 0;
     justify-content: center;
     padding:
-      max(6px, env(safe-area-inset-top))
-      max(12px, env(safe-area-inset-right))
-      max(8px, env(safe-area-inset-bottom))
-      max(12px, env(safe-area-inset-left));
+      max(0px, env(safe-area-inset-top))
+      max(0px, env(safe-area-inset-right))
+      max(0px, env(safe-area-inset-bottom))
+      max(0px, env(safe-area-inset-left));
     overflow: hidden;
   }
 
@@ -546,8 +546,10 @@ canvas#game {
     display: none;
   }
 
+  /* Edge-to-edge: kanvas sebesar mungkin 16:9; sisa bar samping di layar
+   * ultra-lebar adalah fisika aspek (bukan margin) — diterima by design. */
   #canvas-container {
-    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px), calc((100dvh - 16px) * 16 / 9));
+    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc(100dvh * 16 / 9));
     aspect-ratio: 16 / 9;
   }
 
@@ -606,18 +608,6 @@ canvas#game {
     justify-content: center;
     align-items: center;
     gap: 8px;
-  }
-
-  /* Pause + fullscreen: satu definisi per tombol (dulu fullscreen 2 blok). */
-  #btn-fullscreen {
-    position: fixed;
-    width: 44px;
-    height: 44px;
-    margin: 0;
-    font-size: 16px;
-    opacity: 0.9;
-    top: max(58px, calc(env(safe-area-inset-top) + 50px));
-    right: max(10px, env(safe-area-inset-right));
   }
 
   #btn-pause {
@@ -720,12 +710,12 @@ canvas#game {
   }
 
   #wrap {
-    padding-top: max(4px, env(safe-area-inset-top));
-    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
   }
 
   #canvas-container {
-    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px), calc((100dvh - 10px) * 16 / 9));
+    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc(100dvh * 16 / 9));
   }
 
   #touch-controls .touch-group:first-child {
@@ -757,8 +747,7 @@ canvas#game {
     height: clamp(42px, 11vmin, 52px);
   }
 
-  #touch-controls #btn-pause,
-  #touch-controls #btn-fullscreen {
+  #touch-controls #btn-pause {
     width: clamp(36px, 4.8vmin, 42px);
     height: clamp(36px, 4.8vmin, 42px);
     font-size: clamp(12px, 2.4vmin, 15px);
@@ -795,9 +784,9 @@ canvas#game {
 /* (Blok duplikat landscape-pendek dihapus — sudah menyatu di dua
  * blok landscape di atas agar tak saling override.) */
 
-/* --- Dialog overlay fullscreen di layar sentuh kecil ---
+/* --- Dialog overlay se-layar di layar sentuh kecil ---
  * Canvas HP pendek (~200px) + overflow:hidden memotong tombol menu/gameover
- * sehingga tak tersentuh. Di layar kecil dialog menjadi fullscreen viewport
+ * sehingga tak tersentuh. Di layar kecil dialog menjadi se-layar viewport
  * (dapat di-scroll bila sangat pendek). Desktop tidak kena (pointer kasar). */
 @media (pointer: coarse) and (max-width: 820px),
        (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
@@ -947,7 +936,7 @@ canvas#game {
 
 /* --- Menu utama landscape: kompak 2 kolom agar 8 tombol muat tanpa scroll.
  * Blok sendiri (terpisah dari overlay kontrol) agar tak mengganggu audit
- * dialog fullscreen. Judul kecil, tagline + hint keyboard disembunyikan. */
+ * dialog se-layar. Judul kecil, tagline + hint keyboard disembunyikan. */
 @media (orientation: landscape) and (pointer: coarse) {
   #canvas-container #mainmenu {
     justify-content: flex-start;
@@ -1486,113 +1475,6 @@ canvas#game {
   outline-offset: 2px;
 }
 
-/* --- Tombol fullscreen: gaya HUD bundar seperti pause --- */
-#btn-fullscreen {
-  width: clamp(40px, 11vw, 44px);
-  height: clamp(40px, 11vw, 44px);
-  font-size: 16px;
-  border-radius: 50%;
-  border: 2px solid #4a558f;
-  background: rgba(58, 66, 120, 0.55);
-  color: #fff;
-  cursor: pointer;
-  touch-action: manipulation;
-  opacity: 0.85;
-}
-#btn-fullscreen:hover,
-#btn-fullscreen:focus-visible {
-  background: #2a3570;
-  outline: 2px solid #fff;
-  outline-offset: 2px;
-}
-#btn-fullscreen.hidden {
-  display: none;
-}
-
-/* --- Fullscreen API: seluruh #wrap (kanvas + kontrol + dialog) isi
-   layar penuh. Game meminta fullscreen di #wrap sehingga aturan ini
-   match (request di documentElement membuat :fullscreen kanvas mati).
-   Stretch: layar HP 20:9 vs kanvas 16:9 sehingga bar hitam hilang. --- */
-#wrap:fullscreen {
-  width: 100vw;
-  height: 100dvh;
-  max-width: none;
-  min-height: 100dvh;
-  gap: 0;
-  padding: 0;
-  justify-content: center;
-  background: #000;
-}
-#wrap:fullscreen #canvas-container {
-  width: 100vw;
-  height: 100dvh;
-  border-radius: 0;
-  border: 0;
-}
-#wrap:-webkit-full-screen {
-  width: 100vw;
-  height: 100dvh;
-  max-width: none;
-  padding: 0;
-  background: #000;
-}
-#wrap:-webkit-full-screen #canvas-container {
-  width: 100vw;
-  height: 100dvh;
-  border-radius: 0;
-  border: 0;
-}
-/* Fallback bila fullscreen jatuh ke documentElement/kanvas. */
-#canvas-container:fullscreen {
-  width: 100vw;
-  height: 100dvh;
-  border-radius: 0;
-  border: 0;
-  background: #000;
-}
-#canvas-container:-webkit-full-screen {
-  width: 100vw;
-  height: 100dvh;
-  border-radius: 0;
-  border: 0;
-  background: #000;
-}
-/* --- LAND-002 FIX A: fullscreen jaga rasio 16:9 (tanpa stretch). Override
-   aditif setelah aturan bare 100vw/100dvh di atas: lebar dibatasi ke
-   min(100vw, 100dvh*16/9), tinggi ikut aspect-ratio base. --- */
-#wrap:fullscreen #canvas-container {
-  width: min(100vw, calc(100dvh * 16 / 9));
-  height: auto;
-  aspect-ratio: 16 / 9;
-  border-radius: 0;
-  border: 0;
-  background: #000;
-}
-#wrap:-webkit-full-screen #canvas-container {
-  width: min(100vw, calc(100dvh * 16 / 9));
-  height: auto;
-  aspect-ratio: 16 / 9;
-  border-radius: 0;
-  border: 0;
-  background: #000;
-}
-#canvas-container:fullscreen {
-  width: min(100vw, calc(100dvh * 16 / 9));
-  height: auto;
-  aspect-ratio: 16 / 9;
-  border-radius: 0;
-  border: 0;
-  background: #000;
-}
-#canvas-container:-webkit-full-screen {
-  width: min(100vw, calc(100dvh * 16 / 9));
-  height: auto;
-  aspect-ratio: 16 / 9;
-  border-radius: 0;
-  border: 0;
-  background: #000;
-}
-
 /* --- MMORPG controller: joystick analog + tombol aksi (landscape-first) --- */
 #joystick-zone {
   width: clamp(96px, 30vmin, 132px);
@@ -1811,19 +1693,19 @@ canvas#game {
   font-size: 14px;
 }
 
-/* --- LAND-002 FIX B: kanvas landscape maksimal (non-fullscreen). Override
-   aditif setelah base landscape: chrome ramping (tetap >= safe-area),
-   cadangan tinggi 16px->8px sehingga kanvas ~8px lebih tinggi. --- */
+/* --- LAND-002 FIX B: kanvas landscape maksimal (edge-to-edge). Override
+ * aditif setelah base landscape: chrome 0 + safe-area saja, tanpa cadangan
+ * sehingga kanvas terbesar; sisa bar samping ultra-lebar = fisika aspek. --- */
 @media (orientation: landscape) and (pointer: coarse) {
   #wrap {
     padding:
-      max(2px, env(safe-area-inset-top))
-      max(2px, env(safe-area-inset-right))
-      max(2px, env(safe-area-inset-bottom))
-      max(2px, env(safe-area-inset-left));
+      max(0px, env(safe-area-inset-top))
+      max(0px, env(safe-area-inset-right))
+      max(0px, env(safe-area-inset-bottom))
+      max(0px, env(safe-area-inset-left));
   }
   #canvas-container {
-    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 4px), calc((100dvh - 8px) * 16 / 9));
+    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), calc(100dvh * 16 / 9));
     aspect-ratio: 16 / 9;
   }
 }
@@ -1831,7 +1713,7 @@ canvas#game {
 /* --- Rotate lock landscape-only (LCK-001): portrait auto-pause ---
  * Satu-satunya aturan portrait yang diizinkan (fungsional, bukan layout).
  * Base disembunyikan total; hanya saat tidak .hidden + portrait yang tampil
- * fullscreen di atas dialog (z 20000 > toast 9999 > dialog 50-60). */
+ * se-layar di atas dialog (z 20000 > toast 9999 > dialog 50-60). */
 #rotate-overlay {
   display: none;
 }

@@ -5479,7 +5479,7 @@
     gameState = 'playing';
     hideAllOverlays();
     refreshBlockBtn();
-    refreshPauseBtn(); // tombol pause/fullscreen sinkron langsung, tak tunggu frame
+    refreshPauseBtn(); // tombol pause sinkron langsung, tak tunggu frame
     setPaused(false);
     try { last = nowPerf(); } catch (e) { /* abaikan */ }
     AudioManager.updateMusicState(); // BGM gameplay tanpa overlap
@@ -5516,7 +5516,7 @@
     clearInput();
     refreshBlockBtn();
     try { refreshSkillBtn(); } catch (e) {}
-    refreshPauseBtn(); // sembunyikan pause/fullscreen di menu
+    refreshPauseBtn(); // sembunyikan pause di menu
     setPaused(false);
     camera.x = 120; // vista menu
     refreshRecordsUI();
@@ -6154,7 +6154,6 @@
    * Pause membekukan simulasi (frame return dini), men-suspend audio,
    * membersihkan input agar tidak bocor saat resume. Satu rAF tetap. */
   var pauseEl = null, btnPause = null;
-  var btnFullscreen = null;
   var btnResume = null, btnPauseRespawn = null, btnPauseMenu = null;
   var btnBlockEl = null;
 
@@ -6227,7 +6226,6 @@
 
   function refreshPauseBtn() {
     try {
-      refreshFullscreenBtn();
       if (!btnPause) return;
       if (gameState === 'playing') {
         btnPause.classList.remove('hidden');
@@ -6239,50 +6237,6 @@
     } catch (e) { /* abaikan */ }
   }
 
-  /* ---- Fullscreen landscape: tombol ⛶ + tombol F + auto saat main. ----
-   * Fullscreen API butuh user gesture: dipicu dari klik/tombol.
-   * Gagal diam-diam (headless/deny) tanpa merusak game. */
-  function fsEl() {
-    try {
-      var d = (typeof document !== 'undefined') ? document : null;
-      if (!d) return null;
-      return d.fullscreenElement || d.webkitFullscreenElement || null;
-    } catch (e) { return null; }
-  }
-  function isFullscreen() { return !!fsEl(); }
-  function refreshFullscreenBtn() {
-    try {
-      if (!btnFullscreen) return;
-      if (gameState === 'playing') {
-        btnFullscreen.classList.remove('hidden');
-        btnFullscreen.setAttribute('aria-label', isFullscreen() ? 'Keluar layar penuh' : 'Layar penuh');
-      } else {
-        btnFullscreen.classList.add('hidden');
-      }
-    } catch (e) { /* abaikan */ }
-  }
-  function toggleFullscreen() {
-    try {
-      var d = (typeof document !== 'undefined') ? document : null;
-      if (!d) return false;
-      if (fsEl()) {
-        var ex = d.exitFullscreen || d.webkitExitFullscreen;
-        if (ex) { var r = ex.call(d); if (r && r.catch) r.catch(function () {}); }
-        return false;
-      }
-      // Minta fullscreen di #wrap (kanvas + kontrol + dialog ikut tampil).
-      // Aturan :fullscreen menempel di elemen ini; documentElement sebagai
-      // fallback bila #wrap tak ada (aturan kanvas tetap berlaku).
-      var root = null;
-      try { root = d.getElementById && d.getElementById('wrap'); } catch (e) { root = null; }
-      if (!root) root = d.documentElement || d.body;
-      var rq = root && (root.requestFullscreen || root.webkitRequestFullscreen);
-      if (!rq) return false;
-      var p = rq.call(root);
-      if (p && p.catch) p.catch(function () {});
-      return true;
-    } catch (e) { return false; }
-  }
   function isPauseOpen() {
     try { return !!(pauseEl && !pauseEl.classList.contains('hidden')); }
     catch (e) { return false; }
@@ -8253,7 +8207,6 @@
   shopBackBtn = document.getElementById('shop-back');
   pauseEl = document.getElementById('pause');
   btnPause = document.getElementById('btn-pause');
-  btnFullscreen = document.getElementById('btn-fullscreen');
   btnResume = document.getElementById('btn-resume');
   btnPauseRespawn = document.getElementById('btn-pause-respawn');
   btnPauseMenu = document.getElementById('btn-pause-menu');
@@ -8418,13 +8371,6 @@
     if (gameState !== 'playing') return;
     togglePause();
   });
-  onClick(btnFullscreen, function () { toggleFullscreen(); });
-  try {
-    if (typeof document !== 'undefined' && document.addEventListener) {
-      document.addEventListener('fullscreenchange', refreshFullscreenBtn);
-      document.addEventListener('webkitfullscreenchange', refreshFullscreenBtn);
-    }
-  } catch (e) { /* abaikan */ }
   onClick(btnResume, function () { resumeGame(); });
   onClick(btnPauseRespawn, function () {
     if (pauseEl) pauseEl.classList.add('hidden');
@@ -8492,11 +8438,6 @@
       // Explicit pause: P toggle, Esc toggle (valid: pause <-> resume).
       if (e.code === 'KeyP') {
         togglePause();
-        if (e.preventDefault) e.preventDefault();
-        return;
-      }
-      if (e.code === 'KeyF') {
-        toggleFullscreen();
         if (e.preventDefault) e.preventDefault();
         return;
       }
@@ -8753,8 +8694,6 @@
     getTime: function () { return timeElapsed; },
     isPaused: function () { return paused; },
     setPaused: setPaused,
-    toggleFullscreen: toggleFullscreen,
-    isFullscreen: isFullscreen,
     handleVisibility: onVisibility,
     clampDt: clampDt,
     isPortrait: isPortrait,

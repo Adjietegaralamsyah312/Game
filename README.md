@@ -38,13 +38,13 @@ cukup capai FINISH. Boss wajib dikalahkan di L2/L4/L5.
 ## Fitur v1.3.1
 
 - **Fix scroll Shop landscape**: satu scroller (`#shop-body`), override
-  `overflow: hidden` atas aturan dialog fullscreen (spesifisitas setara,
+  `overflow: hidden` atas aturan dialog se-layar (spesifisitas setara,
   urutan menang); landscape hemat ruang (tiny disembunyikan, msg ramping);
   swipe satu jari + wheel + keyboard utuh; tanpa ubah harga/stat/gameplay
 
 ## Fitur v1.3
 
-- **Mobile Shop**: halaman shop rapi (fullscreen, header compact,
+- **Mobile Shop**: halaman shop rapi (se-layar, header compact,
   card 1 kolom, deskripsi wrap, tombol ≥44px) dan
   landscape (preview kiri, daftar kanan); scroll satu jari pada content
   (`overflow-y: auto`, momentum, `pan-y`, overscroll contain); swipe/tap Shop
@@ -196,8 +196,9 @@ Tombol sentuh: **◀ ▶** gerak, **⤒** lompat, **❖** serang, **✦** skill,
 
 Landscape saja (layout base seragam di semua lebar):
 
-- **Landscape**: canvas dominan 16:9 dari viewport (`100vw`/`100dvh`,
-  tanpa stretch) + kontroler MMORPG **overlay** transparan (canvas tak
+- **Landscape**: canvas edge-to-edge 16:9 sebesar viewport (`100vw`/`100dvh`,
+  padding safe-area saja, tanpa stretch; sisa bar samping di layar ultra-lebar
+  adalah fisika aspek) + kontroler MMORPG **overlay** transparan (canvas tak
    menciut): **joystick analog kiri**, **kanan**: ❖ ATTACK, ✦ SKILL (label ikut mode),
    🧪 POTION, ⤒ JUMP, 🛡 block (Guardian saja); panah ◀ ▶ diganti joystick (keyboard A/D utuh);
   pause kecil 44px kanan-atas; safe-area `env()`.
@@ -206,7 +207,7 @@ Landscape saja (layout base seragam di semua lebar):
   tab-hidden/rotasi; desktop/laptop (pointer halus) tak tampil joystick,
   keyboard + mouse utuh.
 Multi-touch (gerak + lompat/serang bersamaan). Semua dialog touch-friendly.
-Layout landscape pendek (dialog fullscreen, canvas 16:9).
+Layout landscape pendek (dialog se-layar, canvas 16:9).
 
 Game **landscape-only**: overlay penuh **PUTAR KE LANDSCAPE**
 (`#rotate-overlay`) tampil di semua state saat portrait (menu/settings/playing/
@@ -314,7 +315,7 @@ node test.js
 git diff --check
 ```
 
- 441 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 2 fullscreen + 4 kill reward + 1 menu landscape + 1 wrap fullscreen + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 1 landscape maksimal/fullscreen 16:9 + 2 tombol center + 1 render tajam + 4 rotate lock) —
+ 438 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 4 kill reward + 1 menu landscape + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 1 landscape maksimal edge-to-edge 16:9 + 2 tombol pause + 1 render tajam + 4 rotate lock) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 
