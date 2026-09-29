@@ -1757,3 +1757,10 @@ canvas#game {
     padding: 12px;
   }
 }
+
+/* --- CB-002: landscape true full-bleed — nolkan chrome base (border/
+ * radius/shadow) di luar safe-area agar piksel game capai tepi viewport.
+ * Aditif setelah semua blok landscape; aspek tetap via JS inline. --- */
+@media (orientation: landscape) and (pointer: coarse) {
+  #canvas-container { border: 0; border-radius: 0; box-shadow: none; }
+}
