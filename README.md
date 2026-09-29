@@ -225,8 +225,8 @@ Portrait dan landscape sama-sama playable:
   tombol kompak ≥44px (pause 40px), dialog fullscreen + scroll.
 - **Landscape**: canvas dominan 16:9 dari viewport (`100vw`/`100dvh`,
   tanpa stretch) + kontroler MMORPG **overlay** transparan (canvas tak
-  menciut): **joystick analog kiri**, **kanan**: ❖ ATTACK, ✦ SKILL, ➤ DASH,
-  ⤒ JUMP, 🛡 block; panah ◀ ▶ diganti joystick (keyboard A/D utuh);
+   menciut): **joystick analog kiri**, **kanan**: ❖ ATTACK, ✦ SKILL (label ikut mode),
+   🧪 POTION, ⤒ JUMP, 🛡 block (Guardian saja); panah ◀ ▶ diganti joystick (keyboard A/D utuh);
   pause kecil 44px kanan-atas; safe-area `env()`.
 - HUD canvas: LV + NORMAL/HARD, HP, bar energi + status cooldown skill.
 - Safe area `env()` + `touch-action: none`; input di-reset saat blur/
@@ -335,7 +335,7 @@ node test.js
 git diff --check
 ```
 
-426 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 2 fullscreen + 4 kill reward + 1 menu landscape + 1 wrap fullscreen + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback) —
+ 446 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 2 fullscreen + 4 kill reward + 1 menu landscape + 1 wrap fullscreen + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 5 zoom in-game + 1 landscape maksimal/fullscreen 16:9 + 2 tombol center) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 

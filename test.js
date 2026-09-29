@@ -94,7 +94,7 @@ const elementIds = ['wrap', 'game', 'gameover', 'levelcomplete', 'btn-restart', 
   'btn-campaign', 'campaign', 'campaign-status',
   'btn-diff-normal', 'btn-diff-hard', 'diff-hard-card', 'achieve-toast-text', 'btn-achieve-back',   'btn-skills', 'skills', 'skills-list', 'skills-status', 'btn-skills-back', 'hard-lock-label',
   'btn-achievements', 'achievements', 'achieve-list', 'achieve-counter', 'achieve-toast',
-  'btn-camp-back', 'btn-pause', 'btn-fullscreen', 'pause',
+  'btn-camp-back', 'btn-pause', 'btn-fullscreen', 'btn-zoom-in', 'btn-zoom-out', 'pause',
   'btn-resume', 'btn-pause-respawn', 'btn-pause-menu',
   // Stage 6: settings + reset + records + mission
   'mission', 'btn-settings', 'settings',
@@ -102,9 +102,10 @@ const elementIds = ['wrap', 'game', 'gameover', 'levelcomplete', 'btn-restart', 
   'set-music', 'set-music-vol-down', 'set-music-vol-up', 'set-music-vol-val',
   'set-input', 'set-resolution', 'set-graphics', 'btn-reset-progress', 'btn-settings-back',
   'reset-confirm', 'btn-reset-cancel', 'btn-reset-confirm', 'about-records',
-  // Weapon Shop + block
+  // Weapon Shop + block + potion
   'btn-shop', 'shop', 'shop-coin',
-  'shop-tab-sword', 'shop-tab-shield', 'shop-tab-bow',
+  'shop-tab-sword', 'shop-tab-shield', 'shop-tab-bow', 'shop-tab-potion',
+  'btn-potion',
   'shop-list', 'shop-preview', 'shop-prev-img', 'shop-prev-name',
   'shop-prev-tier', 'shop-prev-price', 'shop-prev-desc', 'shop-prev-stats',
   'shop-prev-special', 'shop-prev-action',
@@ -228,7 +229,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 426; // total test (425 + 1 fallback storage)
+const EXPECTED_TOTAL = 446; // total test (439 + 5 zoom in-game + 2 tombol center)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -244,7 +245,7 @@ function noThrow(fn, msg) { try { fn(); } catch (e) { throw new Error((msg || 't
 // Config (1-5)
 test('01 DEBUG default false', () => { srcHas('const DEBUG = false'); eq(G.config.DEBUG, false); });
 test('02 VIEW 960x540', () => { srcHas('VIEW_W = 960'); srcHas('VIEW_H = 540'); });
-test('03 WORLD 2400x540', () => { const w = G.getWorld(); eq(w.w, 2400); eq(w.h, 540); eq(w.viewW, 960); srcHas('WORLD_W = 2400'); });
+test('03 WORLD 3600x540', () => { const w = G.getWorld(); eq(w.w, 3600); eq(w.h, 540); eq(w.viewW, 960); srcHas('WORLD_W = 3600'); });
 test('04 PLAYER_MAX_HP 100', () => { srcHas('PLAYER_MAX_HP = 100'); eq(G.getPlayer().hp, 100); });
 test('05 MAX_PARTICLES 120 pool preallocated', () => { srcHas('MAX_PARTICLES = 120'); eq(G.fx.max(), 120); srcHas('preallocated'); });
 
@@ -275,12 +276,12 @@ test('22 slime punya patrol/chase/attack/hurt/death', () => {
 
 // Kamera (23-25)
 test('23 CAM_SMOOTH 4.5 + ahead R/L', () => { srcHas('CAM_SMOOTH = 4.5'); srcHas('CAM_AHEAD_R'); srcHas('CAM_AHEAD_L'); });
-test('24 kamera dibatasi level (clamp 0..WORLD-VIEW)', () => { srcHas('WORLD_W - VIEW_W'); const c = G.getCamera(); ok(c.x >= 0 && c.x <= 2400 - 960, 'camera.x di luar batas'); });
+test('24 kamera dibatasi level (clamp 0..WORLD-VIEW)', () => { srcHas('WORLD_W - VIEW_W'); const c = G.getCamera(); ok(c.x >= 0 && c.x <= 3600 - 960, 'camera.x di luar batas'); });
 test('25 kamera smooth lerp (tidak snap per-frame)', () => srcHas('dt * CAM_SMOOTH'));
 
 // Level (26-33)
 test('26 spawn player 80,300', () => { srcHas('playerSpawn'); const p = G.getPlayer(); G.restart(); const p2 = G.getPlayer(); eq(p2.x, 80); eq(p2.y, 300); });
-test('27 3 slime di arena', () => { G.restart(); eq(G.getEnemies().length, 3); });
+test('27 5 slime di arena (map 3600)', () => { G.restart(); eq(G.getEnemies().length, 5); });
 test('28 2 checkpoint', () => eq(G.getCheckpoints().length, 2));
 test('29 L1/L3 tanpa goal (minibos = finish)', () => {
   G.forceStartLevel(1); eq(G.getGoal(), null); ok(G.getMiniboss(), 'L1 ada minibos');
@@ -288,7 +289,7 @@ test('29 L1/L3 tanpa goal (minibos = finish)', () => {
   G.forceStartLevel(1);
 });
 test('30 KILL_Y jatuh = death', () => srcHas('KILL_Y'));
-test('31 2 celah (520-610 & 1050-1140)', () => { srcHas('x: 0,    y: 480, w: 520'); srcHas('x: 610,  y: 480, w: 440'); srcHas('x: 1140, y: 480, w: 610'); });
+test('31 4 celah (520-610 & 1050-1140 & ekstensi)', () => { srcHas('x: 0,    y: 480, w: 520'); srcHas('x: 610,  y: 480, w: 440'); srcHas('x: 1140, y: 480, w: 610'); });
 test('32 platform data terpusat di Level.platforms', () => srcHas('platforms: ['));
 test('33 checkpoint & goal-null terpisah dari collision hard-code', () => { srcHas('checkpoints: ['); srcHas('goal: null'); });
 
@@ -354,10 +355,10 @@ test('50 respawn pulihkan HP/posisi/musuh', () => {
   G.hurtPlayer(999, 9999); G.respawn();
   eq(G.getPlayer().hp, 100);
   eq(G.getState(), 'playing');
-  eq(G.getEnemies().length, 3);
+  eq(G.getEnemies().length, 5);
 });
 
-// Checkpoint/Goal (51-53)
+ // Checkpoint/Goal (51-53)
 test('51 respawnPoint awal = spawn', () => { G.restart(); const r = G.getRespawnPoint(); eq(r.x, 80); eq(r.y, 300); });
 test('52 progress 0..1 valid', () => {
   G.restart();
@@ -384,8 +385,8 @@ test('55 pixel-art tajam (smoothing OFF + pixelated CSS)', () => {
 
 // Audio & aset (56-57)
 test('56 AudioManager.play aman tanpa ctx', () => noThrow(() => { G.fx.audio.play('jump'); G.fx.audio.play('tidak-ada'); }));
-test('57 113 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10 + lightning slime 3 + guardian 10 + archer 10 + weapon overlay 40)', () => {
-  eq(imageInstances.length, 113, 'Image instans harus 113, got ' + imageInstances.length);
+test('57 119 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/reward 22 + heroik 10 + lightning slime 3 + guardian 10 + archer 10 + weapon overlay 40 + potion 6)', () => {
+  eq(imageInstances.length, 119, 'Image instans harus 119, got ' + imageInstances.length);
   srcHas('Promise.all'); srcHas('assets/knight/idle_0.png'); srcHas('assets/knight/death_1.png');
   srcHas('assets/sprites/skeleton-sword.png'); srcHas('assets/sprites/raja-lich.png');
   srcHas('assets/sprites/treasure-chest.png'); srcHas('assets/sprites/coin.png');
@@ -398,6 +399,9 @@ test('57 113 PNG dimuat sekali via Promise.all (knight 18 + undead/chest/coin/re
   srcHas('assets/sprites/archer-walk-2.png');
   srcHas('assets/sprites/weapon-rusty-down.png'); srcHas('assets/sprites/weapon-bastion-front.png');
   srcHas('assets/sprites/weapon-storm-drawn.png'); srcHas('assets/sprites/weapon-dragon-side.png');
+  srcHas('assets/sprites/potion-heal-small.png'); srcHas('assets/sprites/potion-heal-medium.png');
+  srcHas('assets/sprites/potion-heal-large.png'); srcHas('assets/sprites/potion-poison-small.png');
+  srcHas('assets/sprites/potion-poison-medium.png'); srcHas('assets/sprites/potion-poison-large.png');
 });
 
 // ---------- 8 TEST BARU TAHAP 4 ----------
@@ -505,7 +509,7 @@ test('66 menu state + PLAY -> transisi -> Level 1', () => {
 test('67 level switching: Level 2 (varian + boss + coin)', () => {
   G.forceStartLevel(2);
   eq(G.getLevel(), 2); eq(G.getState(), 'playing');
-  eq(G.getEnemies().length, 3);
+  eq(G.getEnemies().length, 5);
   const kinds = G.getEnemies().map((e) => e.kind);
   ok(kinds.includes('fast') && kinds.includes('heavy'), 'varian fast+heavy harus ada: ' + kinds);
   const b = G.getBoss();
@@ -526,7 +530,7 @@ test('68 level reset: HP/posisi/musuh/boss/stats pulih', () => {
   G.forceStartLevel(2);
   eq(G.getPlayer().hp, 100);
   eq(G.getCoins().got, 0);
-  eq(G.getEnemies().length, 3);
+  eq(G.getEnemies().length, 5);
   eq(G.getBoss().hp, 120);
   const st = G.getStats();
   eq(st.levelKills, 0); eq(st.levelCoins, 0);
@@ -1027,13 +1031,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('426 automated test'), 'README harus sebut 426 test, cek jumlah');
+  ok(readme.includes('446 automated test'), 'README harus sebut 446 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 426);
+  eq(EXPECTED_TOTAL, 446);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -1301,17 +1305,18 @@ test('124 celah L1 terjangkau lompat normal', () => {
   ok(pl.onGround && pl.x + pl.w > 610, 'mendarat di sisi jauh celah, x=' + Math.round(pl.x));
   G.restart();
 });
-test('125 encounter L2: solo fast, solo heavy, kombo overlap', () => {
+test('125 encounter L2: solo fast, solo heavy, kombo overlap + ekstensi', () => {
   G.forceStartLevel(2);
   const es = G.getEnemies();
-  eq(es.length, 3);
+  eq(es.length, 5);
   const solo = es[0], heavy = es[1], combo = es[2];
   eq(solo.kind, 'fast'); eq(heavy.kind, 'heavy'); eq(combo.kind, 'fast');
   ok(solo.maxX < heavy.minX, 'fast solo terpisah dari arena heavy');
   ok(heavy.maxX >= combo.minX,
     'zona kombo harus overlap: heavy.maxX=' + heavy.maxX + ' fast.minX=' + combo.minX);
-  [solo, heavy, combo].forEach((s) => {
-    ok(s.minX >= 0 && s.maxX <= 2400 && s.minX < s.maxX, 'zona valid');
+  eq(es[3].kind, 'heavy'); eq(es[4].kind, 'fast'); // penjaga zona ekstensi
+  es.forEach((s) => {
+    ok(s.minX >= 0 && s.maxX <= 3600 && s.minX < s.maxX, 'zona valid');
   });
   G.restart();
 });
@@ -1321,7 +1326,7 @@ test('126 intro boss sekali saat masuki zona arena', () => {
   for (let i = 0; i < 30; i++) G.step(1 / 60); // pemain jauh di spawn
   eq(G.getBoss().introduced, false, 'jauh dari arena: belum intro');
   const pl = G.getPlayer();
-  pl.x = 1900; pl.y = 402; pl.vx = 0; pl.vy = 0; // gerbang arena
+  pl.x = 3200; pl.y = 402; pl.vx = 0; pl.vy = 0; // gerbang arena
   G.step(1 / 60);
   eq(G.getBoss().introduced, true, 'masuk zona: intro jalan');
   G.restart();
@@ -1518,7 +1523,7 @@ test('142 Miniboss spawn/state', () => {
   eq(m.introduced, false, 'belum intro di spawn');
   // Masuk arena -> intro sekali.
   const pl = G.getPlayer();
-  pl.x = 1100; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+  pl.x = 3200; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
   for (let i = 0; i < 30; i++) G.step(1 / 60);
   eq(G.getMiniboss().introduced, true, 'intro jalan saat masuk arena');
   pl.iframes = 0;
@@ -1549,7 +1554,7 @@ test('144 Raja Lich intro sekali', () => {
   for (let i = 0; i < 30; i++) G.step(1 / 60);
   eq(b.introduced, false, 'jauh dari arena jangan intro');
   const pl = G.getPlayer();
-  pl.x = 1900; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
+  pl.x = 3200; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.iframes = 9999;
   G.step(1 / 60);
   eq(b.introduced, true, 'masuk arena -> intro');
   eq(b.state, 'idle', 'intro selesai -> idle (tidak langsung serang)');
@@ -1611,7 +1616,7 @@ test('149 Level 5 mixed slime + skeleton', () => {
   G.forceStartLevel(5);
   eq(G.getLevelCount(), 5, 'campaign 5 level');
   const es = G.getEnemies();
-  eq(es.length, 6, 'L5 6 enemy pacing, got ' + es.length);
+  eq(es.length, 9, 'L5 9 enemy pacing, got ' + es.length);
   const kinds = es.map((e) => e.kind);
   ok(kinds.includes('slime') || kinds.includes('fast') || kinds.includes('heavy'), 'slime faction ada: ' + kinds);
   ok(kinds.includes('skeletonSword') || kinds.includes('skeletonDefender') || kinds.includes('skeletonArcher'), 'skeleton faction ada: ' + kinds);
@@ -1841,7 +1846,7 @@ test('164 M9 arrow vs tanah, shock by-design lewat', () => {
   for (let i = 0; i < 5; i++) G.step(1 / 60);
   eq(G.getShots().length, 2, 'kedua arrow terbang bebas');
   // Boundary tetap bekerja.
-  G.spawnShot(2395, 200, 1, 'arrow');
+  G.spawnShot(3595, 200, 1, 'arrow');
   for (let i = 0; i < 30; i++) G.step(1 / 60);
   ok(G.getShots().length <= 2, 'boundary cleanup tetap, got ' + G.getShots().length);
   pl.iframes = 0;
@@ -2103,14 +2108,17 @@ test('182 miniboss + lich render sprite path valid', () => {
   noThrow(() => G.drawOnce(), 'draw lich sprite');
   G.forceStartLevel(1);
 });
-test('183 treasure spawn valid L1-L5', () => {
-  [[1, 300], [2, 300], [3, 300], [4, 1770], [5, 1150]].forEach(([lv, x]) => {
+test('183 treasure spawn valid L1-L5 (2 chest map 3600)', () => {
+  [[1, 300, 2600], [2, 300, 2000], [3, 300, 2600], [4, 1770, 2600], [5, 1150, 2600]].forEach(([lv, x1, x2]) => {
     G.forceStartLevel(lv);
     const cs = G.getChests();
-    eq(cs.length, 1, 'L' + lv + ' tepat 1 chest');
-    eq(cs[0].x, x);
-    eq(cs[0].state, 'closed');
-    eq(cs[0].y + cs[0].h, 480, 'kaki chest napak tanah L' + lv);
+    eq(cs.length, 2, 'L' + lv + ' tepat 2 chest');
+    eq(cs[0].x, x1);
+    eq(cs[1].x, x2);
+    cs.forEach((c) => {
+      eq(c.state, 'closed');
+      eq(c.y + c.h, 480, 'kaki chest napak tanah L' + lv);
+    });
   });
   G.forceStartLevel(1);
 });
@@ -2445,7 +2453,7 @@ test('208 coin sprite dipakai level, gold-shard untuk treasure', () => {
 test('209 L1-L5 regression swap: chest 1 + coin 0 + draw', () => {
   [1, 2, 3, 4, 5].forEach((lv) => {
     G.forceStartLevel(lv);
-    eq(G.getChests().length, 1, 'L' + lv + ' 1 chest');
+    eq(G.getChests().length, 2, 'L' + lv + ' 2 chest');
     eq(G.getCoins().total, 0, 'L' + lv + ' pickup 0');
     noThrow(() => G.drawOnce(), 'draw L' + lv);
   });
@@ -2618,7 +2626,7 @@ test('220 coin regression pasca-polish + victory pose', () => {
   [1, 2, 3, 4, 5].forEach((lv) => {
     G.forceStartLevel(lv);
     eq(G.getCoins().total, 0, 'L' + lv + ' pickup 0');
-    eq(G.getChests().length, 1, 'L' + lv + ' chest tetap');
+    eq(G.getChests().length, 2, 'L' + lv + ' chest tetap');
     noThrow(() => G.drawOnce(), 'draw L' + lv);
   });
   // Pose victory di layar menang (via minibos finish).
@@ -2743,15 +2751,15 @@ test('225 crumble draw: topple + fade tanpa error', () => {
 test('226 monster jatuh jurang mati permanen, tanpa respawn', () => {
   G.restart(); // totals fresh, L1
   const k0 = G.getStats().runKills;
-  eq(G.getEnemies().length, 3);
+  eq(G.getEnemies().length, 5);
   const victim = G.getEnemies()[0];
   const vid = victim.id;
   victim.x = 565; victim.y = 650; victim.vx = 0; victim.vy = 0; // celah 520-610
   G.step(1 / 60);
-  eq(G.getEnemies().length, 2, 'mayat jurang dihapus, bukan direspawn');
+  eq(G.getEnemies().length, 4, 'mayat jurang dihapus, bukan direspawn');
   eq(G.getStats().runKills, k0 + 1, 'kill dihitung sekali');
   for (let i = 0; i < 120; i++) G.step(1 / 60);
-  eq(G.getEnemies().length, 2, 'tetap 2 setelah 2 dtk');
+  eq(G.getEnemies().length, 4, 'tetap 4 setelah 2 dtk');
   ok(!G.getEnemies().some((e) => e.id === vid), 'id korban tak kembali');
   ok(!G.getEnemies().some((e) => e.x === victim.spawnX && e.y === victim.spawnY), 'tanpa teleport ke spawn');
   G.restart();
@@ -2861,7 +2869,7 @@ test('232 pile ikut reset saat respawn', () => {
   eq(G.getBonePiles().length, 1);
   G.respawn();
   eq(G.getBonePiles().length, 0, 'respawn bersihkan pile + musuh fresh');
-  eq(G.getEnemies().length, 6, 'musuh kembali');
+  eq(G.getEnemies().length, 8, 'musuh kembali');
   G.forceStartLevel(1);
 });
 test('233 mati di jurang tanpa pile', () => {
@@ -2880,14 +2888,14 @@ test('234 korban jurang tetap mati setelah player respawn', () => {
   const k0 = G.getStats().runKills;
   victim.x = 565; victim.y = 650; victim.vx = 0; victim.vy = 0; // celah L1
   G.step(1 / 60);
-  eq(G.getEnemies().length, 2, 'jatuh = dihapus');
+  eq(G.getEnemies().length, 4, 'jatuh = dihapus');
   eq(G.getPitDead().length, 1, 'spawn tercatat');
   G.respawn(); // player mati/R: musuh biasa kembali, korban jurang tidak
-  eq(G.getEnemies().length, 2, 'korban jurang tetap hilang');
+  eq(G.getEnemies().length, 4, 'korban jurang tetap hilang');
   ok(!G.getEnemies().some((e) => e.id === vid), 'id korban tak kembali');
   eq(G.getStats().runKills, k0 + 1, 'kill jurang tetap terhitung');
   G.restart(); // level fresh: semua hidup lagi
-  eq(G.getEnemies().length, 3, 'restart pulihkan semua');
+  eq(G.getEnemies().length, 5, 'restart pulihkan semua');
   eq(G.getPitDead().length, 0, 'catatan dibersihkan');
 });
 
@@ -2975,18 +2983,18 @@ test('241 gerbang menutup + kunci player saat raja muncul', () => {
   eq(G.getGate().locked, false); eq(G.getGate().anim, 0);
   const pl = G.getPlayer();
   pl.iframes = 9999;
-  pl.x = 2000; pl.y = 402; pl.vx = 0; pl.vy = 0; // zona intro raja
+  pl.x = 3200; pl.y = 402; pl.vx = 0; pl.vy = 0; // zona intro raja
   G.step(1 / 60);
   ok(G.getBoss().introduced, 'raja diperkenalkan');
   ok(G.getGate().locked, 'terkunci');
-  eq(G.getGate().bounds.minX, 1930); eq(G.getGate().bounds.maxX, 2360);
+  eq(G.getGate().bounds.minX, 3130); eq(G.getGate().bounds.maxX, 3560);
   for (let i = 0; i < 40; i++) G.step(1 / 60); // animasi 0.6 dtk
   eq(G.getGate().anim, 1, 'tertutup penuh');
   // Kabur ke kiri: tertahan di gerbang.
   G.input.left = true;
   for (let i = 0; i < 60; i++) G.step(1 / 60);
   G.input.left = false;
-  ok(pl.x >= 1930, 'tak bisa keluar, x=' + Math.round(pl.x));
+  ok(pl.x >= 3130, 'tak bisa keluar, x=' + Math.round(pl.x));
   noThrow(() => G.drawOnce(), 'draw gerbang');
   pl.iframes = 0;
   G.forceStartLevel(1);
@@ -2995,10 +3003,10 @@ test('242 player di luar ikut tersnap masuk saat gerbang tutup', () => {
   G.forceStartLevel(2);
   const pl = G.getPlayer();
   pl.iframes = 9999;
-  pl.x = 1850; pl.y = 402; pl.vx = 0; pl.vy = 0; // luar arena, dalam zona intro
+  pl.x = 3050; pl.y = 402; pl.vx = 0; pl.vy = 0; // luar arena, dalam zona intro
   G.step(1 / 60);
   ok(G.getBoss().introduced, 'intro jalan');
-  ok(pl.x >= 1930 && pl.x + pl.w <= 2360, 'snap masuk arena, x=' + Math.round(pl.x));
+  ok(pl.x >= 3130 && pl.x + pl.w <= 3560, 'snap masuk arena, x=' + Math.round(pl.x));
   pl.iframes = 0;
   G.forceStartLevel(1);
 });
@@ -3006,7 +3014,7 @@ test('243 gerbang terbuka lagi setelah raja gugur', () => {
   G.forceStartLevel(2);
   const pl = G.getPlayer();
   pl.iframes = 9999;
-  pl.x = 2000; pl.y = 402;
+  pl.x = 3200; pl.y = 402;
   G.step(1 / 60);
   ok(G.getGate().locked, 'pra-kondisi terkunci');
   const b = G.getBoss();
@@ -3022,7 +3030,7 @@ test('244 L5 interlude tetap terkunci, respawn reset terbuka', () => {
   G.forceStartLevel(5);
   const pl = G.getPlayer();
   pl.iframes = 9999;
-  pl.x = 2000; pl.y = 402; pl.vx = 0; pl.vy = 0;
+  pl.x = 3200; pl.y = 402; pl.vx = 0; pl.vy = 0;
   G.step(1 / 60);
   ok(G.getGate().locked, 'pra-kondisi terkunci L5');
   const b0 = G.getBoss();
@@ -3183,8 +3191,8 @@ function shopGiveCoins(n) {
   testStorage._map.set('knightSaveV1', JSON.stringify(raw));
   G.reloadSave();
 }
-test('253 shop data 15 item + harga persis spesifikasi', () => {
-  eq(G.shopItems.length, 15);
+test('253 shop data 21 item + harga persis spesifikasi (15 equipment utuh + 6 potion)', () => {
+  eq(G.shopItems.length, 21);
   const byId = {};
   G.shopItems.forEach((it) => { byId[it.id] = it; });
   eq(byId.rusty.price, 50); eq(byId.steel.price, 250); eq(byId.silver.price, 1200);
@@ -3196,6 +3204,7 @@ test('253 shop data 15 item + harga persis spesifikasi', () => {
   eq(G.shopItemsByCategory('sword').length, 5);
   eq(G.shopItemsByCategory('shield').length, 5);
   eq(G.shopItemsByCategory('bow').length, 5);
+  eq(G.shopItemsByCategory('potion').length, 6);
   srcHas('SHOP_ITEMS');
   ok(!/if \(weapon ===/.test(src), 'tanpa if weapon tersebar');
 });
@@ -3644,6 +3653,11 @@ test('284 item ID ke weapon asset benar (kategori tak tertukar)', () => {
   eq(G.weaponKey('storm', 'Drawn'), 'wStormDrawn');
   srcHas('function weaponFile');
   G.shopItems.forEach((it) => {
+    if (it.category === 'potion') {
+      const pf = G.potionFile(it.id);
+      ok(pf && pf.includes('potion-'), 'potion file ' + it.id + ': ' + pf);
+      return;
+    }
     const f = G.weaponFile(it.id);
     ok(f && f.includes('weapon-' + it.id + '-'), 'file ' + it.id + ': ' + f);
   });
@@ -3790,16 +3804,18 @@ test('292 shop preview menunjukkan weapon per item.id', () => {
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
-test('293 shop bisa dibuka + 15 item + filter kategori', () => {
+test('293 shop bisa dibuka + 21 item + filter kategori', () => {
   G.resetSave(); G.toMenu();
   elements['btn-shop'].dispatch('click', {});
-  eq(G.shopItems.length, 15);
+  eq(G.shopItems.length, 21);
   G.setShopTab('sword');
   eq(G.getShopRender().cards.length, 5);
   G.setShopTab('shield');
   eq(G.getShopRender().cards.length, 5);
   G.setShopTab('bow');
   eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('potion');
+  eq(G.getShopRender().cards.length, 6);
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
@@ -3930,16 +3946,18 @@ test('305 tanpa horizontal overflow halaman', () => {
   ok(!/width:\s*\d{4,}px/.test(css), 'tanpa lebar raksasa');
   ok(css.includes('overflow-wrap: anywhere') || css.includes('word-break'), 'nama panjang wrap');
 });
-test('306 15 item tersedia semua kategori', () => {
-  eq(G.shopItems.length, 15);
+test('306 21 item tersedia semua kategori (15 equipment + 6 potion)', () => {
+  eq(G.shopItems.length, 21);
   ['sword', 'shield', 'bow'].forEach((c) => {
     eq(G.shopItemsByCategory(c).length, 5, c);
   });
+  eq(G.shopItemsByCategory('potion').length, 6, 'potion');
   G.resetSave(); G.toMenu();
   elements['btn-shop'].dispatch('click', {});
   G.setShopTab('sword'); eq(G.getShopRender().cards.length, 5);
   G.setShopTab('shield'); eq(G.getShopRender().cards.length, 5);
   G.setShopTab('bow'); eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('potion'); eq(G.getShopRender().cards.length, 6);
   fireWin('keydown', { code: 'Escape', preventDefault() {} });
   G.resetSave();
 });
@@ -4311,20 +4329,29 @@ test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
 });
 
 // ---------- 6 TEST TOMBOL PORTRAIT MUAT (jump tak kepotong) ----------
-// Budget: kiri/kanan/block clamp(44,13vw,60), lompat/serang clamp(44,15vw,68),
-// pause clamp(40,11vw,44), skill ikut .touch-btn. Grup tengah (pause+skill)
-// vertikal -> lebarnya = max(pause, skill). Total <= viewport 320/360/412.
+// Budget: side clamp(44,13vw,60), act clamp(44,15vw,68),
+// potion clamp(44,12vw,52) (ID #btn-potion), pause clamp(40,11vw,44).
+// Potion pindah ke kanan (5 tombol): kanan wrap 3+2 (flex-wrap + max-width
+// 52vw di blok portrait) -> lebar kanan = baris terlebar (3 tombol).
+// Tengah kolom (pause+fullscreen) -> lebar = pause. Total <= 320/360/412.
 function touchBudget(vw) {
   const cl = (lo, v, hi) => Math.min(hi, Math.max(lo, v));
-  const side = cl(44, vw * 0.13, 60), act = cl(44, vw * 0.15, 68), pause = cl(40, vw * 0.11, 44);
-  const center = Math.max(pause, side);
-  return (side * 2 + 8) + center + (act * 2 + side + 16) + 16;
+  const side = cl(44, vw * 0.13, 60), act = cl(44, vw * 0.15, 68),
+        potion = cl(44, vw * 0.12, 52), pause = cl(40, vw * 0.11, 44);
+  const left = side * 2 + 8;
+  const center = pause;
+  const row1 = potion + act + side + 16; // potion+attack+skill + 2x gap 8
+  const row2 = act * 2 + 8; // jump+block + 1x gap 8
+  const right = Math.max(row1, row2);
+  return left + center + right + 16; // + 2x gap 8 antar grup
 }
 test('343 budget lebar portrait muat 320/360/412', () => {
   ok(touchBudget(320) <= 320, '320 muat, got ' + touchBudget(320));
   ok(touchBudget(360) <= 360, '360 muat, got ' + touchBudget(360));
   ok(touchBudget(412) <= 412, '412 muat, got ' + touchBudget(412));
   ok(css.includes('(orientation: portrait)') && css.includes('max-width: 600px'), 'breakpoint');
+  ok(/\.touch-group-right\s*{[^}]*flex-wrap:\s*wrap/.test(css), 'kanan wrap 3+2');
+  ok(/#btn-potion/.test(css), 'potion sizing ada');
 });
 test('344 CSS compact portrait override min 64px coarse', () => {
   ok(/\.touch-btn\s*{[^}]*clamp\(44px,\s*13vw,\s*60px\)/.test(css), 'sizing compact');
@@ -5147,7 +5174,7 @@ test('406 aksi landscape tampil + ter-wire', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   const all = land.map((b) => b.body).join('\n');
-  ['#joystick-zone', '#btn-attack', '#btn-skill', '#btn-jump'].forEach((sel) => {
+  ['#joystick-zone', '#btn-attack', '#btn-skill', '#btn-jump', '#btn-potion'].forEach((sel) => {
     const esc = sel.replace('#', '\\#');
     ok(!new RegExp(esc + '\\s*{[^}]*display:\\s*none').test(all), sel + ' jangan disembunyikan');
   });
@@ -5163,8 +5190,8 @@ test('407 cluster Diablo valid: orb primer + satelit rectangular', () => {
   const blocks = __mediaBlocks(css);
   const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
   const all = land.map((b) => b.body).join('\n');
-  // Susunan eksak: attack menjulang 1 kolom penuh (rectangular = valid).
-  ok(/grid-template-areas:\s*"skill \.\s*attack"\s*"jump\s*block attack"\s*;/.test(all), 'susunan areas harus "skill . attack" / "jump block attack"');
+  // Susunan eksak: potion di atas attack (rectangular = valid).
+  ok(/grid-template-areas:\s*"skill potion attack"\s*"jump\s*block attack"\s*;/.test(all), 'susunan areas harus "skill potion attack" / "jump block attack"');
   // Tiap area bernama harus rectangular (L-shape = invalid, browser abaikan).
   const m = all.match(/grid-template-areas:\s*([^;]+);/);
   ok(m, 'deklarasi areas harus ada');
@@ -5186,8 +5213,8 @@ test('407 cluster Diablo valid: orb primer + satelit rectangular', () => {
   // Gaya orb Diablo: radial gelap + border emas.
   ok(/radial-gradient/.test(all), 'orb Diablo radial');
   ok(/201,\s*162,\s*39/.test(all), 'aksen emas Diablo');
-  // 4 tombol terikat ke area masing-masing.
-  [['#btn-attack', 'attack'], ['#btn-skill', 'skill'], ['#btn-jump', 'jump'], ['#btn-block', 'block']].forEach((pair) => {
+  // 5 tombol terikat ke area masing-masing.
+  [['#btn-attack', 'attack'], ['#btn-skill', 'skill'], ['#btn-potion', 'potion'], ['#btn-jump', 'jump'], ['#btn-block', 'block']].forEach((pair) => {
     const esc = pair[0].replace('#', '\\#');
     ok(new RegExp(esc + '\\s*{[^}]*grid-area:\\s*' + pair[1]).test(all), pair[0] + ' -> ' + pair[1]);
   });
@@ -5404,6 +5431,359 @@ test('426 save fallback menang atas data lama saat storage gagal menulis', () =>
     G.reloadSave();
     G.resetSave();
   }
+});
+// ---------- 12 TEST POTION + STORAGE ----------
+function potionGiveCoins(n) {
+  const raw = JSON.parse(testStorage._map.get('knightSaveV1') || '{}');
+  raw.totalCoins = n;
+  testStorage._map.set('knightSaveV1', JSON.stringify(raw));
+  G.reloadSave();
+}
+test('427 potion data 6 item harga/efek tetap + kategori potion', () => {
+  eq(G.potionIds.length, 6);
+  eq(G.shopItemsByCategory('potion').length, 6);
+  const byId = {};
+  G.shopItems.forEach((it) => { byId[it.id] = it; });
+  eq(byId.heal_small.price, 25); eq(byId.heal_small.potionHeal, 25);
+  eq(byId.heal_medium.price, 50); eq(byId.heal_medium.potionHeal, 50);
+  eq(byId.heal_large.price, 100); eq(byId.heal_large.potionHeal, 100);
+  eq(byId.poison_small.price, 20); eq(byId.poison_small.potionPoison.dps, 3); eq(byId.poison_small.potionPoison.duration, 5);
+  eq(byId.poison_medium.price, 40); eq(byId.poison_medium.potionPoison.dps, 5); eq(byId.poison_medium.potionPoison.duration, 7);
+  eq(byId.poison_large.price, 75); eq(byId.poison_large.potionPoison.dps, 8); eq(byId.poison_large.potionPoison.duration, 10);
+  G.potionIds.forEach((id) => {
+    ok(G.shopItemById(id) && G.shopItemById(id).category === 'potion', 'kategori potion: ' + id);
+    ok(G.potionFile(id) && G.potionFile(id).includes('potion-'), 'file potion: ' + id);
+  });
+  srcHas('POTION_IDS'); srcHas('POTION_MAX');
+});
+test('428 beli potion atomik + cap 5 per jenis', () => {
+  G.resetSave(); potionGiveCoins(1000);
+  eq(G.buyPotion('heal_small').ok, true);
+  eq(G.potionCount('heal_small'), 1);
+  eq(G.shopBalance(), 975);
+  for (let i = 0; i < 4; i++) eq(G.buyPotion('heal_small').ok, true);
+  eq(G.potionCount('heal_small'), 5);
+  const bal = G.shopBalance();
+  const r = G.buyPotion('heal_small');
+  eq(r.ok, false); eq(r.reason, 'full');
+  eq(G.potionCount('heal_small'), 5, 'tetap 5');
+  eq(G.shopBalance(), bal, 'coin utuh saat penuh');
+  G.resetSave(); potionGiveCoins(10);
+  const r2 = G.buyPotion('heal_medium');
+  eq(r2.ok, false); eq(r2.reason, 'coins');
+  eq(G.potionCount('heal_medium'), 0);
+  eq(G.shopBalance(), 10, 'coin utuh saat miskin');
+  G.resetSave();
+});
+test('429 heal clamp max HP + tolak saat penuh tanpa consume', () => {
+  G.resetSave(); potionGiveCoins(500);
+  G.buyPotion('heal_medium');
+  ok(G.selectPotion('heal_medium'), 'select');
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.hp = 80; pl.iframes = 0;
+  const c0 = G.potionCount('heal_medium');
+  eq(G.usePotion().ok, true);
+  eq(pl.hp, 100, 'clamp 80+50 -> 100');
+  eq(G.potionCount('heal_medium'), c0 - 1, 'consume 1');
+  pl.hp = 100;
+  const c1 = G.potionCount('heal_large') || 0;
+  G.buyPotion('heal_large');
+  ok(G.selectPotion('heal_large'), 'select large');
+  const c2 = G.potionCount('heal_large');
+  const rr = G.usePotion();
+  eq(rr.ok, false); eq(rr.reason, 'full');
+  eq(G.potionCount('heal_large'), c2, 'tanpa consume saat penuh');
+  eq(pl.hp, 100);
+  void c1;
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('430 poison charge sekali-pakai + tolak saat charge aktif', () => {
+  G.resetSave(); potionGiveCoins(500);
+  G.buyPotion('poison_small');
+  ok(G.selectPotion('poison_small'), 'select');
+  G.forceStartLevel(1);
+  eq(G.getPotionCharge(), null, 'awal tanpa charge');
+  eq(G.usePotion().ok, true);
+  const ch = G.getPotionCharge();
+  ok(ch && ch.dps === 3 && ch.duration === 5, 'charge 3/5, got ' + JSON.stringify(ch));
+  G.buyPotion('poison_medium');
+  ok(G.selectPotion('poison_medium'), 'select medium');
+  const rr = G.usePotion();
+  eq(rr.ok, false); eq(rr.reason, 'charge', 'tolak saat charge aktif');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('431 poison DoT via tickDots sesuai tier pedang kena', () => {
+  G.resetSave(); potionGiveCoins(1000);
+  G.buyPotion('poison_medium');
+  ok(G.selectPotion('poison_medium'), 'select');
+  G.forceStartLevel(1);
+  eq(G.usePotion().ok, true, 'pakai poison medium');
+  const e = G.getEnemies()[0];
+  e.iframes = 0; e.hp = 60; e.poisonT = 0; e.poisonDps = 0;
+  const pl = G.getPlayer();
+  pl.x = e.x - pl.w - 4; pl.y = 402; pl.vx = 0; pl.vy = 0; pl.facing = 1; pl.attackCooldown = 0;
+  G.input.attackPressed = true;
+  for (let i = 0; i < 20; i++) G.step(1 / 60);
+  ok(e.poisonT > 0 && e.poisonT <= 7, 'DoT 7 dtk, got ' + e.poisonT);
+  eq(e.poisonDps, 5, 'dps 5 tier medium');
+  eq(G.getPotionCharge(), null, 'charge habis sekali pakai');
+  const hpMid = e.hp;
+  for (let i = 0; i < 60; i++) G.step(1 / 60);
+  ok(e.hp < hpMid || e.state === 'death' || e.dead, 'DoT menggerus HP');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('432 SELECT + auto-advance ke owned berikutnya atau null', () => {
+  G.resetSave(); potionGiveCoins(1000);
+  G.buyPotion('heal_small');
+  G.buyPotion('poison_small');
+  ok(G.selectPotion('heal_small'), 'select heal');
+  eq(G.getPotionSel(), 'heal_small');
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.hp = 50; pl.iframes = 0;
+  eq(G.usePotion().ok, true, 'pakai heal');
+  eq(G.getPotionSel(), 'poison_small', 'auto-pindah ke berikutnya, got ' + G.getPotionSel());
+  ok(G.selectPotion('poison_small'), 'select poison');
+  eq(G.usePotion().ok, true, 'pakai poison -> charge');
+  ok(G.getPotionCharge(), 'charge aktif');
+  // Habiskan semua: pakai heal sisa via select langsung
+  G.resetSave(); potionGiveCoins(100);
+  G.buyPotion('heal_small');
+  ok(G.selectPotion('heal_small'));
+  G.forceStartLevel(1);
+  G.getPlayer().hp = 10;
+  eq(G.usePotion().ok, true);
+  eq(G.getPotionSel(), null, 'null bila kosong');
+  eq(G.usePotion().ok, false, 'empty tanpa selection');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('433 tab potion render 6 card + keyboard panah mencakup tab baru', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  G.setShopTab('potion');
+  eq(G.getShopTab(), 'potion');
+  const ren = G.getShopRender();
+  eq(ren.cards.length, 6, '6 card potion');
+  eq(G.setShopTab('sword'), true);
+  fireWin('keydown', { code: 'ArrowRight', preventDefault() {} });
+  eq(G.getShopTab(), 'shield');
+  fireWin('keydown', { code: 'ArrowRight', preventDefault() {} });
+  eq(G.getShopTab(), 'bow');
+  fireWin('keydown', { code: 'ArrowRight', preventDefault() {} });
+  eq(G.getShopTab(), 'potion', 'kanan mencakup potion');
+  fireWin('keydown', { code: 'ArrowRight', preventDefault() {} });
+  eq(G.getShopTab(), 'sword', 'wrap ke sword');
+  fireWin('keydown', { code: 'ArrowLeft', preventDefault() {} });
+  eq(G.getShopTab(), 'potion', 'kiri ke potion');
+  fireWin('keydown', { code: 'ArrowDown', preventDefault() {} });
+  ok(G.getShopSel(), 'item potion terpilih');
+  fireWin('keydown', { code: 'Enter', preventDefault() {} });
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  eq(G.getState(), 'menu');
+  G.resetSave();
+});
+test('434 save/load potions persist + sanitize tanpa bump v5', () => {
+  G.resetSave(); potionGiveCoins(1000);
+  G.buyPotion('heal_large');
+  G.buyPotion('poison_large');
+  ok(G.selectPotion('poison_large'));
+  G.reloadSave();
+  const s = G.getSave();
+  eq(s.version, 5, 'tetap v5');
+  eq(s.potions.heal_large, 1);
+  eq(s.potions.poison_large, 1);
+  eq(s.potionSel, 'poison_large');
+  testStorage._map.set('knightSaveV1', JSON.stringify({ version: 4, totalCoins: 50 }));
+  G.reloadSave();
+  const s2 = G.getSave();
+  eq(s2.version, 5);
+  eq(s2.potions.heal_small, 0, 'default 0');
+  eq(s2.potionSel, null, 'default null');
+  G.resetSave();
+});
+test('435 tombol btn-potion + key E ter-wire', () => {
+  const bp = elements['btn-potion'];
+  ok(bp, 'mock ada btn-potion');
+  ok((bp.listeners['pointerdown'] || []).length >= 1, 'potion pointerdown ter-wire');
+  G.resetSave(); potionGiveCoins(500);
+  G.buyPotion('heal_small');
+  ok(G.selectPotion('heal_small'));
+  G.forceStartLevel(1);
+  const pl = G.getPlayer();
+  pl.hp = 50; pl.iframes = 0;
+  G.input.potionPressed = false;
+  bp.dispatch('pointerdown', { pointerId: 77, cancelable: true, preventDefault() {} });
+  eq(G.input.potionPressed, true, 'touch set flag');
+  bp.dispatch('pointerup', { pointerId: 77, cancelable: true, preventDefault() {} });
+  for (let i = 0; i < 3; i++) G.step(1 / 60);
+  ok(pl.hp > 50, 'touch pakai heal, hp=' + pl.hp);
+  pl.hp = 40;
+  G.buyPotion('heal_small');
+  ok(G.selectPotion('heal_small'));
+  G.input.potionPressed = false;
+  fireWin('keydown', { code: 'KeyE', preventDefault() {} });
+  eq(G.input.potionPressed, true, 'E set flag');
+  for (let i = 0; i < 3; i++) G.step(1 / 60);
+  ok(pl.hp > 40, 'keyboard E pakai potion');
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('436 id baru ada di HTML + mock + sprite loader', () => {
+  ['shop-tab-potion', 'btn-potion'].forEach((id) => {
+    ok(html.includes('id="' + id + '"'), 'id hilang di HTML: ' + id);
+    ok(elements[id], 'id hilang di mock: ' + id);
+  });
+  ok(/id="shop-tab-potion"[^>]*role="tab"/.test(html), 'potion role=tab');
+  ok(/id="btn-potion"[^>]*aria-label/.test(html), 'potion aria-label');
+  srcHas("getElementById('shop-tab-potion')");
+  srcHas("getElementById('btn-potion')");
+  const sp = G.getSprites();
+  ['potionHealSmall', 'potionHealMedium', 'potionHealLarge', 'potionPoisonSmall', 'potionPoisonMedium', 'potionPoisonLarge'].forEach((k) => {
+    ok(k in sp, 'sprite key: ' + k);
+  });
+});
+test('437 HUD potion ikon + jumlah tanpa error', () => {
+  G.resetSave(); potionGiveCoins(500);
+  G.buyPotion('heal_small');
+  ok(G.selectPotion('heal_small'));
+  G.forceStartLevel(1);
+  noThrow(() => G.drawOnce(), 'draw HUD potion');
+  srcHas('potionSpriteKey');
+  srcHas("ctx.drawImage(_pimg, bx, _potY, 14, 14)");
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('438 3 tab lama tetap 5 card + 15 equipment tak berubah', () => {
+  G.resetSave(); G.toMenu();
+  elements['btn-shop'].dispatch('click', {});
+  G.setShopTab('sword'); eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('shield'); eq(G.getShopRender().cards.length, 5);
+  G.setShopTab('bow'); eq(G.getShopRender().cards.length, 5);
+  const it = {};
+  G.shopItems.forEach((x) => { it[x.id] = x.price; });
+  eq(it.rusty, 50); eq(it.steel, 250); eq(it.silver, 1200);
+  eq(it.shadowfang, 5500); eq(it.sunfire, 5500);
+  eq(it.buckler, 40); eq(it.kite, 200); eq(it.tower, 1000);
+  eq(it.aegis, 4800); eq(it.bastion, 4800);
+  eq(it.makeshift, 45); eq(it.hunter, 220); eq(it.elven, 1150);
+  eq(it.storm, 5000); eq(it.dragon, 5000);
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave();
+});
+// ---------- 5 TEST ZOOM IN-GAME (button-controlled, WORLD saja) ----------
+test('439 zoom default 1 + reset tiap run baru', () => {
+  G.resetSave(); G.forceStartLevel(1);
+  eq(G.getZoom(), 1, 'default harus 1');
+  G.zoomIn(); eq(G.getZoom(), 1.25);
+  G.forceStartLevel(2); eq(G.getZoom(), 1, 'ganti level reset ke 1');
+  G.zoomIn();
+  G.respawn(); eq(G.getZoom(), 1, 'respawn reset ke 1');
+  G.zoomIn();
+  G.restart(); eq(G.getZoom(), 1, 'restart reset ke 1');
+  G.zoomIn();
+  G.toMenu(); eq(G.getZoom(), 1, 'menu reset ke 1');
+  G.forceStartLevel(1);
+});
+test('440 zoomIn step 0.25 clamp 2 / zoomOut clamp 1', () => {
+  G.forceStartLevel(1);
+  G.resetZoom(); eq(G.getZoom(), 1);
+  G.zoomIn(); eq(G.getZoom(), 1.25);
+  G.zoomIn(); eq(G.getZoom(), 1.5);
+  G.zoomIn(); eq(G.getZoom(), 1.75);
+  G.zoomIn(); eq(G.getZoom(), 2);
+  G.zoomIn(); eq(G.getZoom(), 2, 'clamp atas 2');
+  G.setZoom(99); eq(G.getZoom(), 2, 'setZoom clamp atas');
+  G.zoomOut(); eq(G.getZoom(), 1.75);
+  G.setZoom(0); eq(G.getZoom(), 1, 'setZoom clamp bawah');
+  G.resetZoom(); G.zoomOut(); eq(G.getZoom(), 1, 'clamp bawah 1');
+  srcHas('camZoom'); srcHas('CAM_ZOOM_MAX = 2');
+  G.forceStartLevel(1);
+});
+test('441 kamera 0..WORLD_W-VIEW_W/z saat zoom 2', () => {
+  G.forceStartLevel(1);
+  G.setZoom(2);
+  const W = G.getWorld(); // {w:3600, viewW:960}
+  const max = W.w - W.viewW / 2;
+  eq(max, 3600 - 480);
+  const pl = G.getPlayer();
+  pl.x = 80; pl.facing = 1;
+  for (let i = 0; i < 120; i++) G.step(1 / 60);
+  ok(G.getCamera().x >= 0 && G.getCamera().x <= max, 'kiri clamp, got ' + G.getCamera().x);
+  pl.x = 3500; pl.facing = 1;
+  for (let i = 0; i < 180; i++) G.step(1 / 60);
+  const cx = G.getCamera().x;
+  ok(cx >= 0 && cx <= max, 'kanan clamp 0..' + max + ', got ' + cx);
+  near(cx, max, 2, 'ujung kanan menempel max');
+  G.resetZoom(); G.forceStartLevel(1);
+});
+test('442 tombol zoom hidden di luar playing + ter-wire', () => {
+  const zi = elements['btn-zoom-in'], zo = elements['btn-zoom-out'];
+  ok(zi && zo, 'mock ada tombol zoom');
+  ok(html.includes('id="btn-zoom-in"'), 'HTML ada btn-zoom-in');
+  ok(html.includes('id="btn-zoom-out"'), 'HTML ada btn-zoom-out');
+  ok(/id="btn-zoom-in"[^>]*aria-label="Perbesar tampilan"/.test(html), 'aria zoom-in');
+  ok(/id="btn-zoom-out"[^>]*aria-label="Perkecil tampilan"/.test(html), 'aria zoom-out');
+  ok((zi.listeners['click'] || []).length >= 1, 'zoom-in ter-wire click');
+  ok((zo.listeners['click'] || []).length >= 1, 'zoom-out ter-wire click');
+  G.forceStartLevel(1);
+  ok(!zi.classList.contains('hidden'), 'tampil saat playing');
+  ok(!zo.classList.contains('hidden'), 'tampil saat playing');
+  G.resetZoom();
+  zi.dispatch('click', {}); eq(G.getZoom(), 1.25, 'klik + sekali');
+  zo.dispatch('click', {}); eq(G.getZoom(), 1, 'klik - sekali');
+  G.toMenu();
+  ok(zi.classList.contains('hidden'), 'sembunyi di menu');
+  ok(zo.classList.contains('hidden'), 'sembunyi di menu');
+  G.forceStartLevel(1); G.resetZoom();
+});
+test('443 keyboard +/-/0 hanya saat playing', () => {
+  G.forceStartLevel(1); G.resetZoom();
+  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
+  eq(G.getZoom(), 1.25, '+ saat playing');
+  fireWin('keydown', { code: 'Minus', key: '-', preventDefault() {} });
+  eq(G.getZoom(), 1, '- saat playing');
+  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
+  fireWin('keydown', { code: 'Digit0', key: '0', preventDefault() {} });
+  eq(G.getZoom(), 1, '0 reset saat playing');
+  G.toMenu(); G.resetZoom(); G.setZoom(1.5);
+  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
+  eq(G.getZoom(), 1.5, 'menu: + tak bocor');
+  fireWin('keydown', { code: 'Minus', key: '-', preventDefault() {} });
+  eq(G.getZoom(), 1.5, 'menu: - tak bocor');
+  G.toMenu(); // shop via menu
+  elements['btn-shop'].dispatch('click', {});
+  eq(G.getState(), 'shop');
+  G.setZoom(1.5);
+  fireWin('keydown', { code: 'Equal', key: '+', preventDefault() {} });
+  eq(G.getZoom(), 1.5, 'shop: + tak bocor');
+  fireWin('keydown', { code: 'Escape', preventDefault() {} });
+  G.resetSave(); G.forceStartLevel(1); G.resetZoom();
+});
+test('444 kanvas landscape maksimal + fullscreen tanpa distorsi', () => {
+  const blocks = __mediaBlocks(css);
+  const land = blocks.filter((b) => b.header.includes('orientation: landscape') && b.header.includes('pointer: coarse'));
+  const all = land.map((b) => b.body).join('\n');
+  ok(all.includes('#canvas-container') && all.includes('100dvh') && all.includes('16 / 9'), 'canvas landscape dari viewport 16:9');
+  const fsRules = (css.match(/[^\n{}]*full-?screen[^\n{}]*\{[^}]*\}/g) || [])
+    .filter((r) => r.includes('#canvas-container'));
+  ok(fsRules.length >= 1, 'aturan fullscreen kanvas hilang');
+  const last = fsRules[fsRules.length - 1];
+  ok(last.includes('min(100vw') && last.includes('16 / 9'), 'fullscreen terakhir harus jaga rasio 16:9');
+  ok(!/height:\s*100dvh/.test(last), 'fullscreen terakhir tanpa stretch vertikal');
+});
+test('445 tombol pause/fullscreen/zoom tampil saat playing', () => {
+  G.forceStartLevel(1);
+  ['btn-pause', 'btn-fullscreen', 'btn-zoom-in', 'btn-zoom-out'].forEach((id) => {
+    ok(elements[id], 'mock ada ' + id);
+    ok(!elements[id].classList.contains('hidden'), id + ' tampil saat playing');
+  });
+  G.forceStartLevel(1);
+});
+test('446 tombol center sembunyi di menu', () => {
+  G.toMenu();
+  ['btn-pause', 'btn-fullscreen', 'btn-zoom-in', 'btn-zoom-out'].forEach((id) => {
+    ok(elements[id].classList.contains('hidden'), id + ' sembunyi di menu');
+  });
+  G.forceStartLevel(1);
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

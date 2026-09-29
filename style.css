@@ -545,6 +545,14 @@ canvas#game {
     flex-direction: column;
     gap: 6px;
   }
+  /* Potion pindah ke kanan (5 tombol): wrap 3+2 agar 320px muat tanpa <40px.
+     Single-row 8x40=320 tanpa gap mustahil; wrap jaga target sentuh >=40px. */
+  .touch-group-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-content: center;
+    max-width: 52vw;
+  }
   .touch-btn {
     width: clamp(44px, 13vw, 60px);
     height: clamp(44px, 13vw, 60px);
@@ -640,7 +648,7 @@ canvas#game {
     grid-template-columns: auto auto auto;
     grid-template-rows: auto auto;
     grid-template-areas:
-      "skill . attack"
+      "skill potion attack"
       "jump block attack";
     gap: clamp(6px, 1.7vmin, 12px);
     align-items: center;
@@ -694,6 +702,12 @@ canvas#game {
 
   #touch-controls .touch-group-right #btn-skill {
     grid-area: skill;
+    width: clamp(46px, 12vmin, 58px);
+    height: clamp(46px, 12vmin, 58px);
+  }
+
+  #touch-controls .touch-group-right #btn-potion {
+    grid-area: potion;
     width: clamp(46px, 12vmin, 58px);
     height: clamp(46px, 12vmin, 58px);
   }
@@ -794,6 +808,7 @@ canvas#game {
     height: clamp(60px, 16vmin, 74px);
   }
 
+  #touch-controls .touch-group-right #btn-potion,
   #touch-controls .touch-group-right #btn-skill,
   #touch-controls .touch-group-right #btn-jump,
   #touch-controls .touch-group-right #btn-block {
@@ -822,6 +837,7 @@ canvas#game {
     font-size: clamp(29px, 8vmin, 38px);
   }
 
+  #touch-controls .touch-group-right #btn-potion,
   #touch-controls .touch-group-right #btn-skill,
   #touch-controls .touch-group-right #btn-jump,
   #touch-controls .touch-group-right #btn-block {
@@ -1304,7 +1320,8 @@ canvas#game {
 }
 #shop-tab-sword.active,
 #shop-tab-shield.active,
-#shop-tab-bow.active {
+#shop-tab-bow.active,
+#shop-tab-potion.active {
   background: #3a4278;
   outline: 2px solid #ffd23f;
   outline-offset: 1px;
@@ -1536,6 +1553,28 @@ canvas#game {
   display: none;
 }
 
+/* --- Tombol potion: di bar tengah, gaya HUD bundar seperti pause --- */
+#btn-potion {
+  width: clamp(44px, 12vw, 52px);
+  height: clamp(44px, 12vw, 52px);
+  min-width: 44px;
+  min-height: 44px;
+  font-size: clamp(16px, 4.5vw, 20px);
+  border-radius: 50%;
+  border: 2px solid #4a558f;
+  background: rgba(58, 66, 120, 0.55);
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+  opacity: 0.85;
+}
+#btn-potion:hover,
+#btn-potion:focus-visible {
+  background: #2a3570;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 /* --- Tombol fullscreen: gaya HUD bundar seperti pause --- */
 #btn-fullscreen {
   width: clamp(40px, 11vw, 44px);
@@ -1556,6 +1595,33 @@ canvas#game {
   outline-offset: 2px;
 }
 #btn-fullscreen.hidden {
+  display: none;
+}
+
+/* --- Tombol zoom in-game: gaya HUD bundar seperti pause --- */
+#btn-zoom-in,
+#btn-zoom-out {
+  width: clamp(44px, 12vw, 52px);
+  height: clamp(44px, 12vw, 52px);
+  font-size: clamp(16px, 4.5vw, 20px);
+  border-radius: 50%;
+  border: 2px solid #4a558f;
+  background: rgba(58, 66, 120, 0.55);
+  color: #fff;
+  cursor: pointer;
+  touch-action: manipulation;
+  opacity: 0.85;
+}
+#btn-zoom-in:hover,
+#btn-zoom-in:focus-visible,
+#btn-zoom-out:hover,
+#btn-zoom-out:focus-visible {
+  background: #2a3570;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+#btn-zoom-in.hidden,
+#btn-zoom-out.hidden {
   display: none;
 }
 
@@ -1603,6 +1669,41 @@ canvas#game {
 #canvas-container:-webkit-full-screen {
   width: 100vw;
   height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  background: #000;
+}
+/* --- LAND-002 FIX A: fullscreen jaga rasio 16:9 (tanpa stretch). Override
+   aditif setelah aturan bare 100vw/100dvh di atas: lebar dibatasi ke
+   min(100vw, 100dvh*16/9), tinggi ikut aspect-ratio base. --- */
+#wrap:fullscreen #canvas-container {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  border: 0;
+  background: #000;
+}
+#wrap:-webkit-full-screen #canvas-container {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  border: 0;
+  background: #000;
+}
+#canvas-container:fullscreen {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+  border: 0;
+  background: #000;
+}
+#canvas-container:-webkit-full-screen {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
   border-radius: 0;
   border: 0;
   background: #000;
@@ -1833,4 +1934,67 @@ canvas#game {
   margin: 0;
   color: #fff;
   font-size: 14px;
+}
+
+/* --- Zoom portrait: ikut alur grup tengah, kecil (40-44px) --- */
+@media (max-width: 600px) and (orientation: portrait) {
+  #btn-zoom-in,
+  #btn-zoom-out {
+    width: clamp(40px, 11vw, 44px);
+    height: clamp(40px, 11vw, 44px);
+    font-size: clamp(15px, 4vw, 18px);
+  }
+}
+
+/* --- Zoom landscape kasar: di bawah pause/fullscreen fixed, tanpa overlap --- */
+@media (orientation: landscape) and (pointer: coarse) {
+  #btn-zoom-in,
+  #btn-zoom-out {
+    width: 44px;
+    height: 44px;
+    margin: 0;
+    font-size: 16px;
+    opacity: 0.9;
+  }
+  #btn-zoom-in {
+    position: fixed;
+    width: 44px;
+    height: 44px;
+    top: max(108px, calc(env(safe-area-inset-top) + 100px));
+    right: max(10px, env(safe-area-inset-right));
+  }
+  #btn-zoom-out {
+    position: fixed;
+    width: 44px;
+    height: 44px;
+    top: max(158px, calc(env(safe-area-inset-top) + 150px));
+    right: max(10px, env(safe-area-inset-right));
+  }
+}
+
+/* --- Zoom landscape padat: kecil seperti pause/fullscreen --- */
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 450px) {
+  #touch-controls #btn-zoom-in,
+  #touch-controls #btn-zoom-out {
+    width: clamp(36px, 4.8vmin, 42px);
+    height: clamp(36px, 4.8vmin, 42px);
+    font-size: clamp(12px, 2.4vmin, 15px);
+  }
+}
+
+/* --- LAND-002 FIX B: kanvas landscape maksimal (non-fullscreen). Override
+   aditif setelah base landscape: chrome ramping (tetap >= safe-area),
+   cadangan tinggi 16px->8px sehingga kanvas ~8px lebih tinggi. --- */
+@media (orientation: landscape) and (pointer: coarse) {
+  #wrap {
+    padding:
+      max(2px, env(safe-area-inset-top))
+      max(2px, env(safe-area-inset-right))
+      max(2px, env(safe-area-inset-bottom))
+      max(2px, env(safe-area-inset-left));
+  }
+  #canvas-container {
+    width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 4px), calc((100dvh - 8px) * 16 / 9));
+    aspect-ratio: 16 / 9;
+  }
 }
