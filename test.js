@@ -4915,6 +4915,7 @@ test('387 rotate lock landscape-only + joystick tampil', () => {
   ok(pb.includes('#rotate-overlay:not(.hidden)'), 'tampil saat tidak hidden');
   ok(pb.includes('position: fixed') && pb.includes('inset: 0'), 'fullscreen');
   ok(pb.includes('z-index: 20000'), 'di atas dialog/toast');
+  ok(/#080a19/.test(pb) && !/rgba\(\s*8\s*,\s*10\s*,\s*25/.test(pb), 'backdrop opaque pekat');
   // Kontroler klasik tetap ada dan ter-wire (layout base berlaku di semua lebar).
   ['btn-left', 'btn-right', 'btn-jump', 'btn-attack', 'btn-skill', 'btn-pause'].forEach((id) => {
     ok(new RegExp('id="' + id + '"').test(html), 'html ada: ' + id);
