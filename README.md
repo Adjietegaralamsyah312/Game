@@ -215,6 +215,9 @@ gameover/dialog), sejak boot; portrait saat playing auto-pause di balik overlay;
 putar kembali ke landscape auto-resume hanya bila pause berasal dari portrait
 (manual pause tak dicuri).
 
+Fullscreen otomatis saat main (tanpa tombol): game masuk true-fullscreen
+saat PLAY/campaign/NEXT/REPLAY dimulai, keluar otomatis saat kembali ke menu.
+
 ## Accessibility
 
 - Semua dialog: `role="dialog"` + `aria-modal` + label; fokus ke kontrol pertama
@@ -315,7 +318,7 @@ node test.js
 git diff --check
 ```
 
- 438 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 4 kill reward + 1 menu landscape + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 1 landscape maksimal edge-to-edge 16:9 + 2 tombol pause + 1 render tajam + 4 rotate lock) —
+ 441 automated test (252 campaign/hardening + 30 weapon shop + 20 weapon visual & scroll + 12 mobile shop + 8 landscape scroll + 10 unified shop + 10 anti-overlap + 6 touch fit + 10 bash/stamina + 16 skill system + 12 hard isolation/runtime + 15 controller MMORPG + 5 layout landscape + 1 grid landscape valid + 2 HP bulat + 4 kill reward + 1 menu landscape + 1 block stamina + 3 resolusi/grafik + 1 settings scroll + 1 settings landscape + 1 skill facing + 1 dash meluncur + 1 storage fallback + 12 potion/storage + 1 landscape maksimal edge-to-edge 16:9 + 2 tombol pause + 1 render tajam + 4 rotate lock + 3 fullscreen otomatis) —
 target semua PASS, 0 FAIL.
 target semua PASS, 0 FAIL.
 

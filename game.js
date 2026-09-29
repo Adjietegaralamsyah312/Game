@@ -5511,6 +5511,7 @@
 
   function toMenu() {
     gameState = 'menu';
+    autoExitFullscreen(); // keluar fullscreen otomatis saat kembali ke menu
     hideAllOverlays();
     if (menuEl) menuEl.classList.remove('hidden');
     clearInput();
@@ -6355,6 +6356,37 @@
     return gameState === 'playing' && !paused && !trans.active;
   }
 
+  // Fullscreen otomatis tanpa tombol/UI: masuk saat main dimulai (via
+  // startTrans — satu-satunya choke point PLAY/campaign/NEXT/REPLAY),
+  // keluar saat kembali ke menu (via toMenu). Semua try/catch + headless-safe:
+  // total no-op bila API hilang/ditolak, tak pernah ganggu alur game.
+  function autoEnterFullscreen() {
+    try {
+      var el = null;
+      try { el = document.getElementById('wrap'); } catch (e) { el = null; }
+      if (!el) { try { el = document.documentElement; } catch (e2) { return; } }
+      if (!el) return;
+      var fn = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!fn) return;
+      try {
+        var p = fn.call(el);
+        if (p && p.catch) p.catch(function () { /* ditolak: tetap main */ });
+      } catch (e) { /* abaikan */ }
+    } catch (e) { /* abaikan */ }
+  }
+  function autoExitFullscreen() {
+    try {
+      var d = document;
+      if (!d.fullscreenElement && !d.webkitFullscreenElement) return;
+      var xf = d.exitFullscreen || d.webkitExitFullscreen;
+      if (!xf) return;
+      try {
+        var p = xf.call(d);
+        if (p && p.catch) p.catch(function () { /* abaikan */ });
+      } catch (e) { /* abaikan */ }
+    } catch (e) { /* abaikan */ }
+  }
+
   // Transisi fade-out -> load -> fade-in (pendek, tanpa loading palsu).
   // M4: target terkunci ditolak (anti bypass progression).
   function startTrans(n) {
@@ -6365,6 +6397,7 @@
       debugLog('[game] start trans ditolak (locked)', n);
       return false;
     }
+    autoEnterFullscreen(); // sinkron dalam gesture: transient activation valid
     hideAllOverlays();
     try { AudioManager.unlock(); } catch (e) { /* abaikan */ }
     trans.active = true;

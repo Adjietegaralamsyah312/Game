@@ -229,7 +229,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 438; // total test (434 + 4 rotate lock LCK-001/002)
+const EXPECTED_TOTAL = 441; // total test (438 + 3 fullscreen otomatis AFS-001)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1022,13 +1022,14 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('438 automated test'), 'README harus sebut 438 test, cek jumlah');
+  ok(readme.includes('441 automated test'), 'README harus sebut 441 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 438);
+  ok(readme.toLowerCase().includes('fullscreen otomatis'), 'README harus sebut fullscreen otomatis');
+  eq(EXPECTED_TOTAL, 441);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -5730,6 +5731,51 @@ test('451 boot menu portrait langsung overlay, landscape tanpa side effect', () 
   eq(G.isPortraitAutoPaused(), false);
   G.setPortraitOverride(null);
   G.forceStartLevel(1);
+});
+// ---------- 3 TEST FULLSCREEN OTOMATIS (AFS-001, tanpa tombol/UI) ----------
+test('452 mulai main minta fullscreen di #wrap (tanpa tombol)', () => {
+  srcHas('autoEnterFullscreen', 'helper enter hilang');
+  srcHas('documentElement', 'fallback documentElement hilang');
+  srcHas('webkitRequestFullscreen', 'fallback webkit hilang');
+  ok(!/btn-fullscreen/.test(html), 'tombol fullscreen tak boleh ada di HTML');
+  ok(!/btn-fullscreen/.test(src), 'tak ada wire tombol fullscreen di game.js');
+  G.resetSave(); G.toMenu();
+  let asked = null;
+  elements['wrap'].requestFullscreen = function () { asked = 'wrap'; return Promise.resolve(); };
+  noThrow(() => { eq(G.startTrans(1), true); });
+  eq(asked, 'wrap', 'startTrans harus request fullscreen di #wrap');
+  G.stepTrans(0.3); G.stepTrans(0.3);
+  eq(G.getState(), 'playing'); eq(G.getLevel(), 1);
+  delete elements['wrap'].requestFullscreen;
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('453 toMenu keluar fullscreen saat aktif', () => {
+  srcHas('autoExitFullscreen', 'helper exit hilang');
+  G.resetSave(); G.forceStartLevel(1);
+  let exited = false;
+  documentMock.fullscreenElement = { dummy: true };
+  documentMock.exitFullscreen = function () { exited = true; return Promise.resolve(); };
+  noThrow(() => G.toMenu());
+  eq(exited, true, 'toMenu harus exit fullscreen');
+  eq(G.getState(), 'menu');
+  delete documentMock.fullscreenElement;
+  delete documentMock.exitFullscreen;
+  G.resetSave(); G.forceStartLevel(1);
+});
+test('454 tanpa API fullscreen: no-throw, game utuh', () => {
+  delete elements['wrap'].requestFullscreen;
+  delete elements['wrap'].webkitRequestFullscreen;
+  delete documentMock.exitFullscreen;
+  delete documentMock.webkitExitFullscreen;
+  delete documentMock.fullscreenElement;
+  delete documentMock.webkitFullscreenElement;
+  G.resetSave(); G.toMenu();
+  noThrow(() => { eq(G.startTrans(1), true); });
+  G.stepTrans(0.3); G.stepTrans(0.3);
+  eq(G.getState(), 'playing'); eq(G.getLevel(), 1);
+  noThrow(() => G.toMenu());
+  eq(G.getState(), 'menu');
+  G.resetSave(); G.forceStartLevel(1);
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');
