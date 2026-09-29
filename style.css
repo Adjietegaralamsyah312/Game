@@ -1827,3 +1827,43 @@ canvas#game {
     aspect-ratio: 16 / 9;
   }
 }
+
+/* --- Rotate lock landscape-only (LCK-001): portrait auto-pause ---
+ * Satu-satunya aturan portrait yang diizinkan (fungsional, bukan layout).
+ * Base disembunyikan total; hanya saat tidak .hidden + portrait yang tampil
+ * fullscreen di atas dialog (z 20000 > toast 9999 > dialog 50-60). */
+#rotate-overlay {
+  display: none;
+}
+#rotate-overlay.hidden {
+  display: none;
+}
+#rotate-overlay .rotate-glyph {
+  font-size: clamp(48px, 12vw, 96px);
+  line-height: 1;
+}
+#rotate-overlay h2 {
+  font-size: clamp(22px, 5vw, 36px);
+  letter-spacing: 3px;
+  color: #ffd23f;
+  text-shadow: 0 3px 0 #6b4d00, 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+#rotate-overlay p {
+  color: #c6ccea;
+  font-size: clamp(13px, 3vw, 17px);
+}
+@media (orientation: portrait) {
+  #rotate-overlay:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    background: rgba(8, 10, 25, 0.92);
+    text-align: center;
+    padding: 12px;
+  }
+}

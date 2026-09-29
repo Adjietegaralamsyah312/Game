@@ -79,7 +79,7 @@ const mockCtx = new Proxy({}, {
   set() { return true; }
 });
 const elementIds = ['wrap', 'game', 'gameover', 'levelcomplete', 'btn-restart', 'btn-respawn',
-  'btn-again', 'win-stats', 'canvas-container', 'btn-left', 'btn-right',
+  'btn-again', 'win-stats', 'canvas-container', 'rotate-overlay', 'btn-left', 'btn-right',
   'btn-jump', 'btn-attack', 'btn-skill', 'btn-skill-name', 'btn-skill-cd',
   'joystick-zone', 'joystick-base', 'joystick-knob',
   'achieve-toast', 'btn-achievements', 'achievements', 'btn-diff-normal', 'btn-diff-hard',
@@ -229,7 +229,7 @@ if (!G) {
 
 // ---------- Harness ----------
 let pass = 0, fail = 0;
-const EXPECTED_TOTAL = 437; // total test (446 - 5 hapus fitur dalam-game - 5 blok khusus sempit + 1 render tajam)
+const EXPECTED_TOTAL = 440; // total test (437 + 3 rotate lock LCK-001)
 const failures = [];
 function test(name, fn) {
   try { fn(); pass++; console.log('PASS ' + name); }
@@ -1022,13 +1022,13 @@ test('102 settings state hentikan simulasi', () => {
   G.toMenu();
 });
 test('103 README konsisten: count + settings + save', () => {
-  ok(readme.includes('437 automated test'), 'README harus sebut 437 test, cek jumlah');
+  ok(readme.includes('440 automated test'), 'README harus sebut 440 test, cek jumlah');
   ok(readme.includes('knightSaveV1'), 'README harus sebut key save');
   ok(readme.toLowerCase().includes('settings'), 'README harus sebut Settings');
   ok(readme.includes('5-Level Campaign'), 'README harus sebut 5-Level Campaign');
   ok(readme.includes('https://adjietegaralamsyah312.github.io/Game/'), 'README harus ada link Pages');
   ok(readme.includes('Weapon Shop'), 'README harus sebut Weapon Shop');
-  eq(EXPECTED_TOTAL, 437);
+  eq(EXPECTED_TOTAL, 440);
 });
 test('104 HTML produksi settings lengkap + berlabel', () => {
   ok(/id="settings"[^>]*role="dialog"/.test(html), 'settings harus role=dialog');
@@ -4273,10 +4273,10 @@ test('341 z-index audit: tanpa absolute liar', () => {
   const absCount = (css.match(/position:\s*absolute/g) || []).length;
   eq(absCount, 2, 'hanya overlay base + stack img, got ' + absCount);
   // Hierarki stacking terkunci allowlist: base 5, controller overlay 40,
-  // dialog fullscreen 50, pause overlay 60, toast 9999 (tidak ada lapisan lain).
+  // dialog fullscreen 50, pause overlay 60, toast 9999, rotate lock 20000.
   const zvals = (css.match(/z-index:\s*(\d+)/g) || []).map((s) => s.replace(/[^0-9]/g, ''));
-  ok(zvals.length === 5, 'lapisan wajar, got ' + zvals.length);
-  zvals.forEach((z) => ok(['5', '40', '50', '60', '9999'].includes(z), 'z-index di luar allowlist: ' + z));
+  ok(zvals.length === 6, 'lapisan wajar, got ' + zvals.length);
+  zvals.forEach((z) => ok(['5', '40', '50', '60', '9999', '20000'].includes(z), 'z-index di luar allowlist: ' + z));
 });
 test('342 card hierarchy lengkap tetap (nama/tier/desc/harga/aksi)', () => {
   srcHas('shop-name'); srcHas('shop-desc'); srcHas('shop-price');
@@ -4888,9 +4888,33 @@ test('386 flow hard end-to-end: unlock, clear, best terisolasi', () => {
 });
 // ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
 // ---------- 15 TEST LANDSCAPE MMORPG CONTROLLER (plan.md §24) ----------
-test('387 landscape playable + joystick tampil', () => {
-  ok(!/id="rotate-overlay"/.test(html), 'tanpa rotate-wall: landscape langsung playable');
-  ok(!/ROTATE YOUR DEVICE/.test(html), 'tanpa teks rotate');
+test('387 rotate lock landscape-only + joystick tampil', () => {
+  // Overlay ada di HTML dalam #canvas-container, mulai hidden, dialog aksesibel.
+  ok(/id="rotate-overlay"/.test(html), 'overlay ada');
+  ok(/id="rotate-overlay"[^>]*role="dialog"/.test(html), 'role dialog');
+  ok(/id="rotate-overlay"[^>]*aria-modal="true"/.test(html), 'aria-modal');
+  ok(/id="rotate-overlay"[^>]*aria-label="Putar ke landscape"/.test(html), 'aria-label');
+  ok(/id="rotate-overlay"[^>]*class="hidden"/.test(html), 'mulai hidden');
+  ok(/PUTAR KE LANDSCAPE/.test(html), 'heading ada');
+  ok(/Game hanya bisa dimainkan landscape/.test(html), 'satu baris info ada');
+  const ccIdx = html.indexOf('id="canvas-container"');
+  const roIdx = html.indexOf('id="rotate-overlay"');
+  ok(ccIdx >= 0 && roIdx > ccIdx, 'overlay di dalam #canvas-container');
+  ok(elements['rotate-overlay'], 'mock ada');
+  // API lock tersedia + CSS fungsional tunggal.
+  ['isPortrait', 'checkPortraitLock', 'setPortraitOverride', 'isPortraitAutoPaused'].forEach((fn) => {
+    eq(typeof G[fn], 'function', 'hook hilang: ' + fn);
+  });
+  srcHas('portraitAutoPaused');
+  srcHas("matchMedia('(orientation: portrait)'");
+  ok(/#rotate-overlay\s*{\s*display:\s*none/.test(css), 'base hidden');
+  ok(/#rotate-overlay\.hidden\s*{\s*display:\s*none/.test(css), 'hidden konsisten');
+  const portraitBlocks = __mediaBlocks(css).filter((b) => b.header.includes('orientation: portrait'));
+  eq(portraitBlocks.length, 1, 'satu blok portrait, got ' + portraitBlocks.length);
+  const pb = portraitBlocks[0].body;
+  ok(pb.includes('#rotate-overlay:not(.hidden)'), 'tampil saat tidak hidden');
+  ok(pb.includes('position: fixed') && pb.includes('inset: 0'), 'fullscreen');
+  ok(pb.includes('z-index: 20000'), 'di atas dialog/toast');
   // Kontroler klasik tetap ada dan ter-wire (layout base berlaku di semua lebar).
   ['btn-left', 'btn-right', 'btn-jump', 'btn-attack', 'btn-skill', 'btn-pause'].forEach((id) => {
     ok(new RegExp('id="' + id + '"').test(html), 'html ada: ' + id);
@@ -5633,6 +5657,80 @@ test('447 render tajam: smoothing OFF + translate integer', () => {
   srcHas('Math.round(b.x - camera.x * PAR_NEAR)', 'parallax dekat integer-snap');
   noThrow(() => { G.forceStartLevel(1); G.drawOnce(); }, 'draw tajam tanpa error');
   G.resetSave(); G.forceStartLevel(1);
+});
+// ---------- 3 TEST ROTATE LOCK (LCK-001) ----------
+test('448 portrait lock pause + overlay tampil', () => {
+  G.setPortraitOverride(null);
+  G.forceStartLevel(1);
+  G.setPaused(false);
+  eq(G.isPortrait(), false, 'landscape default');
+  eq(G.isPortraitAutoPaused(), false);
+  G.setPortraitOverride(true);
+  eq(G.isPortrait(), true, 'override portrait');
+  noThrow(() => G.checkPortraitLock(), 'checker aman');
+  eq(G.isPaused(), true, 'auto-pause');
+  eq(G.isPortraitAutoPaused(), true, 'flag auto');
+  ok(!elements['rotate-overlay'].classList.contains('hidden'), 'overlay tampil');
+  eq(G.input.left, false); eq(G.input.right, false); eq(G.input.joyX, 0, 'input bersih');
+  eq(G.isSimActive(), false, 'sim diam saat lock');
+  G.setPortraitOverride(false);
+  noThrow(() => G.checkPortraitLock(), 'balik landscape');
+  eq(G.isPaused(), false, 'auto-resume');
+  eq(G.isPortraitAutoPaused(), false);
+  ok(elements['rotate-overlay'].classList.contains('hidden'), 'overlay sembunyi');
+  G.setPortraitOverride(null);
+  G.forceStartLevel(1);
+});
+test('449 auto-resume hanya saat auto-pause (manual utuh)', () => {
+  // Manual pause di landscape -> portrait keep -> landscape keep (tanpa curi).
+  G.setPortraitOverride(false);
+  G.forceStartLevel(1);
+  G.pauseGame();
+  eq(G.isPaused(), true);
+  eq(G.isPortraitAutoPaused(), false);
+  G.setPortraitOverride(true);
+  noThrow(() => G.checkPortraitLock(), 'portrait saat manual pause');
+  eq(G.isPaused(), true, 'tetap pause');
+  eq(G.isPortraitAutoPaused(), false, 'bukan auto');
+  ok(!elements['rotate-overlay'].classList.contains('hidden'), 'overlay tetap tampil');
+  G.setPortraitOverride(false);
+  noThrow(() => G.checkPortraitLock(), 'balik landscape');
+  eq(G.isPaused(), true, 'manual jangan auto-resume');
+  ok(elements['rotate-overlay'].classList.contains('hidden'), 'overlay sembunyi');
+  G.resumeGame();
+  eq(G.isPaused(), false);
+  // Non-playing tak simpan flag basi.
+  G.setPortraitOverride(true);
+  G.toMenu();
+  noThrow(() => G.checkPortraitLock(), 'menu portrait aman');
+  eq(G.isPortraitAutoPaused(), false);
+  ok(elements['rotate-overlay'].classList.contains('hidden'), 'menu tak blokir');
+  G.setPortraitOverride(null);
+  G.forceStartLevel(1);
+});
+test('450 keyboard/mouse utuh + rAF tunggal + hook resize', () => {
+  const raf = (src.match(/requestAnimationFrame/g) || []).length;
+  ok(raf <= 3, 'rAF tunggal, got ' + raf);
+  ok(!/setInterval\s*\(/.test(src), 'tanpa setInterval call');
+  srcHas('checkPortraitLock', 'hook frame ada');
+  srcHas("addEventListener('resize'", 'listener resize ada');
+  srcHas("addEventListener('orientationchange'", 'listener orientasi ada');
+  G.setPortraitOverride(false);
+  G.forceStartLevel(1);
+  G.input.left = false;
+  fireWin('keydown', { code: 'KeyA', preventDefault() {} });
+  eq(G.input.left, true, 'keyboard A jalan');
+  fireWin('keyup', { code: 'KeyA', preventDefault() {} });
+  eq(G.input.left, false, 'keyup lepas');
+  G.input.attackPressed = false;
+  elements['btn-attack'].dispatch('pointerdown', { pointerId: 91, cancelable: true, preventDefault() {} });
+  eq(G.input.attackPressed, true, 'mouse/touch attack jalan');
+  G.input.attackPressed = false;
+  elements['btn-attack'].dispatch('pointerup', { pointerId: 91, cancelable: true, preventDefault() {} });
+  noThrow(() => { fireWin('orientationchange', {}); fireWin('resize', {}); }, 'rotasi/resize aman');
+  ok(G.isSimActive(), 'landscape sim tetap jalan');
+  G.setPortraitOverride(null);
+  G.forceStartLevel(1);
 });
 // ---------- Ringkasan ----------
 console.log('\n==== RINGKASAN ====');

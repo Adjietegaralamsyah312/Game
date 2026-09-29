@@ -6694,6 +6694,58 @@
     return dt;
   }
 
+  /* ---- Rotate lock landscape-only (LCK-001): portrait auto-pause ----
+   * Game hanya landscape. Portrait saat playing -> auto-pause + overlay;
+   * landscape kembali -> auto-resume HANYA bila flag auto (manual pause utuh).
+   * Test hook: setPortraitOverride(v|null) + checkPortraitLock +
+   * isPortraitAutoPaused. Headless-safe via try/catch + fallback dimensi. */
+  var portraitAutoPaused = false;
+  var portraitOverride = null;
+  var rotateEl = null;
+  function isPortrait() {
+    if (portraitOverride !== null) return !!portraitOverride;
+    try {
+      if (typeof window !== 'undefined' && window.matchMedia) {
+        var _m = window.matchMedia('(orientation: portrait)');
+        if (_m && typeof _m.matches === 'boolean') return _m.matches;
+      }
+    } catch (e) { /* abaikan, fallback dimensi */ }
+    try { return window.innerHeight > window.innerWidth; } catch (e2) { return false; }
+  }
+  function setPortraitOverride(v) {
+    portraitOverride = (v === null || v === undefined) ? null : !!v;
+  }
+  function isPortraitAutoPaused() { return portraitAutoPaused; }
+  function checkPortraitLock() {
+    try {
+      if (!rotateEl) rotateEl = document.getElementById('rotate-overlay');
+      if (!rotateEl) return portraitAutoPaused;
+      if (gameState !== 'playing') {
+        try { rotateEl.classList.add('hidden'); } catch (e) {}
+        portraitAutoPaused = false;
+        return portraitAutoPaused;
+      }
+      if (isPortrait()) {
+        try { rotateEl.classList.remove('hidden'); } catch (e2) {}
+        if (!paused && !portraitAutoPaused) {
+          portraitAutoPaused = true;
+          try { clearInput(); } catch (e3) {}
+          try { joystickReset(); } catch (e4) {}
+          setPaused(true);
+        }
+      } else {
+        try { rotateEl.classList.add('hidden'); } catch (e5) {}
+        if (portraitAutoPaused) {
+          portraitAutoPaused = false;
+          if (paused) setPaused(false);
+          try { last = nowPerf(); } catch (e6) {}
+          try { AudioManager.unlock(); } catch (e7) {}
+        }
+      }
+    } catch (e) { /* abaikan */ }
+    return portraitAutoPaused;
+  }
+
   /* ========================= 13. RENDER SETUP =========================
    * Backing store = 960x540 * renderScale (DPR dibatasi RENDER_SCALE_MAX,
    * dikali faktor Resolusi Settings). Semua kode game memakai koordinat
@@ -8026,6 +8078,7 @@
     if (!assetsReady) { drawLoading(); return; }
     var dt = clampDt((t - last) / 1000);
     last = t;
+    try { checkPortraitLock(); } catch (e) {}
 
     if (paused) { drawPaused(); return; } // dunia diam, audio sudah suspend
 
@@ -8196,6 +8249,7 @@
   btnResume = document.getElementById('btn-resume');
   btnPauseRespawn = document.getElementById('btn-pause-respawn');
   btnPauseMenu = document.getElementById('btn-pause-menu');
+  rotateEl = document.getElementById('rotate-overlay');
   btnBlockEl = document.getElementById('btn-block');
   var btnPotionEl = document.getElementById('btn-potion');
   if (btnPotionEl && btnPotionEl.style) { try { btnPotionEl.style.display = ''; } catch (e) {} }
@@ -8611,9 +8665,11 @@
     if (n - resizeLast < 150) return;
     resizeLast = n;
     setupCanvas();
+    try { checkPortraitLock(); } catch (e) {}
   });
   window.addEventListener('orientationchange', function () {
     setupCanvas();
+    try { checkPortraitLock(); } catch (e0) {}
     try { // one-shot pasca-layout; kunci dipecah agar lolos guard string-count "rAF tunggal" di test
       var raf = (typeof globalThis !== 'undefined' && globalThis['requestAnimation' + 'Frame']) ||
         (typeof window !== 'undefined' && window['requestAnimation' + 'Frame']);
@@ -8693,6 +8749,10 @@
     isFullscreen: isFullscreen,
     handleVisibility: onVisibility,
     clampDt: clampDt,
+    isPortrait: isPortrait,
+    checkPortraitLock: checkPortraitLock,
+    setPortraitOverride: setPortraitOverride,
+    isPortraitAutoPaused: isPortraitAutoPaused,
     getAssetErrors: function () { return assetErrors; },
     hurtPlayer: function (n, x, t) { playerTakeDamage(n, x, t); },
     respawn: respawn,
